@@ -1,0 +1,36 @@
+name: Check Ciel
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Check format, scripts, metadata, and core behavior
+        run: bash scripts/check.sh --core-only
+      - name: Build universal app
+        env:
+          CIEL_ARCH: universal
+        run: bash scripts/build.sh
+      - name: Verify architecture and signature
+        run: |
+          lipo dist/Ciel.app/Contents/MacOS/Ciel -verify_arch arm64
+          lipo dist/Ciel.app/Contents/MacOS/Ciel -verify_arch x86_64
+          codesign --verify --strict dist/Ciel.app
+      - name: Archive development app
+        run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-development
+          path: dist/Ciel-development.zip
+          if-no-files-found: error
+          retention-days: 14
