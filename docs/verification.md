@@ -9,6 +9,8 @@ Run `bash scripts/check.sh` for the full local check. Native checks use a separa
 | Check | Result |
 | --- | --- |
 | Swift format, shell syntax, and Info.plist | Passed |
+| Universal build and strict signature | Passed; arm64 and x86_64 |
+| Native source window fixture | 11 checks passed on two displays; zero failures |
 | Search, history, discovery, geometry, and placement | 30 checks passed; zero failures |
 | Mixed search benchmark | 1,018 entries; median 0.64 ms, p95 0.82 ms |
 | Native launcher | 240 query/category changes passed; row count and panel size correct |
@@ -19,6 +21,7 @@ Run `bash scripts/check.sh` for the full local check. Native checks use a separa
 | Filesystem events | Nested app addition, metadata update, and removal passed |
 | Native help | Settings, Window Shortcuts, and Keyboard Guide passed |
 | Screenshots | Refreshed from native checks with default preferences |
+| GitHub CI | [Passed](https://github.com/mauriciopolvora/ciel/actions/runs/36705417555); core checks, universal build, signature, and artifact upload |
 
 The benchmark measures search-engine time. It does not measure keypress-to-screen latency. GitHub CI runs core checks and builds the universal app. Native UI and Accessibility checks need a local desktop session. Hosted results are available in [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions).
 
