@@ -1,0 +1,3 @@
+import CielApp
+
+CielApplication.run()

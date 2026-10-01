@@ -27,7 +27,7 @@ final class LauncherGuideView: NSView {
     }
 }
 
-final class LauncherGuides {
+@MainActor final class LauncherGuides {
     private var panel: NSPanel?
     private var view: LauncherGuideView?
 

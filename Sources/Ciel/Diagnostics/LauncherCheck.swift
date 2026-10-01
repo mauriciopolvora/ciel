@@ -2,7 +2,7 @@ import AppKit
 import CielCore
 
 /// Native checks run only when Ciel starts with --ui-test.
-enum LauncherCheck {
+@MainActor enum LauncherCheck {
     static func run(launcher: LauncherView, panel: LauncherPanel, entries: [SearchEntry]) {
         guard launcher.results.isEmpty, launcher.table.numberOfRows == 0,
             panel.frame.height == LauncherView.initialHeight,
@@ -88,6 +88,25 @@ enum LauncherCheck {
             print("FAIL all category")
             exit(1)
         }
+        launcher.searchField.stringValue = "half"
+        launcher.selectFilter(2)
+        guard launcher.results.count > 1 else {
+            print("FAIL window results for selection preservation")
+            exit(1)
+        }
+        launcher.table.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+        let selectedID = launcher.results[1].id
+        let reloads = launcher.resultReloadCount
+        launcher.updateEntries(entries + SearchEntry.commands)
+        launcher.updateResults(preserveSelection: true)
+        guard launcher.resultReloadCount == reloads,
+            launcher.results.indices.contains(launcher.table.selectedRow),
+            launcher.results[launcher.table.selectedRow].id == selectedID
+        else {
+            print("FAIL unchanged results rebuilt rows or lost selection")
+            exit(1)
+        }
+        print("PASS unchanged results retain native cells and selection")
         launcher.searchField.stringValue = ""
         launcher.updateResults()
         guard launcher.results.isEmpty, launcher.scopeButton.isHidden,
@@ -98,7 +117,7 @@ enum LauncherCheck {
         }
         launcher.searchField.stringValue = "   "
         launcher.updateResults()
-        launcher.entries = entries + SearchEntry.commands
+        launcher.updateEntries(entries + SearchEntry.commands)
         guard launcher.results.isEmpty, launcher.table.numberOfRows == 0,
             panel.frame.height == LauncherView.initialHeight
         else {

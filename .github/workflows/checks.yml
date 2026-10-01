@@ -15,8 +15,16 @@ jobs:
           persist-credentials: false
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-      - name: Check format, scripts, metadata, and core behavior
-        run: bash scripts/check.sh --core-only
+      - name: Check format, scripts, metadata, unit tests, and search budgets
+        run: bash scripts/check.sh --unit-only
+      - name: Archive performance report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-search-performance
+          path: .build/performance/search-engine.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Build universal app
         env:
           CIEL_ARCH: universal

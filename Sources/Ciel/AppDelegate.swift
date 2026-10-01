@@ -1,7 +1,7 @@
 import AppKit
 import CielCore
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let catalog = AppCatalog()
     private let windows = WindowController()
     private let hotKeys = HotKeys()
@@ -18,26 +18,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var keyboardGuide: KeyboardGuideController?
     private var about: AboutController?
     private let history = UsageHistory()
-    private var observers: [NSObjectProtocol] = []
+    private var observers: [NotificationObservation] = []
     private var opening = false
     private var executing = false
     private var checkFinished = false
     private let uiCheck = CommandLine.arguments.contains("--ui-test")
     private let smoke = CommandLine.arguments.contains("--smoke-test")
+    private let performanceCheck = CommandLine.arguments.contains("--performance-test")
     private var integrationCheck: IntegrationCheck?
     private var catalogCheck: CatalogCheck?
-    private var windowFixture: WindowFixture?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         UserDefaults.standard.register(defaults: ["animations": true, "showMenuBarIcon": true])
-        if let index = CommandLine.arguments.firstIndex(of: "--window-fixture"),
-            index + 1 < CommandLine.arguments.count
-        {
-            windowFixture = WindowFixture(output: CommandLine.arguments[index + 1])
-            windowFixture?.run()
-            return
-        }
         if CommandLine.arguments.contains("--window-test") {
             integrationCheck = IntegrationCheck()
             integrationCheck?.run()
@@ -57,8 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         catalog.onChange = { [weak self] in
             self?.reloadEntries()
+        }
+        catalog.onIconsInvalidated = { [weak self] paths in self?.launcher.invalidateIcons(paths: paths) }
+        catalog.onRefreshFinished = { [weak self] in
             if self?.smoke == true { self?.finishSmokeTest() }
             if self?.uiCheck == true { self?.finishUICheck() }
+            if self?.performanceCheck == true { self?.finishPerformanceCheck() }
         }
         reloadEntries()
         catalog.refresh()
@@ -67,11 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSWorkspace.didWakeNotification,
         ] {
             observers.append(
-                NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) {
-                    [weak self] _ in self?.catalog.refresh()
+                NotificationObservation(center: NSWorkspace.shared.notificationCenter, name: name) {
+                    [weak self] in self?.catalog.refresh()
                 })
         }
-        if !smoke && !uiCheck {
+        if !smoke && !uiCheck && !performanceCheck {
             if !hotKeys.registrationErrors.isEmpty {
                 hud.show(
                     "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
@@ -174,9 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func reloadEntries() {
-        launcher.usage = history.counts
-        launcher.lastUsed = history.lastUsed
-        launcher.entries =
+        let entries =
             catalog.entries + SearchEntry.commands + [
                 SearchEntry(
                     id: "settings", title: "Ciel Settings", subtitle: "Preferences", kind: .utility,
@@ -185,12 +180,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     id: "rescan", title: "Rescan Applications", subtitle: "Ciel", kind: .utility,
                     keywords: "refresh index apps"),
             ]
+        launcher.update(entries: entries, usage: history.counts, lastUsed: history.lastUsed)
     }
     @objc private func menuOpen() { present() }
     private func toggle() { if panel.isVisible { dismiss() } else { present() } }
     private func present() {
-        guard !executing && !panel.isDragging else { return }
+        guard !panel.isDragging else { return }
         let front = NSWorkspace.shared.frontmostApplication
+        // Each queued window command retains its captured target. Opening a new
+        // launcher session cannot redirect a command that is already running.
         windows.capture(
             pid: front?.processIdentifier == ProcessInfo.processInfo.processIdentifier
                 ? nil : front?.processIdentifier)
@@ -235,11 +233,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func recordUsage(_ entry: SearchEntry) {
         history.record(entry.id)
-        launcher.usage = history.counts
-        launcher.lastUsed = history.lastUsed
+        launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
     }
     private func execute(_ entry: SearchEntry) {
-        guard !executing else { return }
         if let action = entry.action {
             run(action, entry: entry)
             return
@@ -274,6 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         run(action, entry: SearchEntry.commands.first { $0.action == action }!)
     }
     private func run(_ action: WindowAction, entry: SearchEntry) {
+        guard !executing else { return }
         guard WindowController.isTrusted else {
             dismiss()
             showSettings()
@@ -303,7 +300,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settings?.onGuide = { [weak self] in self?.showGuide() }
             settings?.onAbout = { [weak self] in self?.showAbout() }
             settings?.onShortcutChange = { [weak self] in
-                self?.launcher.table.reloadData()
                 self?.statusItem.button?.toolTip =
                     "Ciel · \(self?.hotKeys.shortcuts["launcher"]?.display ?? "")"
             }
@@ -314,7 +310,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         dismiss()
         if windowShortcuts == nil {
             windowShortcuts = WindowShortcutsController(hotKeys: hotKeys)
-            windowShortcuts?.onShortcutChange = { [weak self] in self?.launcher.table.reloadData() }
         }
         windowShortcuts?.present()
     }
@@ -346,84 +341,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         LauncherCheck.run(launcher: launcher, panel: panel, entries: catalog.entries)
     }
 
+    private func finishPerformanceCheck() {
+        guard !checkFinished else { return }
+        checkFinished = true
+        present()
+        PerformanceCheck.run(
+            launcher: launcher, panel: panel, startupMilliseconds: AppPerformance.startupMilliseconds)
+    }
+
     private func finishSmokeTest() {
         guard !checkFinished else { return }
         checkFinished = true
         present()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [self] in
-            let output =
-                ProcessInfo.processInfo.environment["CIEL_SMOKE_OUTPUT"] ?? NSTemporaryDirectory()
-                + "ciel-smoke"
-            try? FileManager.default.createDirectory(atPath: output, withIntermediateDirectories: true)
-            func capture(_ view: NSView, _ name: String) {
-                view.layoutSubtreeIfNeeded()
-                if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                    view.cacheDisplay(in: view.bounds, to: bitmap)
-                    if let png = bitmap.representation(using: .png, properties: [:]) {
-                        try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
-                    }
-                }
-            }
-            capture(launcher, "launcher-empty")
-            launcher.searchField.stringValue = "calclator"
-            launcher.updateResults()
-            fieldEditor.setSelectedRange(NSRange(location: launcher.searchField.stringValue.count, length: 0))
-            capture(launcher, "launcher-search")
-            launcher.searchField.stringValue = "half"
-            launcher.selectFilter(2)
-            capture(launcher, "launcher")
-            for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-                NSApp.appearance = NSAppearance(named: appearance)
-                capture(launcher, "launcher-" + name)
-            }
-            NSApp.appearance = NSAppearance(named: .darkAqua)
-            // Exercise the real menu action and keep the shortcut window lazy in normal use.
-            showSettings()
-            guard windowShortcuts == nil, let menu = statusItem.menu,
-                let index = menu.items.firstIndex(where: { $0.title == "Window Shortcuts…" })
-            else {
-                print("FAIL window-shortcut menu setup")
-                exit(1)
-            }
-            menu.performActionForItem(at: index)
-            guard let preferences = settings, let shortcuts = windowShortcuts,
-                shortcuts.window?.isVisible == true
-            else {
-                print("FAIL window-shortcut menu action")
-                exit(1)
-            }
-            print("PASS separate Window Shortcuts menu action")
-            showGuide()
-            guard let guide = keyboardGuide, guide.window?.isVisible == true else {
-                print("FAIL keyboard guide")
-                exit(1)
-            }
-            print("PASS keyboard guide")
-            for (name, controller) in [
-                ("settings", preferences as PreferencesController),
-                ("window-shortcuts", shortcuts as PreferencesController),
-                ("keyboard-guide", guide as PreferencesController),
-            ] {
-                capture(controller.content, name)
-                for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-                    NSApp.appearance = NSAppearance(named: appearance)
-                    capture(controller.content, name + "-" + mode)
-                }
-                NSApp.appearance = NSAppearance(named: .darkAqua)
-            }
-            let report: [String: Any] = [
-                "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
-                "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
-                "hotkeyErrors": hotKeys.registrationErrors,
-                "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unknown",
-            ]
-            if let data = try? JSONSerialization.data(
-                withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
-            {
-                try? data.write(to: URL(fileURLWithPath: output + "/report.json"))
-                print(String(data: data, encoding: .utf8)!)
-            }
-            NSApp.terminate(nil)
-        }
+        SmokeCheck.run(
+            launcher: launcher, fieldEditor: fieldEditor, catalog: catalog, hotKeys: hotKeys,
+            menu: statusItem.menu,
+            showSettings: { [self] in
+                showSettings()
+                return settings
+            },
+            windowShortcuts: { [self] in windowShortcuts },
+            showGuide: { [self] in
+                showGuide()
+                return keyboardGuide
+            })
     }
 }

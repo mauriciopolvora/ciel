@@ -3,15 +3,19 @@ import ApplicationServices
 import CielCore
 
 /// Explicit test mode. The fixture is a separate process, as real target apps are.
-final class IntegrationCheck {
+@MainActor final class IntegrationCheck {
     private let controller = WindowController()
-    private let child = Process()
+    private var child = Process()
     private let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
         "ciel-check-" + UUID().uuidString)
     private var steps: [(WindowAction, CGRect)] = []
     private var failures = 0
     private var attempts = 0
     private var enhancedFixture: AXUIElement?
+    private var minimumSizeFixture = false
+    private var fixtureDirectory: URL {
+        minimumSizeFixture ? directory.appendingPathComponent("minimum") : directory
+    }
 
     func run() {
         guard WindowController.isTrusted else {
@@ -32,7 +36,7 @@ final class IntegrationCheck {
     }
 
     private func readFrame() -> CGRect? {
-        guard let data = try? Data(contentsOf: directory.appendingPathComponent("frame.json")),
+        guard let data = try? Data(contentsOf: fixtureDirectory.appendingPathComponent("frame.json")),
             let frame = try? JSONDecoder().decode(CGRect.self, from: data)
         else { return nil }
         return frame
@@ -53,6 +57,10 @@ final class IntegrationCheck {
             return
         }
         let visible = displays[index].visible
+        if minimumSizeFixture {
+            checkMinimumSize(original: original, visible: visible)
+            return
+        }
         let left = WindowAction.leftHalf.frame(in: visible, current: original)
         let right = WindowAction.rightHalf.frame(in: visible, current: left)
         let thirds = WindowAction.centerTwoThirds.frame(in: visible, current: right)
@@ -137,6 +145,57 @@ final class IntegrationCheck {
                     let minimized = data.flatMap { try? JSONDecoder().decode(Bool.self, from: $0) } ?? false
                     if !minimized { self.failures += 1 }
                     print("\(minimized ? "PASS" : "FAIL") Minimize: fixture miniaturized=\(minimized)")
+                    self.startMinimumSizeFixture()
+                }
+            }
+        }
+    }
+    private func startMinimumSizeFixture() {
+        if child.isRunning { child.terminate() }
+        enhancedFixture = nil
+        minimumSizeFixture = true
+        attempts = 0
+        child = Process()
+        child.executableURL = Bundle.main.executableURL!
+        child.arguments = ["--window-fixture", fixtureDirectory.path, "--window-fixture-minimum"]
+        do {
+            try FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
+            try child.run()
+            waitForFixture()
+        } catch {
+            failures += 1
+            print("FAIL minimum-size fixture: \(error)")
+            finish()
+        }
+    }
+    private func checkMinimumSize(original: CGRect, visible: CGRect) {
+        controller.capture(pid: child.processIdentifier)
+        let started = ProcessInfo.processInfo.systemUptime
+        controller.perform(.rightHalf, displays: DisplaySnapshot.current()) { [self] result in
+            let elapsed = ProcessInfo.processInfo.systemUptime - started
+            switch result {
+            case .failure(let error):
+                failures += 1
+                print("FAIL Minimum size: \(error)")
+                finish()
+            case .success(let message):
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let actual = self.readFrame() ?? .zero
+                    let expectedWidth = visible.width * 0.75
+                    let reachable =
+                        actual.minX >= visible.minX - 3
+                        && actual.maxX <= visible.maxX + 3
+                        && actual.minY >= visible.minY - 3
+                        && actual.maxY <= visible.maxY + 3
+                    // The frame polling budget is 500 ms. Allow native IPC and
+                    // scheduling overhead, while detecting the former two waits.
+                    let matches =
+                        message == "The app limited the window size."
+                        && actual.width >= expectedWidth - 3 && reachable && elapsed < 0.85
+                    if !matches { self.failures += 1 }
+                    print(
+                        "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable), command=\(Int(elapsed * 1000)) ms, message=\(message)"
+                    )
                     self.finish()
                 }
             }
@@ -154,7 +213,7 @@ final class IntegrationCheck {
     }
 }
 
-final class WindowFixture: NSObject, NSWindowDelegate {
+@MainActor final class WindowFixture: NSObject, NSWindowDelegate {
     private var window: NSWindow!
     private let output: URL
     init(output: String) { self.output = URL(fileURLWithPath: output).appendingPathComponent("frame.json") }
@@ -164,6 +223,13 @@ final class WindowFixture: NSObject, NSWindowDelegate {
             contentRect: NSRect(x: 180, y: 180, width: 700, height: 470),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Ciel temporary window test"
+        if CommandLine.arguments.contains("--window-fixture-minimum"), let screen = NSScreen.screens.first {
+            window.contentMinSize = CGSize(width: screen.visibleFrame.width * 0.75, height: 200)
+            window.setContentSize(CGSize(width: screen.visibleFrame.width * 0.85, height: 470))
+            window.setFrameOrigin(
+                CGPoint(x: screen.visibleFrame.minX + 30, y: screen.visibleFrame.minY + 100))
+            window.title = "Ciel temporary minimum-size test"
+        }
         window.isReleasedWhenClosed = false
         let label = NSTextField(labelWithString: "Testing window commands. This window closes automatically.")
         label.frame = NSRect(x: 30, y: 200, width: 620, height: 30)

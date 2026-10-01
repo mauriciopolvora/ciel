@@ -74,7 +74,7 @@ If macOS shows access enabled but Ciel reports no access after a local rebuild, 
 
 Preferences and launch history remain in the `app.mauriciopolvora.jumpstart` defaults domain. The app retains this identifier for upgrade compatibility. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.jumpstart/apps.json`.
 
-Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. Icons have a bounded cache. Window commands run on a serial background queue. There is no recurring idle timer.
+Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. There is no recurring idle timer.
 
 Search and keyboard selection do not wait for animation. Pointer hover uses a 120 ms transition. Reduce Motion and the animation setting disable motion. Reduce Transparency uses an opaque surface. Increase Contrast strengthens boundaries. Ciel uses native text editing and accessibility labels.
 
@@ -84,16 +84,21 @@ Search and keyboard selection do not wait for animation. Pointer hover uses a 12
 bash scripts/check.sh
 ```
 
-Native UI checks open temporary windows. They use a separate bundle identifier to keep your Ciel preferences unchanged. Core checks need no Accessibility access. Run `bash scripts/check.sh --core-only` for checks that do not open windows. The separate `--window-test` uses a temporary native test window and requires access for its test process. It does not operate on existing windows.
+Native UI checks open temporary windows. They use a separate bundle identifier to keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The previous `--core-only` option is an alias. The separate `--window-test` uses temporary native test windows and requires access for its test process. It does not operate on existing windows.
 
-- `Sources/Ciel`: AppKit UI, catalog, hotkeys, window controller, and settings.
+- `Sources/Ciel`: the testable CielApp library, with AppKit UI, catalog, hotkeys, window controller, and settings.
+- `Sources/CielMain`: the app executable entry point.
 - `Sources/Ciel/Diagnostics`: explicit native launcher, catalog, and window checks.
 - `Sources/CielCore`: search, usage history, app discovery, and window geometry.
-- `Tests/CielCoreTests`: core checks and a release search benchmark.
+- `Sources/CielBenchmarks`: release search benchmarks with JSON reports and configurable budgets.
+- `Tests/CielCoreTests`: discovered Swift Testing tests for core behavior.
+- `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
 - `Resources`: app metadata, artwork, and dependency notices.
 - `scripts`: build, install, checks, and notarized release packaging.
 
 Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
+
+Swift 6 checks actor ownership and values that cross worker boundaries. Search and native performance reports are saved under `.build/performance`. For benchmark options and measurement limits, see the [architecture plan](docs/architecture-plan.md).
 
 See [contributing](CONTRIBUTING.md), [design system](docs/design-system.md), and [verification](docs/verification.md).
 

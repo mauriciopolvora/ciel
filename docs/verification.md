@@ -1,50 +1,79 @@
-# Ciel 0.4.2 verification
+# Architecture verification
 
-Checked on 30 September 2026 on Apple silicon with macOS 27 and Swift 6.4. The deployment target is macOS 14.
+Checked on 1 October 2026 on Apple silicon with macOS 27 and Swift 6.4. The deployment target remains macOS 14. This records the architecture changes in source. The installed app remains version 0.4.2, build 10.
 
-## Source checks
+## Source and native checks
 
-Run `bash scripts/check.sh` for the full local check. Native checks use a separate bundle identifier so they do not change the installed app's preferences. Run `bash scripts/check.sh --core-only` to check the source without opening windows.
+Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The optional `--window-test` requires Accessibility access for its process and uses only temporary test windows.
 
 | Check | Result |
 | --- | --- |
 | Swift format, shell syntax, and Info.plist | Passed |
-| Universal build and strict signature | Passed; arm64 and x86_64 |
-| Native source window fixture | 11 checks passed on two displays; zero failures |
-| Search, history, discovery, geometry, and placement | 30 checks passed; zero failures |
-| Mixed search benchmark | 1,018 entries; median 0.64 ms, p95 0.82 ms |
-| Native launcher | 240 query/category changes passed; row count and panel size correct |
-| Empty input | Focused editor, no placeholder, no rows, no empty execution |
-| Clearing, whitespace, and catalog refresh | Keep the launcher blank |
-| Native editing | Select All, white caret, and gray selection passed |
-| Category control | Cycles All, Apps, and Windows; retains query and focus |
-| Filesystem events | Nested app addition, metadata update, and removal passed |
-| Native help | Settings, Window Shortcuts, and Keyboard Guide passed |
-| Screenshots | Refreshed from native checks with default preferences |
-| GitHub CI | [Passed](https://github.com/mauriciopolvora/ciel/actions/runs/36705417555); core checks, universal build, signature, and artifact upload |
+| Swift 6 language mode | Passed; compiler warnings treated as errors in unit checks |
+| Discovered Swift Testing tests | 89 passed: 30 core and 59 app tests |
+| Window adapter and operation engine | 21 deterministic tests passed |
+| Async icon cache and cell reuse | Cache limits, coalescing, stale completion, and invalidation tests passed |
+| Catalog | Unchanged cache writes and publications suppressed; empty/cache-equal completion and event classification passed |
+| Real filesystem events | Five checks passed: empty completion, nested addition, metadata update, icon-only invalidation, removal |
+| Native launcher | 240 query/category changes passed; blank input, native selection, panel sizing, and retained cells passed |
+| Native help | Real Window Shortcuts menu action and Keyboard Guide passed; screenshots captured |
+| Native window fixture | 12 checks passed on two displays, including minimize and minimum-size handling |
+| Normal launcher Accessibility hierarchy | Remote `AXWindows` contains an `AXWindow` |
+| Universal app | arm64 and x86_64 compiled; strict ad-hoc signature passed |
+| Runtime dependencies | App binary links system libraries; no workspace framework is required |
 
-The benchmark measures search-engine time. It does not measure keypress-to-screen latency. GitHub CI runs core checks and builds the universal app. Native UI and Accessibility checks need a local desktop session. Hosted results are available in [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions).
+GitHub CI runs the unit tests, release search budgets, universal build, signature checks, and artifact upload. Results are available in [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions).
 
-## Installed app checks
+The local Command Line Tools linker reports missing optional search directories. These are toolchain diagnostics. Swift source checks pass with compiler warnings treated as errors.
 
-Earlier checks of the installed build verified blank input, typed results, app launch, the global shortcut, drag placement, snapping, text selection, saved placement after restart, readable About text, and hiding and restoring the menu bar icon. The cleanup does not install a replacement app or change its Accessibility grant.
+## Performance measurements
 
-## Window updates
+The release search benchmark covers 12 query cases at each catalog size. Three warmup searches precede 20 measured searches for each case. Reports are saved under `.build/performance` and uploaded by CI.
 
-Build 10 sends size-position-size updates without waiting at intermediate frames. It checks the final frame immediately. It uses a bounded retry if an app clamps a change.
+| Catalog | Observed p95 range |
+| --- | --- |
+| 1,018 entries | 1.04–4.41 ms |
+| 10,018 entries | 10.60–42.28 ms |
 
-For apps with an enabled `AXEnhancedUserInterface` attribute, Ciel temporarily disables that mode and restores it on return, including error paths. This follows the scoped update approach in [Rectangle's AccessibilityElement](https://github.com/rxhanson/Rectangle/blob/main/Rectangle/AccessibilityElement.swift). The AppKit fixture does not support this attribute, so its restoration check is skipped.
+The release native diagnostic used 300 query changes and 5.22 idle seconds. Its catalog contained 111 apps, 18 window commands, and two utility entries.
 
-The exact installed build passed 11 geometry and minimize checks on two displays. Checks include negative display coordinates, maximize-to-half transitions, restore, and next-display movement. Its frame commands completed in 1–7 ms. These values measure command completion on the fixture. They do not measure visual latency in every app.
+| Native measurement | Result |
+| --- | --- |
+| App entry to catalog and panel readiness | 174.65 ms |
+| First query layout/display submission | 6.14 ms |
+| First query icon settlement | 11.94 ms |
+| Repeated update median / p95 / maximum | 1.26 / 3.27 / 4.66 ms |
+| Idle CPU, as a percentage of one core | 0.35% |
+| Resident growth across this session | 8.11 MiB |
 
-## Distribution coverage
+All configured budgets passed. A forced low native update budget returned exit 1 and wrote a failing JSON report. Forced absolute and baseline search failures also returned exit 1. Invalid benchmark arguments returned exit 2.
 
-- Developer ID signing, notarization, and clean-Mac Gatekeeper acceptance remain unverified. Local builds use ad-hoc signing.
-- Both architectures compile. Intel and macOS 14 runtime checks remain open.
-- Launcher dragging across displays remains unverified. Window commands have passed next-display and restore checks on two displays.
-- Launch at login after logout or reboot remains unverified.
-- Reduce Motion, Reduce Transparency, and Increase Contrast are implemented. Full manual coverage remains open.
-- The Enhanced UI restoration branch needs a check in an app that supports that attribute.
-- Long-run memory growth and end-to-end input latency are not measured.
+These timings measure the search engine or synchronous layout and drawing submission. They do not measure physical keypress-to-screen latency. Startup begins at the app entry point and excludes the OS loader. Icon settlement includes diagnostic polling overhead. The short idle and memory samples describe this workload. They do not prove long-run resource behavior. The previous mixed benchmark used different queries and cannot establish a percentage improvement for this release benchmark.
 
-See the [release guide](releasing.md) for signed distribution.
+## Window behavior
+
+The operation engine shares one 500 ms frame budget across writes, polling, retries, and visibility corrections. Minimize uses a one-second budget. A temporary AX state-read failure during the Dock animation retries within that budget. Permanent errors return immediately. Fast updates retain the size-position-size burst without an intermediate wait.
+
+The final universal app passed the native fixture. Same-display frame commands completed in 2–9 ms. Moving to the next display completed in 5 ms. Restore across displays completed in 153 ms. A minimum-size command completed in 284 ms and kept the window within the usable display.
+
+Synchronous Accessibility IPC cannot be cancelled after dispatch. Each normal message has a timeout of at most 250 ms, reduced to the remaining operation budget. Enhanced UI restoration gets a separate best-effort 50 ms cleanup timeout. Repeated stable constrained frames permit early completion. An app can still defer its final frame after a long stable intermediate frame.
+
+Enhanced UI restoration passed injected success and error tests. The real AppKit fixture does not support `AXEnhancedUserInterface`, so its native check is skipped. The window fixture starts before resident app services and retains its native window owner for the complete event loop.
+
+## Installed app and distribution
+
+The architecture work builds `dist/Ciel.app`. It does not install a replacement or change the installed app's Accessibility grant. Saved shortcuts, usage history, menu icon preference, display placement, and the production bundle identifier remain compatible.
+
+Earlier installed-app checks covered blank input, typed results, app launch, the global shortcut, drag placement, snapping, native text selection, saved placement after restart, readable About text, and the menu icon setting.
+
+Remaining coverage:
+
+- Developer ID signing, notarization, and clean-Mac Gatekeeper acceptance.
+- Intel and macOS 14 runtime checks. Both architectures compile.
+- Launcher dragging across displays.
+- Launch at login after logout or reboot.
+- Full manual coverage of Reduce Motion, Reduce Transparency, and Increase Contrast.
+- Enhanced UI restoration in a real app that supports that attribute.
+- Physical input-to-display latency and long-run resource behavior.
+
+See the [architecture plan](architecture-plan.md) for repeatable diagnostics and the [release guide](releasing.md) for signed distribution.

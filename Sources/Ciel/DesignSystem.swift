@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 
 /// Shared monochrome tokens. Ciel keeps the same black surface in every appearance.
-enum Theme {
+@MainActor enum Theme {
     static let accent = NSColor(white: 0.92, alpha: 1)
     static let text = NSColor(white: 0.94, alpha: 1)
     static let secondary = NSColor(white: 0.62, alpha: 1)
@@ -76,17 +76,16 @@ final class MonochromeSwitch: NSButton {
 final class SurfaceView: FlippedView {
     var isGroup = false
     var isFloating = false
-    private var observer: NSObjectProtocol?
+    private var observer: NotificationObservation?
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        observer = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
-            object: nil, queue: .main
-        ) { [weak self] _ in self?.refreshSurface() }
+        observer = NotificationObservation(
+            center: NSWorkspace.shared.notificationCenter,
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        ) { [weak self] in self?.refreshSurface() }
     }
     required init?(coder: NSCoder) { fatalError() }
-    deinit { if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) } }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         refreshSurface()
