@@ -1,7 +1,7 @@
 import AppKit
 import Carbon
 
-struct Shortcut: Codable, Equatable {
+struct Shortcut: Codable, Equatable, Sendable {
     let keyCode: UInt32
     let modifiers: UInt32
     var display: String {
@@ -51,16 +51,15 @@ struct Shortcut: Codable, Equatable {
     }
 }
 
-final class HotKeys {
+@MainActor final class HotKeys {
     var recordingHandler: ((Shortcut) -> Void)?
-    private var refs: [String: EventHotKeyRef] = [:]
+    private let resources = HotKeyResources()
     private var handlers: [UInt32: () -> Void] = [:]
     private var ids: [String: UInt32] = [:]
     private var nextID: UInt32 = 1
-    private var eventHandler: EventHandlerRef?
     private(set) var shortcuts: [String: Shortcut] = [:]
     private(set) var registrationErrors: [String] = []
-    static let signature: OSType = 0x4A55_4D50  // JUMP
+    nonisolated static let signature: OSType = 0x4A55_4D50  // JUMP
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "shortcuts"),
@@ -83,16 +82,19 @@ final class HotKeys {
                     return OSStatus(eventNotHandledErr)
                 }
                 let owner = Unmanaged<HotKeys>.fromOpaque(context).takeUnretainedValue()
-                if let recording = owner.recordingHandler,
-                    let name = owner.ids.first(where: { $0.value == identifier.id })?.key,
-                    let shortcut = owner.shortcuts[name]
-                {
-                    recording(shortcut)
+                // Carbon sends application-target events through the main event loop.
+                return MainActor.assumeIsolated {
+                    if let recording = owner.recordingHandler,
+                        let name = owner.ids.first(where: { $0.value == identifier.id })?.key,
+                        let shortcut = owner.shortcuts[name]
+                    {
+                        recording(shortcut)
+                        return noErr
+                    }
+                    owner.handlers[identifier.id]?()
                     return noErr
                 }
-                owner.handlers[identifier.id]?()
-                return noErr
-            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &eventHandler)
+            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &resources.eventHandler)
     }
 
     func bind(_ name: String, handler: @escaping () -> Void) {
@@ -114,11 +116,11 @@ final class HotKeys {
                 throw HotKeyError.duplicate
             }
             // Register before removing the previous hotkey, so failure leaves it working.
-            if shortcut == shortcuts[name], refs[name] != nil { return }
+            if shortcut == shortcuts[name], resources.refs[name] != nil { return }
             try register(name, shortcut)
             shortcuts[name] = shortcut
         } else {
-            if let ref = refs.removeValue(forKey: name) { UnregisterEventHotKey(ref) }
+            if let ref = resources.refs.removeValue(forKey: name) { UnregisterEventHotKey(ref) }
             shortcuts.removeValue(forKey: name)
         }
         UserDefaults.standard.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
@@ -131,9 +133,17 @@ final class HotKeys {
             shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: Self.signature, id: id),
             GetApplicationEventTarget(), 0, &ref)
         guard status == noErr, let ref else { throw HotKeyError.unavailable }
-        if let old = refs[name] { UnregisterEventHotKey(old) }
-        refs[name] = ref
+        if let old = resources.refs[name] { UnregisterEventHotKey(old) }
+        resources.refs[name] = ref
     }
+
+}
+
+/// HotKeys confines this handle owner to the main actor. The handles clean up
+/// when the owner is released, without an isolated class reading them in deinit.
+private final class HotKeyResources {
+    var refs: [String: EventHotKeyRef] = [:]
+    var eventHandler: EventHandlerRef?
 
     deinit {
         for ref in refs.values { UnregisterEventHotKey(ref) }

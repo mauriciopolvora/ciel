@@ -8,6 +8,6 @@ Minimize is included in the command catalog. macOS can accept the Accessibility 
 
 ## Checks
 
-The core checks cover app and command ranking, recent-use ties, exact text priority, saved history, and preservation of old counts. Run `bash scripts/check.sh --core-only`.
+The unit tests cover app and command ranking, recent-use ties, exact text priority, saved history, and preservation of old counts. Run `bash scripts/check.sh --unit-only`.
 
 The optional native window fixture checks geometry, restore, display movement, and minimize. It needs Accessibility access for its own test process. See [verification](verification.md) for recorded results.

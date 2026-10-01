@@ -2,125 +2,157 @@ import AppKit
 import CielCore
 import CoreServices
 
+@MainActor
 final class AppCatalog {
     private(set) var entries: [SearchEntry] = []
     var onChange: (() -> Void)?
-    private let queue = DispatchQueue(label: "app.ciel.catalog", qos: .utility)
-    private var stream: FSEventStreamRef?
-    private var pending: DispatchWorkItem?
+    var onRefreshFinished: (() -> Void)?
+    var onIconsInvalidated: ((Set<String>) -> Void)?
+
+    private let worker = CatalogScanWorker()
+    private let roots: [URL]
+    private let cacheURL: URL?
+    private let watchChanges: Bool
+    private var canonicalRoots: [String]
+    private var cachedEntries: [SearchEntry]?
+    private var watcher: CatalogWatcher?
+    private var pending: Task<Void, Never>?
+    private var scanTask: Task<Void, Never>?
+    private var debounce = CatalogDebounce()
+    private var pendingImpact = CatalogEventImpact()
     private var scanning = false
     private var rescanRequested = false
-    private let roots: [URL]
-    private let canonicalRoots: [String]
-    private let cacheURL: URL?
 
-    init(roots: [URL] = ApplicationScanner.defaultRoots, useCache: Bool = true) {
-        self.roots = roots
-        canonicalRoots = roots.map { Self.canonicalPath($0.path) }
-        cacheURL =
+    convenience init(roots: [URL] = ApplicationScanner.defaultRoots, useCache: Bool = true) {
+        // Keep the existing production path. A separate diagnostic app identity
+        // must not read or overwrite the installed app's catalog cache.
+        let identifier = Bundle.main.bundleIdentifier ?? "app.mauriciopolvora.jumpstart"
+        let cacheURL =
             useCache
             ? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("app.mauriciopolvora.jumpstart/apps.json") : nil
+                .appendingPathComponent(identifier).appendingPathComponent("apps.json") : nil
+        self.init(roots: roots, cacheURL: cacheURL, watchChanges: true)
+    }
+
+    // An explicit cache and disabled watcher keep unit checks separate from user files.
+    init(roots: [URL], cacheURL: URL?, watchChanges: Bool) {
+        self.roots = roots
+        self.cacheURL = cacheURL
+        self.watchChanges = watchChanges
+        canonicalRoots = roots.map { CatalogPaths.canonical($0.path) }
         if let cacheURL, let data = try? Data(contentsOf: cacheURL),
             let saved = try? JSONDecoder().decode([SearchEntry].self, from: data)
         {
             entries = saved
+            cachedEntries = saved
         }
         watch()
     }
 
     deinit {
         pending?.cancel()
-        if let stream {
-            FSEventStreamStop(stream)
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
-        }
+        scanTask?.cancel()
     }
 
     func refresh() {
-        dispatchPrecondition(condition: .onQueue(.main))
+        // A manual refresh also consumes events already queued by the watcher.
+        pending?.cancel()
+        pending = nil
+        debounce.reset()
         guard !scanning else {
             rescanRequested = true
             return
         }
         scanning = true
-        let cache = cacheURL
-        let roots = roots
-        let identifier = Bundle.main.bundleIdentifier
-        queue.async { [weak self] in
-            let result = ApplicationScanner.scan(roots: roots, excluding: identifier)
-            if let cache, let data = try? JSONEncoder().encode(result) {
-                try? FileManager.default.createDirectory(
-                    at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try? data.write(to: cache, options: .atomic)
-            }
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.entries = result
-                self.scanning = false
-                self.onChange?()
-                if self.rescanRequested {
-                    self.rescanRequested = false
-                    self.refresh()
-                }
-            }
+        let impact = pendingImpact
+        pendingImpact = CatalogEventImpact()
+        if impact.rebuildWatcher { watch() }
+        let request = CatalogScanRequest(
+            roots: roots, excluding: Bundle.main.bundleIdentifier, previousEntries: entries,
+            cachedEntries: cachedEntries, cacheURL: cacheURL, iconImpact: impact)
+        let worker = worker
+        scanTask = Task { [weak self] in
+            let result = await worker.scan(request)
+            guard !Task.isCancelled, let self else { return }
+            self.complete(result)
         }
     }
 
-    private func changed(paths: [String], flags: UnsafePointer<FSEventStreamEventFlags>, count: Int) {
-        let dropped = FSEventStreamEventFlags(
-            kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagUserDropped
-                | kFSEventStreamEventFlagKernelDropped | kFSEventStreamEventFlagRootChanged)
-        let relevant = (0..<count).contains { index in
-            flags[index] & dropped != 0
-                || canonicalRoots.contains { root in
-                    paths[index] == root || paths[index].hasPrefix(root + "/")
-                        || root.hasPrefix(paths[index] + "/")
-                }
-        }
-        guard relevant else { return }
+    private func complete(_ result: CatalogScanResult) {
+        if result.cacheMatchesResult { cachedEntries = result.entries }
+        if result.entriesChanged { entries = result.entries }
+        let needsRescan = rescanRequested
+        rescanRequested = false
+        scanning = false
+        scanTask = nil
+        // Invalidate before publishing so new result cells use fresh icons.
+        if !result.invalidatedIconPaths.isEmpty { onIconsInvalidated?(result.invalidatedIconPaths) }
+        if result.entriesChanged { onChange?() }
+        onRefreshFinished?()
+        if needsRescan, !scanning { refresh() }
+    }
+
+    private func changed(_ events: [CatalogEvent]) {
+        let impact = CatalogEventImpact.classify(events, roots: canonicalRoots)
+        guard impact.requiresRefresh else { return }
+        pendingImpact.merge(impact)
+        let now = ProcessInfo.processInfo.systemUptime
+        let delay = max(0, debounce.deadline(afterEventAt: now) - now)
         pending?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.refresh() }
-        pending = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
-    }
-
-    private static func canonicalPath(_ path: String) -> String {
-        // URL.resolvingSymlinksInPath hides /private on macOS. FSEvents uses the real path.
-        if let resolved = realpath(path, nil) {
-            defer { free(resolved) }
-            return String(cString: resolved)
+        pending = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.refresh()
         }
-        guard path != "/" else { return path }
-        let parent = (path as NSString).deletingLastPathComponent
-        return canonicalPath(parent) + "/" + (path as NSString).lastPathComponent
     }
 
     private func watch() {
-        // FSEvents covers nested directories and changes inside Info.plist. No polling.
-        // Watch the nearest existing parent when a standard application folder is absent.
+        guard watchChanges else { return }
+        watcher = nil
+        canonicalRoots = roots.map { CatalogPaths.canonical($0.path) }
+        // Watch before scanning, including the nearest existing parent when a
+        // root is absent. Full scans preserve nested apps and identifier deduplication.
         let paths = Array(
             Set(
                 roots.map { root -> String in
                     var url = root
-                    if url.pathExtension == "app" { url.deleteLastPathComponent() }
+                    if url.pathExtension.lowercased() == "app" { url.deleteLastPathComponent() }
                     while !FileManager.default.fileExists(atPath: url.path) && url.path != "/" {
                         url.deleteLastPathComponent()
                     }
-                    return Self.canonicalPath(url.path)
+                    return CatalogPaths.canonical(url.path)
                 }))
+        watcher = CatalogWatcher(paths: paths) { [weak self] events in self?.changed(events) }
+    }
+}
+
+// This owner releases the C stream independently of actor-isolated catalog state.
+// Its callback always runs on the explicitly configured main dispatch queue.
+private final class CatalogWatcher {
+    private var stream: FSEventStreamRef?
+
+    init(paths: [String], onEvents: @escaping @MainActor @Sendable ([CatalogEvent]) -> Void) {
+        let handler = CatalogEventHandler(onEvents: onEvents)
         var context = FSEventStreamContext(
-            version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
-            retain: nil, release: nil, copyDescription: nil)
+            version: 0, info: Unmanaged.passUnretained(handler).toOpaque(),
+            retain: { info in
+                guard let info else { return nil }
+                return UnsafeRawPointer(Unmanaged<CatalogEventHandler>.fromOpaque(info).retain().toOpaque())
+            },
+            release: { info in
+                guard let info else { return }
+                Unmanaged<CatalogEventHandler>.fromOpaque(info).release()
+            }, copyDescription: nil)
         stream = FSEventStreamCreate(
             nil,
             { _, info, count, eventPaths, flags, _ in
                 guard let info else { return }
                 let pointers = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
-                let paths = (0..<count).map { String(cString: pointers[$0]) }
-                Unmanaged<AppCatalog>.fromOpaque(info).takeUnretainedValue().changed(
-                    paths: paths, flags: flags, count: count)
+                let events = (0..<count).map {
+                    CatalogEvent(path: String(cString: pointers[$0]), flags: flags[$0])
+                }
+                let handler = Unmanaged<CatalogEventHandler>.fromOpaque(info).takeUnretainedValue()
+                MainActor.assumeIsolated { handler.onEvents(events) }
             }, &context, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.2,
             FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot))
         if let stream {
@@ -133,27 +165,22 @@ final class AppCatalog {
             }
         }
     }
+
+    deinit {
+        if let stream {
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+        }
+    }
 }
 
-final class IconCache {
-    private let cache = NSCache<NSString, NSImage>()
-    init() {
-        cache.countLimit = 80
-        cache.totalCostLimit = 4 * 1024 * 1024
-    }
-    func icon(for path: String) -> NSImage {
-        if let image = cache.object(forKey: path as NSString) { return image }
-        let image: NSImage = autoreleasepool {
-            let source = NSWorkspace.shared.icon(forFile: path)
-            let result = NSImage(size: NSSize(width: 36, height: 36))
-            result.lockFocus()
-            source.draw(
-                in: NSRect(x: 0, y: 0, width: 36, height: 36), from: .zero, operation: .sourceOver,
-                fraction: 1)
-            result.unlockFocus()
-            return result
-        }
-        cache.setObject(image, forKey: path as NSString, cost: 72 * 72 * 4)
-        return image
+// The stream retains this immutable context, so an already dispatched C callback
+// does not refer to a destroyed watcher. It does not retain the catalog.
+private final class CatalogEventHandler: Sendable {
+    let onEvents: @MainActor @Sendable ([CatalogEvent]) -> Void
+
+    init(onEvents: @escaping @MainActor @Sendable ([CatalogEvent]) -> Void) {
+        self.onEvents = onEvents
     }
 }

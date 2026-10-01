@@ -1,7 +1,7 @@
 import Foundation
 import FuzzyMatch
 
-public struct SearchEntry: Identifiable, Codable, Sendable {
+public struct SearchEntry: Identifiable, Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable { case application, window, utility }
     public let id: String
     public let title: String

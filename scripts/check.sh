@@ -1,14 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--core-only" ) ]]; then
-    printf 'Usage: bash scripts/check.sh [--core-only]\n' >&2; exit 1
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--unit-only" && "$1" != "--core-only" ) ]]; then
+    printf 'Usage: bash scripts/check.sh [--unit-only]\n' >&2; exit 1
 fi
 bash -n scripts/*.sh
 plutil -lint Resources/Info.plist
 swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
-swift run -c release CielChecks
-if [[ "${1:-}" == "--core-only" ]]; then exit 0; fi
+bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
+bash scripts/benchmark.sh
+# --core-only is kept for existing local commands. Both modes include app unit tests.
+if [[ $# -eq 1 ]]; then exit 0; fi
 bash scripts/build.sh
 # Give native checks a separate identity so they do not read or write user settings.
 check_dir="$(mktemp -d "$PWD/.build/ciel-checks.XXXXXX")"
@@ -21,3 +23,4 @@ check_binary="$check_app/Contents/MacOS/Ciel"
 "$check_binary" --ui-test
 "$check_binary" --catalog-test
 CIEL_SMOKE_OUTPUT="$PWD/.build/smoke" "$check_binary" --smoke-test
+CIEL_PERFORMANCE_OUTPUT="$PWD/.build/performance/native-ui.json" "$check_binary" --performance-test
