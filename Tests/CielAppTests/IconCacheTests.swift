@@ -212,12 +212,20 @@ struct IconCacheTests {
     }
 
     private func loadedImage(_ cache: IconCache, path: String) async -> NSImage? {
-        await withCheckedContinuation { continuation in
-            if let hit = cache.icon(for: path, onLoad: { _, image in continuation.resume(returning: image) })
+        var image: NSImage?
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            if let hit = cache.icon(
+                for: path,
+                onLoad: { _, loaded in
+                    image = loaded
+                    continuation.resume()
+                })
             {
-                continuation.resume(returning: hit)
+                image = hit
+                continuation.resume()
             }
         }
+        return image
     }
 
     private func waitForIdle(_ cache: IconCache) async throws {
