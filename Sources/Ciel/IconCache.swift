@@ -106,7 +106,15 @@ final class IconCache {
         defer {
             if delivering[path] == id { delivering.removeValue(forKey: path) }
         }
-        let image = pixels.map { NSImage(cgImage: $0, size: NSSize(width: 36, height: 36)) }
+        let image = pixels.map { pixels in
+            // Keep source pixel dimensions separate from the image's point size.
+            let size = NSSize(width: 36, height: 36)
+            let representation = NSBitmapImageRep(cgImage: pixels)
+            representation.size = size
+            let image = NSImage(size: size)
+            image.addRepresentation(representation)
+            return image
+        }
         if let image, let pixels {
             store(image, path: path, cost: pixels.bytesPerRow * pixels.height)
         }

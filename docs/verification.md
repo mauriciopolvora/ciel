@@ -10,7 +10,7 @@ Run `bash scripts/check.sh` for the full local check. It creates a diagnostic ap
 | --- | --- |
 | Swift format, shell syntax, and Info.plist | Passed |
 | Swift 6 language mode | Passed; compiler warnings treated as errors in unit checks |
-| Discovered Swift Testing tests | 89 passed: 30 core and 59 app tests |
+| Discovered Swift Testing tests | 90 passed: 30 core and 60 app tests |
 | Window adapter and operation engine | 21 deterministic tests passed |
 | Async icon cache and cell reuse | Cache limits, coalescing, stale completion, and invalidation tests passed |
 | Catalog | Unchanged cache writes and publications suppressed; empty/cache-equal completion and event classification passed |
@@ -32,19 +32,19 @@ The release search benchmark covers 12 query cases at each catalog size. Three w
 
 | Catalog | Observed p95 range |
 | --- | --- |
-| 1,018 entries | 1.04–4.41 ms |
-| 10,018 entries | 10.60–42.28 ms |
+| 1,018 entries | 1.06–5.56 ms |
+| 10,018 entries | 10.61–42.10 ms |
 
-The release native diagnostic used 300 query changes and 5.22 idle seconds. Its catalog contained 111 apps, 18 window commands, and two utility entries.
+The release native diagnostic used 300 query changes and 5.06 idle seconds. Its catalog contained 111 apps, 18 window commands, and two utility entries.
 
 | Native measurement | Result |
 | --- | --- |
-| App entry to catalog and panel readiness | 174.65 ms |
-| First query layout/display submission | 6.14 ms |
-| First query icon settlement | 11.94 ms |
-| Repeated update median / p95 / maximum | 1.26 / 3.27 / 4.66 ms |
-| Idle CPU, as a percentage of one core | 0.35% |
-| Resident growth across this session | 8.11 MiB |
+| App entry to catalog and panel readiness | 185.81 ms |
+| First query layout/display submission | 6.21 ms |
+| First query icon settlement | 14.34 ms |
+| Repeated update median / p95 / maximum | 1.30 / 3.38 / 4.28 ms |
+| Idle CPU, as a percentage of one core | 0.36% |
+| Resident growth across this session | 8.44 MiB |
 
 All configured budgets passed. A forced low native update budget returned exit 1 and wrote a failing JSON report. Forced absolute and baseline search failures also returned exit 1. Invalid benchmark arguments returned exit 2.
 

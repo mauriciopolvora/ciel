@@ -59,6 +59,7 @@ A frame-operation deadline limits retries and polling. Minimize uses a one-secon
 - [Swift Testing](https://developer.apple.com/documentation/testing) provides discovered tests and expectation reporting.
 - [Apple icon retrieval](https://developer.apple.com/documentation/appkit/nsworkspace/icon%28forfile%3A%29) permits calling `icon(forFile:)` from any thread.
 - [Apple image thread safety](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html) permits image creation and drawing on one thread, followed by handoff.
+- [Apple high-resolution image guidance](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/CapturingScreenContents/CapturingScreenContents.html) separates bitmap pixels from point size. The icon cache preserves both explicitly.
 - [Accessibility message timeouts](https://developer.apple.com/documentation/applicationservices/1459345-axuielementsetmessagingtimeout) bound individual AX calls.
 - [Performance signposts](https://developer.apple.com/documentation/os/recording-performance-data) mark intervals for Instruments.
 - [Native display submission](https://developer.apple.com/documentation/appkit/nsview/displayifneeded%28%29) invokes drawing for invalidated views.

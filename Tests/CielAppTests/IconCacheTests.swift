@@ -208,7 +208,23 @@ struct IconCacheTests {
         #expect(image.size == NSSize(width: 36, height: 36))
         #expect(image.representations.first?.pixelsWide == 72)
         #expect(image.representations.first?.pixelsHigh == 72)
+        let bitmap = try #require(image.representations.first as? NSBitmapImageRep)
+        #expect(bitmap.size == image.size)
+        #expect(bitmap.cgImage?.width == 72)
+        #expect(bitmap.cgImage?.height == 72)
         #expect(cache.cachedCount == 1)
+    }
+
+    @Test func mainActorImageKeepsLoaderPixelsSeparateFromLogicalSize() async throws {
+        let cache = IconCache(loader: { _ in iconPixels(width: 80, height: 48) })
+        let image = try #require(await loadedImage(cache, path: "custom.app"))
+        let bitmap = try #require(image.representations.first as? NSBitmapImageRep)
+        #expect(image.size == NSSize(width: 36, height: 36))
+        #expect(bitmap.size == image.size)
+        #expect(bitmap.pixelsWide == 80)
+        #expect(bitmap.pixelsHigh == 48)
+        #expect(bitmap.cgImage?.width == 80)
+        #expect(bitmap.cgImage?.height == 48)
     }
 
     private func loadedImage(_ cache: IconCache, path: String) async -> NSImage? {
