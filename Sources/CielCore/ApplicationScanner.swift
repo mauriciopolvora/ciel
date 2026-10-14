@@ -23,7 +23,7 @@ public enum ApplicationScanner {
                     let info = try? PropertyListSerialization.propertyList(from: data, format: nil)
                         as? [String: Any],
                     let id = info["CFBundleIdentifier"] as? String,
-                    info["LSBackgroundOnly"] as? Bool != true,
+                    info["LSBackgroundOnly"] as? Bool != true || info["LSUIElement"] as? Bool == true,
                     id != identifier, seen.insert(id).inserted
                 else { return }
                 let name =
