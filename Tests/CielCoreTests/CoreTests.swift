@@ -193,6 +193,9 @@ struct CatalogTests {
                 .write(to: url.appendingPathComponent("Info.plist"))
         }
         try app("Nested/Menu Tool.app", id: "menu", extra: ["LSUIElement": true])
+        try app(
+            "BetterDisplay.app", id: "betterdisplay",
+            extra: ["LSBackgroundOnly": true, "LSUIElement": true])
         try app("Normal.app", id: "normal")
         try app("Duplicate.app", id: "normal")
         try app("Agent.app", id: "agent", extra: ["LSBackgroundOnly": true])
@@ -200,8 +203,9 @@ struct CatalogTests {
         try app(".Hidden.app", id: "hidden")
         try app("Normal.app/Contents/Helper.app", id: "helper")
         let results = ApplicationScanner.scan(roots: [root], excluding: "self")
-        #expect(Set(results.map(\.id)) == Set(["app.menu", "app.normal"]))
+        #expect(Set(results.map(\.id)) == Set(["app.menu", "app.betterdisplay", "app.normal"]))
         #expect(results.first { $0.id == "app.menu" }?.title == "Menu Tool")
+        #expect(SearchEngine.search("bet", entries: results).first?.id == "app.betterdisplay")
     }
 }
 
