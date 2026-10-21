@@ -109,6 +109,15 @@ struct GeometryTests {
         #expect(right.maxX == screen.maxX)
     }
     @Test
+    func testCenterThreeFourthsPreservesStoredIdentifierAndCentersWidth() {
+        let action = WindowAction.centerThreeFourths
+        #expect(WindowAction(rawValue: "centerTwoThirds") == action)
+        #expect(action.title == "Center Three Fourths")
+        let visible = CGRect(x: -1600, y: 25, width: 1600, height: 900)
+        let result = action.frame(in: visible, current: current)
+        #expect(result == CGRect(x: -1400, y: 25, width: 1200, height: 900))
+    }
+    @Test
     func testAllLayoutsStayInsideUsableArea() {
         for action in WindowAction.allCases where action.unitRect != nil {
             let result = action.frame(in: screen, current: current)

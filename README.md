@@ -62,7 +62,9 @@ To hide the cloud icon, turn off **Settings → Show menu bar icon**. This takes
 
 App search works without Accessibility access. Window commands require it. Choose **Ciel Settings → Allow Access**, then enable the installed Ciel app in macOS privacy settings. Focus the window you want to change, then open Ciel. Ciel retains that target window.
 
-Commands include halves, quarters, thirds, maximize, almost maximize, center, restore, minimize, and moving between displays. Set optional global shortcuts in **Window Shortcuts**. Press Escape to cancel recording. Press Delete to clear a window shortcut. Conflicts leave the previous shortcut in place.
+Commands include halves, quarters, three fourths, maximize, almost maximize, center, restore, minimize, and moving between displays. Set optional global shortcuts in **Window Shortcuts**. Press Escape to cancel recording. Press Delete to clear a window shortcut. Conflicts leave the previous shortcut in place.
+
+Center Three Fourths uses 75% of the usable width, with equal left and right margins.
 
 Maximize fills the usable screen. It does not enter macOS full screen. Almost Maximize uses 90% of the usable width and height. Center preserves size unless the window exceeds the screen. Restore swaps the last two window bounds. Moving between displays preserves relative position and size. Displays are ordered left to right, then top to bottom.
 

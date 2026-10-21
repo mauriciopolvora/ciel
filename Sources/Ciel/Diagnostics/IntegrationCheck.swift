@@ -63,12 +63,12 @@ import CielCore
         }
         let left = WindowAction.leftHalf.frame(in: visible, current: original)
         let right = WindowAction.rightHalf.frame(in: visible, current: left)
-        let thirds = WindowAction.centerTwoThirds.frame(in: visible, current: right)
+        let centered = WindowAction.centerThreeFourths.frame(in: visible, current: right)
         let maximized = WindowAction.maximize.frame(in: visible, current: right)
         steps = [
             (.leftHalf, left), (.rightHalf, right), (.maximize, maximized),
             (.leftHalf, left), (.restore, maximized), (.rightHalf, right),
-            (.centerTwoThirds, thirds), (.restore, right),
+            (.centerThreeFourths, centered), (.restore, right),
         ]
         if displays.count > 1 {
             steps.append(

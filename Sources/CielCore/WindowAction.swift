@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 
 public enum WindowAction: String, CaseIterable, Codable, Sendable {
-    case leftHalf, rightHalf, centerTwoThirds, firstThreeFourths, lastThreeFourths
+    case leftHalf, rightHalf, firstThreeFourths, lastThreeFourths
+    // Keep the stored identifier for existing shortcuts and usage history.
+    case centerThreeFourths = "centerTwoThirds"
     case maximize, almostMaximize, center, nextDisplay, previousDisplay, restore
     case topHalf, bottomHalf, topLeft, topRight, bottomLeft, bottomRight, minimize
 
@@ -10,7 +12,7 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable {
         switch self {
         case .leftHalf: return "Left Half"
         case .rightHalf: return "Right Half"
-        case .centerTwoThirds: return "Center Two Thirds"
+        case .centerThreeFourths: return "Center Three Fourths"
         case .firstThreeFourths: return "First Three Fourths"
         case .lastThreeFourths: return "Last Three Fourths"
         case .maximize: return "Maximize"
@@ -45,7 +47,7 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable {
         switch self {
         case .leftHalf: return CGRect(x: 0, y: 0, width: 0.5, height: 1)
         case .rightHalf: return CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
-        case .centerTwoThirds: return CGRect(x: 1.0 / 6, y: 0, width: 2.0 / 3, height: 1)
+        case .centerThreeFourths: return CGRect(x: 0.125, y: 0, width: 0.75, height: 1)
         case .firstThreeFourths: return CGRect(x: 0, y: 0, width: 0.75, height: 1)
         case .lastThreeFourths: return CGRect(x: 0.25, y: 0, width: 0.75, height: 1)
         case .maximize: return CGRect(x: 0, y: 0, width: 1, height: 1)
