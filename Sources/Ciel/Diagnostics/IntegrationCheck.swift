@@ -2,8 +2,7 @@ import AppKit
 import CielCore
 
 @MainActor final class IntegrationCheck {
-    private static let engineFrameBudget: TimeInterval = 0.5
-    private static let minimumSizeCommandLimit = 2 * engineFrameBudget - 0.15
+    private static let minimumSizeCommandLimit = 2 * WindowOperationEngine.frameBudget - 0.15
     private let controller = WindowController()
     private var child = Process()
     private let directory = FileManager.default.temporaryDirectory.appendingPathComponent(

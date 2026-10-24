@@ -98,8 +98,7 @@ struct CatalogTests {
         catalog.changed([
             CatalogEvent(path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Info.plist", flags: 0)
         ])
-        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-        while !refreshed && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try await waitUntil { refreshed }
         #expect(catalog.entries.map(\.title) == ["Tool"])
     }
 
