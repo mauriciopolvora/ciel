@@ -25,7 +25,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         "Try another name, or switch to All.", size: 12, color: Theme.secondary)
     private let divider = FlippedView()
     private let tint = LauncherDragSurface()
-    private var displayObserver: NotificationObservation?
+    private var displayObserver: Cleanup?
     private var showKeys = false
     private var applyingSelection = false
 
@@ -84,9 +84,8 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         emptyDetail.alignment = .center
         addSubview(emptyDetail)
         updateSurface()
-        displayObserver = NotificationObservation(
-            center: NSWorkspace.shared.notificationCenter,
-            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        displayObserver = NSWorkspace.shared.notificationCenter.observe(
+            NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
         ) { [weak self] in
             self?.updateSurface()
         }

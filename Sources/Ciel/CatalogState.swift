@@ -128,6 +128,20 @@ enum CatalogPaths {
 
     static func overlap(_ a: String, _ b: String) -> Bool { contains(a, b) || contains(b, a) }
 
+    /// Each root's nearest existing ancestor, so creating a missing root still produces events.
+    static func watchPaths(for roots: [URL]) -> [String] {
+        Array(
+            Set(
+                roots.map { root in
+                    var url = root
+                    if url.pathExtension.lowercased() == "app" { url.deleteLastPathComponent() }
+                    while !FileManager.default.fileExists(atPath: url.path) && url.path != "/" {
+                        url.deleteLastPathComponent()
+                    }
+                    return canonical(url.path)
+                }))
+    }
+
     static func appBundle(containing path: String, roots: [String]) -> String? {
         var components: [Substring] = []
         for component in path.split(separator: "/") {

@@ -18,7 +18,7 @@ import CielCore
     private var keyboardGuide: KeyboardGuideController?
     private var about: AboutController?
     private let history = UsageHistory()
-    private var observers: [NotificationObservation] = []
+    private var observers: [Cleanup] = []
     private var opening = false
     private var executing = false
     private let check: (@MainActor (CheckHandles) -> Void)?
@@ -46,14 +46,11 @@ import CielCore
         }
         reloadEntries()
         catalog.refresh()
-        for name in [
+        observers = [
             NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification,
             NSWorkspace.didWakeNotification,
-        ] {
-            observers.append(
-                NotificationObservation(center: NSWorkspace.shared.notificationCenter, name: name) {
-                    [weak self] in self?.catalog.refresh()
-                })
+        ].map { name in
+            NSWorkspace.shared.notificationCenter.observe(name) { [weak self] in self?.catalog.refresh() }
         }
         guard check == nil else { return }
         if !hotKeys.registrationErrors.isEmpty {

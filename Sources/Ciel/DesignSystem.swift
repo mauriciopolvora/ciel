@@ -74,13 +74,12 @@ final class MonochromeSwitch: NSButton {
 final class SurfaceView: FlippedView {
     var isGroup = false
     var isFloating = false
-    private var observer: NotificationObservation?
+    private var observer: Cleanup?
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        observer = NotificationObservation(
-            center: NSWorkspace.shared.notificationCenter,
-            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        observer = NSWorkspace.shared.notificationCenter.observe(
+            NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
         ) { [weak self] in self?.refreshSurface() }
     }
     required init?(coder: NSCoder) { fatalError() }

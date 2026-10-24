@@ -164,6 +164,22 @@ struct CatalogTests {
     }
 
     @Test
+    func missingRootsWatchTheirNearestExistingAncestorOnce() throws {
+        let fixture = try CatalogFixture()
+        defer { fixture.remove() }
+        let nested = fixture.root.appendingPathComponent("Nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let paths = CatalogPaths.watchPaths(for: [
+            fixture.root.appendingPathComponent("Missing/Applications"),
+            fixture.root.appendingPathComponent("Other"),
+            nested.appendingPathComponent("Absent.app"),
+        ])
+        let root = try #require(realpath(fixture.root.path, nil))
+        defer { free(root) }
+        #expect(paths.sorted() == [String(cString: root), String(cString: root) + "/Nested"])
+    }
+
+    @Test
     func realPathsInvalidateSymbolicAppPaths() throws {
         let fixture = try CatalogFixture()
         defer { fixture.remove() }
