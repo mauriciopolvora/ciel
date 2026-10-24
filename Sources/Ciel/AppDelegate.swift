@@ -46,7 +46,7 @@ import CielCore
         setupPanel()
         hotKeys.bind("launcher") { [weak self] in self?.toggle() }
         for action in WindowAction.allCases {
-            hotKeys.bind("window." + action.rawValue) { [weak self] in self?.runDirect(action) }
+            hotKeys.bind(action.id) { [weak self] in self?.runDirect(action) }
         }
         catalog.onChange = { [weak self] in
             self?.reloadEntries()
@@ -171,15 +171,7 @@ import CielCore
     }
 
     private func reloadEntries() {
-        let entries =
-            catalog.entries + SearchEntry.commands + [
-                SearchEntry(
-                    id: "settings", title: "Ciel Settings", subtitle: "Preferences", kind: .utility,
-                    keywords: "hotkey shortcut permission accessibility login"),
-                SearchEntry(
-                    id: "rescan", title: "Rescan Applications", subtitle: "Ciel", kind: .utility,
-                    keywords: "refresh index apps"),
-            ]
+        let entries = catalog.entries + SearchEntry.commands + SearchEntry.utilities
         launcher.update(entries: entries, usage: history.counts, lastUsed: history.lastUsed)
     }
     @objc private func menuOpen() { present() }
