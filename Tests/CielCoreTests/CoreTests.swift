@@ -184,22 +184,26 @@ struct GeometryTests {
 
 @Suite
 struct CatalogTests {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("ciel-scan-" + UUID().uuidString)
+
+    func writeBundle(_ path: String, info: [String: Any]) throws {
+        let url = root.appendingPathComponent(path + "/Contents")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: url.appendingPathComponent("Info.plist"))
+    }
+
     @Test
     func testDiscovery() throws {
-        let fm = FileManager.default
-        let root = fm.temporaryDirectory.appendingPathComponent("ciel-scan-" + UUID().uuidString)
-        defer { try? fm.removeItem(at: root) }
+        defer { try? FileManager.default.removeItem(at: root) }
         func app(_ path: String, id: String, extra: [String: Any] = [:]) throws {
-            let url = root.appendingPathComponent(path + "/Contents")
-            try fm.createDirectory(at: url, withIntermediateDirectories: true)
             var info: [String: Any] = [
                 "CFBundleIdentifier": id,
                 "CFBundleName": path.components(separatedBy: "/").last!.replacingOccurrences(
                     of: ".app", with: ""),
             ]
             info.merge(extra) { _, new in new }
-            try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
-                .write(to: url.appendingPathComponent("Info.plist"))
+            try writeBundle(path, info: info)
         }
         try app("Nested/Menu Tool.app", id: "menu", extra: ["LSUIElement": true])
         try app(
@@ -215,6 +219,45 @@ struct CatalogTests {
         #expect(Set(results.map(\.id)) == Set(["app.menu", "app.betterdisplay", "app.normal"]))
         #expect(results.first { $0.id == "app.menu" }?.title == "Menu Tool")
         #expect(SearchEngine.search("bet", entries: results).first?.id == "app.betterdisplay")
+    }
+
+    @Test
+    func testInfoPlistShapes() throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let shapes: [(app: String, info: [String: Any], listed: Bool)] = [
+            (
+                "Normal",
+                [
+                    "CFBundleIdentifier": "normal", "CFBundleName": "Normal",
+                    "CFBundleDisplayName": "Normal App",
+                ], true
+            ),
+            ("FolderActionsDispatcher", ["CFBundleIdentifier": "agent", "LSBackgroundOnly": true], false),
+            (
+                "BetterDisplay",
+                ["CFBundleIdentifier": "betterdisplay", "LSBackgroundOnly": true, "LSUIElement": true], true
+            ),
+            (
+                "VoiceOver",
+                ["CFBundleIdentifier": "voiceover", "LSBackgroundOnly": true, "LSUIElement": "1"], true
+            ),
+            ("AltTab", ["CFBundleIdentifier": "alttab", "LSUIElement": "true"], true),
+            ("PIPAgent", ["CFBundleIdentifier": "pipagent", "LSUIElement": "YES"], true),
+            ("Database Events", ["CFBundleIdentifier": "databaseevents", "LSBackgroundOnly": "1"], false),
+            (
+                "System Events",
+                ["CFBundleIdentifier": "systemevents", "LSBackgroundOnly": "0", "LSUIElement": "1"], true
+            ),
+            ("FluidVoice", ["CFBundleIdentifier": "fluidvoice", "LSUIElement": false], true),
+            ("No Identifier", ["CFBundleName": "No Identifier"], false),
+        ]
+        for shape in shapes { try writeBundle(shape.app + ".app", info: shape.info) }
+        let titles = Dictionary(
+            uniqueKeysWithValues: ApplicationScanner.scan(roots: [root]).map { ($0.id, $0.title) })
+        let listed = shapes.filter(\.listed).map { "app." + ($0.info["CFBundleIdentifier"] as? String ?? "") }
+        #expect(Set(titles.keys) == Set(listed))
+        #expect(titles["app.normal"] == "Normal App")
+        #expect(titles["app.systemevents"] == "System Events")
     }
 }
 
