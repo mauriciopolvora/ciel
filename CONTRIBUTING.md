@@ -20,7 +20,7 @@ Format Swift changes before running checks:
 swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
 ```
 
-Use the tokens in `Sources/Ciel/DesignSystem.swift`. Check light and dark appearance. Check Reduce Motion, Reduce Transparency, and Increase Contrast. Keep keyboard input, selection, and resizing immediate. Use native controls when possible.
+Use the tokens in `Sources/Ciel/DesignSystem.swift`. `check.sh` runs `scripts/lint-colors.sh`, which fails on a color, text label, native switch or checkbox, or standard About panel built outside that file and names the replacement. Put a needed exception on the offending line as `// color-lint: allow until YYYY-MM-DD, approved by <human>: <reason>`. Check light and dark appearance. Check Reduce Motion, Reduce Transparency, and Increase Contrast. Keep keyboard input, selection, and resizing immediate. Use native controls when possible.
 
 Keep AppKit state on the main actor. Keep blocking filesystem and Accessibility work on their worker executors. Pass immutable values across boundaries. The package uses Swift 6 language mode. Do not disable concurrency checking to resolve an ownership problem.
 

@@ -7,6 +7,7 @@ fi
 bash -n scripts/*.sh
 plutil -lint Resources/Info.plist
 swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
+bash scripts/lint-colors.sh
 bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
 bash scripts/benchmark.sh
 if [[ $# -eq 1 ]]; then exit 0; fi
