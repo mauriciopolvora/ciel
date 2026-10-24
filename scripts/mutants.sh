@@ -81,7 +81,7 @@ for entry in "${mutants[@]}"; do
     else
         plain="$(sed $'s/\x1b\\[[0-9;]*m//g' "$logs/$id.log")"
         error="$(grep -m1 -oE '[A-Za-z]+\.swift:[0-9]+:[0-9]+: error: .*' <<<"$plain" || true)"
-        failed="$(sed -nE 's/^✘ Test (.*) failed after .*/\1/p' <<<"$plain" | sort -u)"
+        failed="$(sed -nE '/^✘ Test run with /d; s/^✘ Test (.*) failed after .*/\1/p' <<<"$plain" | sort -u)"
         if [[ -n "$error" ]]; then
             result="caught: compile fail \`$error\`"
         elif [[ -n "$failed" ]]; then
