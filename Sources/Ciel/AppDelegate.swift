@@ -45,6 +45,11 @@ import CielCore
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
                 error: true)
         }
+        if Preferences().windowAccessLost(trusted: WindowController.isTrusted) {
+            hud.show(
+                "An update reset window access. Remove Ciel in Accessibility settings, then add it again.",
+                error: true)
+        }
         if !NSAppleEventManager.shared().launchedAsLoginItem { present() }
     }
 
@@ -155,6 +160,7 @@ import CielCore
             WindowController.requestPermission()
             return
         }
+        Preferences().hadWindowAccess = true
         let target = (panel.isVisible ? session : nil) ?? windows.capture(.frontmost)
         panel.dismiss()
         windows.perform(action, on: target) { [weak self] result in
