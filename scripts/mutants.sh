@@ -1,5 +1,4 @@
 #!/bin/bash
-# Each mutant reapplies a mistake this repo has made before. The test suite must fail on every one.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root="$PWD"

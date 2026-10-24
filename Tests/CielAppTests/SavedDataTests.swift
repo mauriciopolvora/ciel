@@ -4,8 +4,7 @@ import Testing
 
 @testable import CielApp
 
-/// Users' usage history and shortcuts are keyed by these strings, so a rename silently drops them.
-@MainActor @Suite("Saved data")
+@MainActor @Suite("Shipped ids and stored formats survive renames")
 struct SavedDataTests {
     private let shippedWindowIDs: [String: WindowAction] = [
         "window.leftHalf": .leftHalf, "window.rightHalf": .rightHalf,
