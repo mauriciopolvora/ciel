@@ -84,6 +84,49 @@ struct WindowOperationTests {
         #expect(fixture.clock.now <= 0.5)
     }
 
+    @Test("A window that drops the first write gets it again 0.2 s later")
+    func droppedWriteIsRetriedAfterTwoTenths() throws {
+        let fixture = fixture()
+        fixture.window.sizeHandler = { size in
+            if fixture.clock.now > 0 { fixture.window.currentFrame.size = size }
+        }
+        fixture.window.positionHandler = { point in
+            if fixture.clock.now > 0 { fixture.window.currentFrame.origin = point }
+        }
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
+        #expect(fixture.clock.now >= 0.2)
+        #expect(fixture.clock.now < 0.25)
+    }
+
+    @Test("The retry moves the window back when the app moved it while resizing")
+    func retryRepairsAMoveTheAppMade() throws {
+        let fixture = fixture()
+        fixture.window.currentFrame = CGRect(x: 0, y: 30, width: 800, height: 500)
+        fixture.window.sizeHandler = { size in
+            fixture.window.currentFrame.size = size
+            fixture.window.currentFrame.origin.x = 50
+        }
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
+        #expect(fixture.window.currentFrame == CGRect(x: 0, y: 30, width: 600, height: 800))
+    }
+
+    @Test("A late response from a window that starts off screen still lands on the target")
+    func lateResponseFromOffscreenWindow() throws {
+        let fixture = fixture()
+        fixture.window.currentFrame = CGRect(x: 600, y: 30, width: 900, height: 800)
+        var requested = fixture.window.currentFrame
+        fixture.window.sizeHandler = { requested.size = $0 }
+        fixture.window.positionHandler = { requested.origin = $0 }
+        fixture.window.readHandler = {
+            if fixture.clock.now >= 0.48 { fixture.window.currentFrame = requested }
+        }
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
+        #expect(fixture.window.currentFrame == CGRect(x: 0, y: 30, width: 600, height: 800))
+    }
+
     @Test("Changing animation frames are polled until they reach the target")
     func delayedAnimatedSize() throws {
         let fixture = fixture()

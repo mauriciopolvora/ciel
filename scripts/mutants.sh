@@ -19,6 +19,13 @@ mutants=(
     "M13|Save a shortcut that was never registered"
     "M14|Let a window command target Ciel itself"
     "M15|Read an unset toggle as off"
+    "M16|Yield to a visibility correction before the window responds"
+    "M17|Wait 0.25 s before retrying an unchanged window"
+    "M18|Retry from the original frame instead of the last observed one"
+    "M19|Shrink the frame tolerance to 2 points"
+    "M20|Settle as constrained when the frame changed after the retry"
+    "M21|Deliver an icon load that was invalidated and requested again"
+    "M22|Let an invalidated icon load keep its in-flight slot"
 )
 
 mutate() {
@@ -64,6 +71,16 @@ mutate() {
                 's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
             ;;
         M15) swap Sources/Ciel/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
+        M16) swap Sources/Ciel/FrameSettle.swift 's/needsVisibilityCorrection, !isUnchanged, /needsVisibilityCorrection, /' ;;
+        M17) swap Sources/Ciel/FrameSettle.swift 's/(unchangedRetryDelay: TimeInterval = )0\.2\n/${1}0.25\n/' ;;
+        M18) swap Sources/Ciel/WindowOperationEngine.swift 's/try update\(window, from: settle\.last,/try update(window, from: original,/' ;;
+        M19) swap Sources/Ciel/FrameSettle.swift 's/tolerance: CGFloat = 3/tolerance: CGFloat = 2/' ;;
+        M20) swap Sources/Ciel/FrameSettle.swift 's/\n\s+guard Self\.matches\(last, retryFrame\) else \{ return \.keepPolling \}//' ;;
+        M21) swap Sources/Ciel/IconCache.swift 's/guard loads\[path\] === load else/guard loads[path] != nil else/' ;;
+        M22)
+            swap Sources/Ciel/IconCache.swift \
+                's/\n(\s+)loadsInFlight -= 1\n(\s+defer \{ startQueuedLoads\(\) \}\n\s+guard loads\[path\] === load else \{ return \}\n)/\n$2$1loadsInFlight -= 1\n/'
+            ;;
     esac
 }
 
