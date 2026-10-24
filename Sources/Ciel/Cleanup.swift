@@ -1,7 +1,6 @@
 import Foundation
 
-/// Runs `release` once, when the last owner lets go. A main-actor owner can hold a C or
-/// Foundation registration this way without reading isolated state in its deinit.
+/// A main-actor owner can hold a C or Foundation registration this way without reading isolated state in its deinit.
 final class Cleanup {
     private let release: () -> Void
 

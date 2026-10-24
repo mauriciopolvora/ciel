@@ -11,7 +11,6 @@ struct CatalogScanRequest: Sendable {
     let iconImpact: CatalogEventImpact
 }
 
-/// One finished refresh, published whether or not anything changed.
 struct CatalogUpdate: Equatable, Sendable {
     let invalidatedIconPaths: Set<String>
     let entriesChanged: Bool
@@ -134,7 +133,6 @@ enum CatalogPaths {
 
     static func overlap(_ a: String, _ b: String) -> Bool { contains(a, b) || contains(b, a) }
 
-    /// Each root's nearest existing ancestor, so creating a missing root still produces events.
     static func watchPaths(for roots: [URL]) -> [String] {
         Array(
             Set(

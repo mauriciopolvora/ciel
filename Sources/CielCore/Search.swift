@@ -39,7 +39,6 @@ public struct SearchEntry: Identifiable, Codable, Equatable, Sendable {
     public var utility: UtilityCommand? { kind == .utility ? UtilityCommand(rawValue: id) : nil }
 }
 
-/// Raw values are entry ids, so they are also usage keys on users' disks.
 public enum UtilityCommand: String, CaseIterable, Sendable {
     case settings, rescan
 

@@ -30,7 +30,6 @@ struct ForeignProcess: Equatable, Sendable {
     }
 }
 
-/// The window chosen when it was captured. A later capture never redirects a command on this one.
 struct WindowTarget: Sendable {
     fileprivate let selection: Task<WindowSelection, Never>
 }

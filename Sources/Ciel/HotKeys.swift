@@ -57,8 +57,7 @@ enum HotKeyCommand: Hashable, Sendable {
 
     static var allCases: [HotKeyCommand] { [.launcher] + WindowAction.allCases.map(Self.window) }
 
-    /// The key of this command's shortcut in the saved `shortcuts` JSON.
-    var name: String {
+    var storageKey: String {
         switch self {
         case .launcher: "launcher"
         case .window(let action): action.id
@@ -67,7 +66,6 @@ enum HotKeyCommand: Hashable, Sendable {
 }
 
 @MainActor protocol HotKeyRegistrar {
-    /// Releasing the returned value unregisters the shortcut.
     func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup
 }
 
@@ -94,31 +92,31 @@ enum HotKeyCommand: Hashable, Sendable {
         {
             shortcuts = saved
         }
-        if shortcuts[HotKeyCommand.launcher.name] == nil {
-            shortcuts[HotKeyCommand.launcher.name] = .launcher
+        if shortcuts[HotKeyCommand.launcher.storageKey] == nil {
+            shortcuts[HotKeyCommand.launcher.storageKey] = .launcher
         }
         for command in HotKeyCommand.allCases {
-            guard let shortcut = shortcuts[command.name] else { continue }
+            guard let shortcut = shortcuts[command.storageKey] else { continue }
             do { try register(command, shortcut) } catch {
-                registrationErrors.append("\(command.name): \(error.localizedDescription)")
+                registrationErrors.append("\(command.storageKey): \(error.localizedDescription)")
             }
         }
     }
 
-    func shortcut(for command: HotKeyCommand) -> Shortcut? { shortcuts[command.name] }
+    func shortcut(for command: HotKeyCommand) -> Shortcut? { shortcuts[command.storageKey] }
 
     func update(_ command: HotKeyCommand, to shortcut: Shortcut?) throws {
         if let shortcut {
-            if shortcuts.contains(where: { $0.key != command.name && $0.value == shortcut }) {
+            if shortcuts.contains(where: { $0.key != command.storageKey && $0.value == shortcut }) {
                 throw HotKeyError.duplicate
             }
-            if shortcut == shortcuts[command.name], registrations[command] != nil { return }
+            if shortcut == shortcuts[command.storageKey], registrations[command] != nil { return }
             try register(command, shortcut)
         } else {
             guard command != .launcher else { throw HotKeyError.required }
             registrations[command] = nil
         }
-        shortcuts[command.name] = shortcut
+        shortcuts[command.storageKey] = shortcut
         defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
         onChange()
     }
@@ -128,7 +126,7 @@ enum HotKeyCommand: Hashable, Sendable {
     }
 
     private func pressed(_ command: HotKeyCommand) {
-        if let recordingHandler, let shortcut = shortcuts[command.name] {
+        if let recordingHandler, let shortcut = shortcuts[command.storageKey] {
             recordingHandler(shortcut)
         } else {
             onPress(command)

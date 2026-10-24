@@ -86,12 +86,11 @@ import CielCore
     private func hotKeyPressed(_ command: HotKeyCommand) {
         switch command {
         case .launcher: if panel.isVisible { panel.dismiss() } else { present() }
-        case .window(let action): run(action, on: panel.isVisible ? session : nil)
+        case .window(let action): run(action)
         }
     }
 
     private func catalogUpdated(_ update: CatalogUpdate) {
-        // Invalidate first, so the cells a reload configures miss the stale icons.
         panel.launcher.invalidateIcons(paths: update.invalidatedIconPaths)
         if update.entriesChanged { reloadEntries() }
         if let check = pendingCheck {
@@ -120,7 +119,7 @@ import CielCore
 
     private func execute(_ entry: SearchEntry) {
         if let action = entry.action {
-            run(action, on: session)
+            run(action)
             return
         }
         if let path = entry.path {
@@ -148,8 +147,7 @@ import CielCore
         }
     }
 
-    /// A nil target captures the frontmost app, after the checks that can drop the command.
-    private func run(_ action: WindowAction, on target: WindowTarget?) {
+    private func run(_ action: WindowAction) {
         guard !windows.isBusy else { return }
         guard WindowController.isTrusted else {
             panel.dismiss()
@@ -157,7 +155,7 @@ import CielCore
             WindowController.requestPermission()
             return
         }
-        let target = target ?? windows.capture(.frontmost)
+        let target = (panel.isVisible ? session : nil) ?? windows.capture(.frontmost)
         panel.dismiss()
         windows.perform(action, on: target) { [weak self] result in
             guard let self else { return }

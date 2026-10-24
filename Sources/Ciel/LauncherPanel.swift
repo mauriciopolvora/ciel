@@ -148,8 +148,7 @@ final class LauncherPanel: NSPanel {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) {
-            // Accessory panels have no foreground Edit menu. Route standard text shortcuts
-            // directly to the native field editor.
+            // Accessory apps have no Edit menu, so nothing else routes these shortcuts to the field editor.
             if let editor = firstResponder as? NSTextView {
                 switch event.charactersIgnoringModifiers {
                 case "a":
