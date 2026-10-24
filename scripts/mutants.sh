@@ -14,6 +14,7 @@ mutants=(
     "M8|Change AppIdentity without Info.plist"
     "M9|Run a native check under any bundle identifier"
     "M10|Launch the app on an unknown flag"
+    "M11|Match FSEvents paths against uncanonicalized catalog roots"
 )
 
 mutate() {
@@ -45,6 +46,10 @@ mutate() {
                 's/\n\s+guard bundleIdentifier == AppIdentity\.checksBundleIdentifier else \{\n[^\n]*\n\s+\}//'
             ;;
         M10) swap Sources/Ciel/Diagnostics/LaunchMode.swift 's/default: return nil/default: self = .app/' ;;
+        M11)
+            swap Sources/Ciel/AppCatalog.swift \
+                's/canonicalRoots = roots\.map \{ CatalogPaths\.canonical\(\$0\.path\) \}/canonicalRoots = roots.map(\\.path)/g'
+            ;;
     esac
 }
 

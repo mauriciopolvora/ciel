@@ -4,10 +4,9 @@ import CielCore
 @MainActor
 final class CatalogCheck {
     private var catalog: AppCatalog?
-    private let root = URL(
-        fileURLWithPath: CatalogPaths.canonical(
-            FileManager.default.temporaryDirectory.appendingPathComponent("ciel-events-" + UUID().uuidString)
-                .path))
+    // Stays under the /var symlink so the catalog must match FSEvents' /private/var paths itself.
+    private let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "ciel-events-" + UUID().uuidString)
     private var phase = 0
     private var finished = false
     private var publicationCount = 0

@@ -81,6 +81,28 @@ struct CatalogTests {
         catalog.onRefreshFinished = nil
     }
 
+    @Test @MainActor
+    func eventsAtTheRealPathRefreshASymlinkedRoot() async throws {
+        let fixture = try CatalogFixture()
+        defer { fixture.remove() }
+        let link = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "ciel-link-" + UUID().uuidString)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: fixture.root)
+        defer { try? FileManager.default.removeItem(at: link) }
+        let catalog = AppCatalog(
+            roots: [link.appendingPathComponent("Nested")], cacheURL: nil, watchChanges: false)
+        await refresh(catalog)
+        try fixture.writeApp(name: "Tool")
+        var refreshed = false
+        catalog.onRefreshFinished = { refreshed = true }
+        catalog.changed([
+            CatalogEvent(path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Info.plist", flags: 0)
+        ])
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !refreshed && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(catalog.entries.map(\.title) == ["Tool"])
+    }
+
     @Test
     func appResourceChangesInvalidateTheBundle() {
         let impact = CatalogEventImpact.classify(
