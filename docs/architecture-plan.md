@@ -23,7 +23,7 @@ The integration review checks all boundaries together. No extra framework or dat
 
 `AppCatalog` owns the current snapshot on the main actor. `CatalogScanWorker` scans and saves on a serial queue. Refresh completion is independent of changed entries. This permits empty or cache-equal startup to complete without a false change notification. Filesystem events also identify icons that need invalidation. Event bursts have a two-second maximum debounce delay. Full scans retain nested discovery and bundle identifier deduplication.
 
-`IconCache` owns cache entries and one load per icon path on the main actor. Worker tasks retrieve and draw icons. Only immutable `CGImage` pixels return to the main actor. Default limits are 80 cached icons, 4 MiB of pixel data, 64 pending requests, and two concurrent loads. A cell checks its entry and path before it applies an icon. A load that was invalidated cannot repopulate the cache or call back.
+`IconCache` owns cache entries and the current load for each icon path on the main actor. Worker tasks retrieve and draw icons. Only immutable `CGImage` pixels return to the main actor. Default limits are 80 cached icons, 4 MiB of pixel data, 64 pending loads, and two concurrent loads. A cell checks its entry and path before it applies an icon. A load that was invalidated cannot repopulate the cache or call back.
 
 `WindowController` pins the captured window selection before it awaits work. A custom serial executor confines synchronous AX calls and engine state. The engine uses one 500 ms frame budget for updates, retries, polling, and boundary corrections. Fast commands send size-position-size without an intermediate wait. Delayed and constrained responses are covered by injected adapters and clocks.
 

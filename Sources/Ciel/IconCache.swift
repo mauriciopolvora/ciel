@@ -51,8 +51,6 @@ final class IconCache {
         self.loader = loader
     }
 
-    /// A miss returns immediately. Keep a placeholder until the main-actor callback arrives.
-    /// A cell must check its current entry before applying the callback's path and image.
     func icon(for path: String, onLoad: @escaping Completion) -> NSImage? {
         clock &+= 1
         if var hit = cached[path] {

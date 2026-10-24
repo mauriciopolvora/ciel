@@ -32,7 +32,7 @@ final class WindowOperationEngine {
     private let clock: any WindowOperationClock
     private var captures: [Capture] = []
     private var history: [(window: any WindowAccess, frame: CGRect)] = []
-    private static let frameBudget: TimeInterval = 0.5
+    static let frameBudget: TimeInterval = 0.5
     private static let minimizeBudget: TimeInterval = 1
     private static let callTimeout: TimeInterval = 0.25
     private static let pollInterval: TimeInterval = 0.01
@@ -156,13 +156,13 @@ final class WindowOperationEngine {
             throw WindowError.unsupported
         }
         try window.minimize(timeout: budget.timeout())
-        while try !dockFinishedMinimizing(window, budget: budget) {
+        while try !reportsMinimized(window, budget: budget) {
             try budget.pause(Self.pollInterval)
         }
         return action.title
     }
 
-    private func dockFinishedMinimizing(_ window: any WindowAccess, budget: Budget) throws -> Bool {
+    private func reportsMinimized(_ window: any WindowAccess, budget: Budget) throws -> Bool {
         do {
             return try window.isMinimized(timeout: budget.timeout())
         } catch let error as WindowError where error.isTemporaryMessagingFailure {
