@@ -21,26 +21,15 @@ import CielCore
     private var observers: [NotificationObservation] = []
     private var opening = false
     private var executing = false
-    private var checkFinished = false
-    private let uiCheck = CommandLine.arguments.contains("--ui-test")
-    private let smoke = CommandLine.arguments.contains("--smoke-test")
-    private let performanceCheck = CommandLine.arguments.contains("--performance-test")
-    private var integrationCheck: IntegrationCheck?
-    private var catalogCheck: CatalogCheck?
+    private let check: (@MainActor (CheckHandles) -> Void)?
+
+    init(check: (@MainActor (CheckHandles) -> Void)?) {
+        self.check = check
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         UserDefaults.standard.register(defaults: ["animations": true, "showMenuBarIcon": true])
-        if CommandLine.arguments.contains("--window-test") {
-            integrationCheck = IntegrationCheck()
-            integrationCheck?.run()
-            return
-        }
-        if CommandLine.arguments.contains("--catalog-test") {
-            catalogCheck = CatalogCheck()
-            catalogCheck?.run()
-            return
-        }
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
         setupPanel()
@@ -52,10 +41,8 @@ import CielCore
             self?.reloadEntries()
         }
         catalog.onIconsInvalidated = { [weak self] paths in self?.launcher.invalidateIcons(paths: paths) }
-        catalog.onRefreshFinished = { [weak self] in
-            if self?.smoke == true { self?.finishSmokeTest() }
-            if self?.uiCheck == true { self?.finishUICheck() }
-            if self?.performanceCheck == true { self?.finishPerformanceCheck() }
+        if let check {
+            catalog.onRefreshFinished = { [weak self] in self?.start(check) }
         }
         reloadEntries()
         catalog.refresh()
@@ -68,18 +55,17 @@ import CielCore
                     [weak self] in self?.catalog.refresh()
                 })
         }
-        if !smoke && !uiCheck && !performanceCheck {
-            if !hotKeys.registrationErrors.isEmpty {
-                hud.show(
-                    "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
-                    error: true)
-            }
-            // Launch-at-login stays quiet; a manual open presents the launcher.
-            let event = NSAppleEventManager.shared().currentAppleEvent
-            let loginLaunch =
-                event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-            if !loginLaunch { present() }
+        guard check == nil else { return }
+        if !hotKeys.registrationErrors.isEmpty {
+            hud.show(
+                "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
+                error: true)
         }
+        // Launch-at-login stays quiet; a manual open presents the launcher.
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let loginLaunch =
+            event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        if !loginLaunch { present() }
     }
 
     private func setupMenu() {
@@ -326,36 +312,22 @@ import CielCore
     }
     @objc private func quit() { NSApp.terminate(nil) }
 
-    private func finishUICheck() {
-        guard !checkFinished else { return }
-        checkFinished = true
+    private func start(_ check: @MainActor (CheckHandles) -> Void) {
+        catalog.onRefreshFinished = nil
         present()
-        LauncherCheck.run(launcher: launcher, panel: panel, entries: catalog.entries)
-    }
-
-    private func finishPerformanceCheck() {
-        guard !checkFinished else { return }
-        checkFinished = true
-        present()
-        PerformanceCheck.run(
-            launcher: launcher, panel: panel, startupMilliseconds: AppPerformance.startupMilliseconds)
-    }
-
-    private func finishSmokeTest() {
-        guard !checkFinished else { return }
-        checkFinished = true
-        present()
-        SmokeCheck.run(
-            launcher: launcher, fieldEditor: fieldEditor, catalog: catalog, hotKeys: hotKeys,
-            menu: statusItem.menu,
-            showSettings: { [self] in
-                showSettings()
-                return settings
-            },
-            windowShortcuts: { [self] in windowShortcuts },
-            showGuide: { [self] in
-                showGuide()
-                return keyboardGuide
-            })
+        check(
+            CheckHandles(
+                launcher: launcher, panel: panel, fieldEditor: fieldEditor, catalog: catalog,
+                hotKeys: hotKeys,
+                menu: statusItem.menu,
+                showSettings: { [self] in
+                    showSettings()
+                    return settings
+                },
+                windowShortcuts: { [self] in windowShortcuts },
+                showGuide: { [self] in
+                    showGuide()
+                    return keyboardGuide
+                }))
     }
 }

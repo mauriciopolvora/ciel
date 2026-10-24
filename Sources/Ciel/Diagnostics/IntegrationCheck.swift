@@ -1,16 +1,17 @@
 import AppKit
-import ApplicationServices
 import CielCore
 
 @MainActor final class IntegrationCheck {
+    private static let engineFrameBudget: TimeInterval = 0.5
+    // Under two frame budgets, so an engine that waits twice fails.
+    private static let minimumSizeLimit = engineFrameBudget + 0.35
     private let controller = WindowController()
     private var child = Process()
     private let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
         "ciel-check-" + UUID().uuidString)
     private var steps: [(WindowAction, CGRect)] = []
     private var failures = 0
-    private var attempts = 0
-    private var enhancedFixture: AXUIElement?
+    private var enhancedFixture: (any WindowAccess)?
     private var minimumSizeFixture = false
     private var fixtureDirectory: URL {
         minimumSizeFixture ? directory.appendingPathComponent("minimum") : directory
@@ -21,17 +22,36 @@ import CielCore
             print("SKIP: the test process has no Accessibility access")
             exit(2)
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in self?.finish(timeout: true) }
+        startFixture()
+    }
+
+    private func startFixture() {
+        if child.isRunning { child.terminate() }
+        enhancedFixture = nil
+        child = Process()
+        child.executableURL = Bundle.main.executableURL!
+        child.arguments =
+            LaunchMode.processCheck(.fixture(output: fixtureDirectory.path, minimumSize: minimumSizeFixture))
+            .arguments
         do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            child.executableURL = Bundle.main.executableURL!
-            child.arguments = ["--window-fixture", directory.path]
+            try FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
             try child.run()
         } catch {
+            failures += 1
             print("FAIL fixture: \(error)")
-            exit(1)
+            finish()
+            return
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in self?.finish(timeout: true) }
-        waitForFixture()
+        poll(
+            readFrame, until: { $0 != nil },
+            then: { [self] original in
+                guard let original else {
+                    finish(timeout: true)
+                    return
+                }
+                fixtureStarted(original: original)
+            })
     }
 
     private func readFrame() -> CGRect? {
@@ -40,16 +60,28 @@ import CielCore
         else { return nil }
         return frame
     }
-    private func waitForFixture() {
-        guard let original = readFrame() else {
-            attempts += 1
-            if attempts > 30 {
-                finish(timeout: true)
-                return
+
+    private func readMinimized() -> Bool {
+        let data = try? Data(contentsOf: directory.appendingPathComponent("minimized.json"))
+        return data.flatMap { try? JSONDecoder().decode(Bool.self, from: $0) } ?? false
+    }
+
+    private func poll<Value>(
+        _ read: @escaping () -> Value, until done: @escaping (Value) -> Bool,
+        then body: @escaping (Value) -> Void
+    ) {
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        Task {
+            var value = read()
+            while !done(value), ProcessInfo.processInfo.systemUptime < deadline {
+                try? await Task.sleep(for: .milliseconds(10))
+                value = read()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.waitForFixture() }
-            return
+            body(value)
         }
+    }
+
+    private func fixtureStarted(original: CGRect) {
         let displays = DisplaySnapshot.current()
         guard let index = WindowGeometry.displayIndex(for: original, displays: displays.map(\.full)) else {
             finish(timeout: true)
@@ -78,19 +110,16 @@ import CielCore
                 ))
             steps.append((.restore, right))
         }
-        // Exercise the app's animated AX mode and verify that window commands
-        // restore it. This changes only the temporary fixture process.
-        let app = AXUIElementCreateApplication(child.processIdentifier)
-        if AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
-            == .success
-        {
-            enhancedFixture = app
+        let window = SystemWindowAccessibility().focusedWindow(pid: child.processIdentifier)
+        if let window, (try? window.setEnhancedUI(true, timeout: 0.25)) != nil {
+            enhancedFixture = window
         } else {
             print("SKIP fixture Enhanced UI mode: unsupported")
         }
         controller.capture(pid: child.processIdentifier)
         next()
     }
+
     private func next() {
         guard !steps.isEmpty else {
             checkMinimize()
@@ -106,31 +135,31 @@ import CielCore
                 print("FAIL \(action.title): \(error.localizedDescription) [\(error)]")
                 next()
             case .success:
-                if let app = enhancedFixture {
-                    var enabled: CFTypeRef?
-                    let result = AXUIElementCopyAttributeValue(
-                        app, "AXEnhancedUserInterface" as CFString, &enabled)
-                    if result != .success || enabled as? Bool != true {
-                        failures += 1
-                        print("FAIL \(action.title): Enhanced UI mode not restored")
-                    }
+                if let window = enhancedFixture, (try? window.enhancedUI(timeout: 0.25)) != true {
+                    failures += 1
+                    print("FAIL \(action.title): Enhanced UI mode not restored")
                 }
-                // The fixture writes its AppKit frame on move/resize notifications.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    let actual = self.readFrame() ?? .zero
-                    let matches =
-                        abs(actual.minX - expected.minX) <= 2 && abs(actual.minY - expected.minY) <= 2
-                        && abs(actual.width - expected.width) <= 2
-                        && abs(actual.height - expected.height) <= 2
-                    if !matches { self.failures += 1 }
-                    print(
-                        "\(matches ? "PASS" : "FAIL") \(action.title): actual=\(actual), expected=\(expected), command=\(Int(elapsed)) ms"
-                    )
-                    self.next()
-                }
+                poll(
+                    readFrame, until: { Self.matches($0, expected) },
+                    then: { [self] frame in
+                        let actual = frame ?? .zero
+                        let matches = Self.matches(frame, expected)
+                        if !matches { failures += 1 }
+                        print(
+                            "\(matches ? "PASS" : "FAIL") \(action.title): actual=\(actual), expected=\(expected), command=\(Int(elapsed)) ms"
+                        )
+                        next()
+                    })
             }
         }
     }
+
+    private static func matches(_ actual: CGRect?, _ expected: CGRect) -> Bool {
+        guard let actual else { return false }
+        return abs(actual.minX - expected.minX) <= 2 && abs(actual.minY - expected.minY) <= 2
+            && abs(actual.width - expected.width) <= 2 && abs(actual.height - expected.height) <= 2
+    }
+
     private func checkMinimize() {
         controller.perform(.minimize, displays: DisplaySnapshot.current()) { [self] result in
             switch result {
@@ -139,34 +168,18 @@ import CielCore
                 print("FAIL Minimize: \(error)")
                 finish()
             case .success:
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    let data = try? Data(contentsOf: self.directory.appendingPathComponent("minimized.json"))
-                    let minimized = data.flatMap { try? JSONDecoder().decode(Bool.self, from: $0) } ?? false
-                    if !minimized { self.failures += 1 }
-                    print("\(minimized ? "PASS" : "FAIL") Minimize: fixture miniaturized=\(minimized)")
-                    self.startMinimumSizeFixture()
-                }
+                poll(
+                    readMinimized, until: { $0 },
+                    then: { [self] minimized in
+                        if !minimized { failures += 1 }
+                        print("\(minimized ? "PASS" : "FAIL") Minimize: fixture miniaturized=\(minimized)")
+                        minimumSizeFixture = true
+                        startFixture()
+                    })
             }
         }
     }
-    private func startMinimumSizeFixture() {
-        if child.isRunning { child.terminate() }
-        enhancedFixture = nil
-        minimumSizeFixture = true
-        attempts = 0
-        child = Process()
-        child.executableURL = Bundle.main.executableURL!
-        child.arguments = ["--window-fixture", fixtureDirectory.path, "--window-fixture-minimum"]
-        do {
-            try FileManager.default.createDirectory(at: fixtureDirectory, withIntermediateDirectories: true)
-            try child.run()
-            waitForFixture()
-        } catch {
-            failures += 1
-            print("FAIL minimum-size fixture: \(error)")
-            finish()
-        }
-    }
+
     private func checkMinimumSize(original: CGRect, visible: CGRect) {
         controller.capture(pid: child.processIdentifier)
         let started = ProcessInfo.processInfo.systemUptime
@@ -178,28 +191,28 @@ import CielCore
                 print("FAIL Minimum size: \(error)")
                 finish()
             case .success(let message):
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    let actual = self.readFrame() ?? .zero
-                    let expectedWidth = visible.width * 0.75
-                    let reachable =
-                        actual.minX >= visible.minX - 3
-                        && actual.maxX <= visible.maxX + 3
-                        && actual.minY >= visible.minY - 3
-                        && actual.maxY <= visible.maxY + 3
-                    // The frame polling budget is 500 ms. Allow native IPC and
-                    // scheduling overhead, while detecting the former two waits.
+                let reachable = { (frame: CGRect) in
+                    frame.minX >= visible.minX - 3 && frame.maxX <= visible.maxX + 3
+                        && frame.minY >= visible.minY - 3 && frame.maxY <= visible.maxY + 3
+                }
+                let settled = { (frame: CGRect?) in
+                    frame.map { $0.width >= visible.width * 0.75 - 3 && reachable($0) } ?? false
+                }
+                poll(readFrame, until: settled) { [self] frame in
+                    let actual = frame ?? .zero
                     let matches =
-                        message == "The app limited the window size."
-                        && actual.width >= expectedWidth - 3 && reachable && elapsed < 0.85
-                    if !matches { self.failures += 1 }
+                        message == "The app limited the window size." && settled(frame)
+                        && elapsed < Self.minimumSizeLimit
+                    if !matches { failures += 1 }
                     print(
-                        "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable), command=\(Int(elapsed * 1000)) ms, message=\(message)"
+                        "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable(actual)), command=\(Int(elapsed * 1000)) ms, message=\(message)"
                     )
-                    self.finish()
+                    finish()
                 }
             }
         }
     }
+
     private func finish(timeout: Bool = false) {
         if child.isRunning { child.terminate() }
         if timeout {
@@ -215,14 +228,22 @@ import CielCore
 @MainActor final class WindowFixture: NSObject, NSWindowDelegate {
     private var window: NSWindow!
     private let output: URL
-    init(output: String) { self.output = URL(fileURLWithPath: output).appendingPathComponent("frame.json") }
+    private let minimumSize: Bool
+    private var parentExit: (any DispatchSourceProcess)?
+
+    init(output: String, minimumSize: Bool) {
+        self.output = URL(fileURLWithPath: output).appendingPathComponent("frame.json")
+        self.minimumSize = minimumSize
+    }
+
     func run() {
+        exitWithParent()
         NSApp.setActivationPolicy(.regular)
         window = NSWindow(
             contentRect: NSRect(x: 180, y: 180, width: 700, height: 470),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Ciel temporary window test"
-        if CommandLine.arguments.contains("--window-fixture-minimum"), let screen = NSScreen.screens.first {
+        if minimumSize, let screen = NSScreen.screens.first {
             window.contentMinSize = CGSize(width: screen.visibleFrame.width * 0.75, height: 200)
             window.setContentSize(CGSize(width: screen.visibleFrame.width * 0.85, height: 470))
             window.setFrameOrigin(
@@ -237,9 +258,18 @@ import CielCore
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.saveFrame() }
-        // A failed parent must not leave a test window running.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { exit(0) }
     }
+
+    private func exitWithParent() {
+        let parent = getppid()
+        let source = DispatchSource.makeProcessSource(identifier: parent, eventMask: .exit, queue: .main)
+        source.setEventHandler { exit(0) }
+        source.resume()
+        parentExit = source
+        // A parent that exited before the source started never sends the event.
+        if parent == 1 || getppid() != parent { exit(0) }
+    }
+
     func windowDidMove(_ notification: Notification) { saveFrame() }
     func windowDidResize(_ notification: Notification) { saveFrame() }
     func windowDidMiniaturize(_ notification: Notification) {

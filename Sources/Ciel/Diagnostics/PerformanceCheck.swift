@@ -24,7 +24,6 @@ struct NativePerformanceBudget {
     }
 }
 
-/// An explicit desktop diagnostic. Its temporary app identity protects user preferences.
 @MainActor enum PerformanceCheck {
     static func run(launcher: LauncherView, panel: LauncherPanel, startupMilliseconds: Double) {
         Task {

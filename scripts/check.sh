@@ -11,7 +11,6 @@ bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
 bash scripts/benchmark.sh
 if [[ $# -eq 1 ]]; then exit 0; fi
 bash scripts/build.sh
-# Give native checks a separate identity so they do not read or write user settings.
 check_dir="$(mktemp -d "$PWD/.build/ciel-checks.XXXXXX")"
 trap 'rm -rf "$check_dir"' EXIT
 check_app="$check_dir/CielChecks.app"
@@ -24,3 +23,10 @@ check_binary="$check_app/Contents/MacOS/Ciel"
 "$check_binary" --catalog-test
 CIEL_SMOKE_OUTPUT="$PWD/.build/smoke" "$check_binary" --smoke-test
 CIEL_PERFORMANCE_OUTPUT="$PWD/.build/performance/native-ui.json" "$check_binary" --performance-test
+window_status=0
+"$check_binary" --window-test || window_status=$?
+if [[ $window_status -eq 2 && -z "${CI:-}" ]]; then
+    printf 'Skipped the window test: the checks app has no Accessibility access here. CI fails on this skip.\n' >&2
+elif [[ $window_status -ne 0 ]]; then
+    exit "$window_status"
+fi
