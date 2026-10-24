@@ -58,7 +58,7 @@ struct Shortcut: Codable, Equatable, Sendable {
     private var nextID: UInt32 = 1
     private(set) var shortcuts: [String: Shortcut] = [:]
     private(set) var registrationErrors: [String] = []
-    nonisolated static let signature: OSType = 0x4349_454C  // CIEL
+    nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "shortcuts"),

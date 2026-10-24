@@ -24,7 +24,6 @@ final class AppCatalog {
     private var rescanRequested = false
 
     convenience init(roots: [URL] = ApplicationScanner.defaultRoots, useCache: Bool = true) {
-        // Native checks run under their own bundle id, so they keep a separate catalog cache.
         let identifier = Bundle.main.bundleIdentifier ?? AppIdentity.bundleIdentifier
         let cacheURL =
             useCache
