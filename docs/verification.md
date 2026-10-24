@@ -4,7 +4,7 @@ Checked on 1 October 2026 on Apple silicon with macOS 27 and Swift 6.4. The depl
 
 ## Source and native checks
 
-Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The window check needs Accessibility access for the checks app and uses only temporary test windows. Without access it is skipped locally.
+Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The window check uses only temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally.
 
 | Check | Result |
 | --- | --- |

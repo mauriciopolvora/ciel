@@ -3,8 +3,7 @@ import CielCore
 
 @MainActor final class IntegrationCheck {
     private static let engineFrameBudget: TimeInterval = 0.5
-    // Under two frame budgets, so an engine that waits twice fails.
-    private static let minimumSizeLimit = engineFrameBudget + 0.35
+    private static let minimumSizeCommandLimit = 2 * engineFrameBudget - 0.15
     private let controller = WindowController()
     private var child = Process()
     private let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -44,7 +43,7 @@ import CielCore
             return
         }
         poll(
-            readFrame, until: { $0 != nil },
+            readFrame, within: 3, until: { $0 != nil },
             then: { [self] original in
                 guard let original else {
                     finish(timeout: true)
@@ -67,10 +66,10 @@ import CielCore
     }
 
     private func poll<Value>(
-        _ read: @escaping () -> Value, until done: @escaping (Value) -> Bool,
+        _ read: @escaping () -> Value, within seconds: TimeInterval, until done: @escaping (Value) -> Bool,
         then body: @escaping (Value) -> Void
     ) {
-        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        let deadline = ProcessInfo.processInfo.systemUptime + seconds
         Task {
             var value = read()
             while !done(value), ProcessInfo.processInfo.systemUptime < deadline {
@@ -84,7 +83,9 @@ import CielCore
     private func fixtureStarted(original: CGRect) {
         let displays = DisplaySnapshot.current()
         guard let index = WindowGeometry.displayIndex(for: original, displays: displays.map(\.full)) else {
-            finish(timeout: true)
+            failures += 1
+            print("FAIL fixture frame \(original) is on no display")
+            finish()
             return
         }
         let visible = displays[index].visible
@@ -110,11 +111,15 @@ import CielCore
                 ))
             steps.append((.restore, right))
         }
-        let window = SystemWindowAccessibility().focusedWindow(pid: child.processIdentifier)
-        if let window, (try? window.setEnhancedUI(true, timeout: 0.25)) != nil {
-            enhancedFixture = window
+        if let window = SystemWindowAccessibility().focusedWindow(pid: child.processIdentifier) {
+            do {
+                try window.setEnhancedUI(true, timeout: 0.25)
+                enhancedFixture = window
+            } catch {
+                print("SKIP fixture Enhanced UI mode: \(error)")
+            }
         } else {
-            print("SKIP fixture Enhanced UI mode: unsupported")
+            print("SKIP fixture Enhanced UI mode: no focused fixture window")
         }
         controller.capture(pid: child.processIdentifier)
         next()
@@ -140,7 +145,7 @@ import CielCore
                     print("FAIL \(action.title): Enhanced UI mode not restored")
                 }
                 poll(
-                    readFrame, until: { Self.matches($0, expected) },
+                    readFrame, within: 1, until: { Self.matches($0, expected) },
                     then: { [self] frame in
                         let actual = frame ?? .zero
                         let matches = Self.matches(frame, expected)
@@ -169,7 +174,7 @@ import CielCore
                 finish()
             case .success:
                 poll(
-                    readMinimized, until: { $0 },
+                    readMinimized, within: 1, until: { $0 },
                     then: { [self] minimized in
                         if !minimized { failures += 1 }
                         print("\(minimized ? "PASS" : "FAIL") Minimize: fixture miniaturized=\(minimized)")
@@ -196,13 +201,16 @@ import CielCore
                         && frame.minY >= visible.minY - 3 && frame.maxY <= visible.maxY + 3
                 }
                 let settled = { (frame: CGRect?) in
-                    frame.map { $0.width >= visible.width * 0.75 - 3 && reachable($0) } ?? false
+                    frame.map {
+                        $0.width >= visible.width * 0.75 - 3 && abs($0.maxX - visible.maxX) <= 3
+                            && reachable($0)
+                    } ?? false
                 }
-                poll(readFrame, until: settled) { [self] frame in
+                poll(readFrame, within: 1, until: settled) { [self] frame in
                     let actual = frame ?? .zero
                     let matches =
                         message == "The app limited the window size." && settled(frame)
-                        && elapsed < Self.minimumSizeLimit
+                        && elapsed < Self.minimumSizeCommandLimit
                     if !matches { failures += 1 }
                     print(
                         "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable(actual)), command=\(Int(elapsed * 1000)) ms, message=\(message)"
@@ -262,12 +270,12 @@ import CielCore
 
     private func exitWithParent() {
         let parent = getppid()
+        let launchd: pid_t = 1
+        if parent == launchd { exit(0) }
         let source = DispatchSource.makeProcessSource(identifier: parent, eventMask: .exit, queue: .main)
         source.setEventHandler { exit(0) }
         source.resume()
         parentExit = source
-        // A parent that exited before the source started never sends the event.
-        if parent == 1 || getppid() != parent { exit(0) }
     }
 
     func windowDidMove(_ notification: Notification) { saveFrame() }

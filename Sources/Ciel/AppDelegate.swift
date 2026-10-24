@@ -61,7 +61,6 @@ import CielCore
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
                 error: true)
         }
-        // Launch-at-login stays quiet; a manual open presents the launcher.
         let event = NSAppleEventManager.shared().currentAppleEvent
         let loginLaunch =
             event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem

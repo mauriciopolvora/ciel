@@ -10,4 +10,4 @@ Minimize is included in the command catalog. macOS can accept the Accessibility 
 
 The unit tests cover history ranking, recent-use ties, empty queries, exact text priority, saved history, and preservation of old counts. Run `bash scripts/check.sh --unit-only`.
 
-The optional native window fixture checks geometry, restore, display movement, and minimize. It needs Accessibility access for its own test process. See [verification](verification.md) for recorded results.
+The native window check in `bash scripts/check.sh` covers geometry, restore, display movement, and minimize. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. See [verification](verification.md) for recorded results.

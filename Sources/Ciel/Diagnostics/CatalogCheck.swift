@@ -75,7 +75,8 @@ final class CatalogCheck {
                     } catch { self.finish(false, "Icon fixture: \(error)") }
                 }
             case 3:
-                guard iconWriteStarted, invalidatedPaths.contains(app.path) else { return }
+                guard iconWriteStarted, let iconKey = entries.first?.path, invalidatedPaths.contains(iconKey)
+                else { return }
                 guard entries.first?.title == "Renamed Tool", publicationCount == 2 else {
                     finish(false, "An icon-only event published an unchanged catalog")
                     return

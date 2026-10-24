@@ -86,7 +86,7 @@ Search and keyboard selection do not wait for animation. Pointer hover uses a 12
 bash scripts/check.sh
 ```
 
-Native UI checks open temporary windows. They run only under a separate bundle identifier, so they keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The window check moves only its own temporary test windows. It needs Accessibility access for the checks app. Without access it is skipped locally, and CI fails.
+Native UI checks open temporary windows. They run only under a separate bundle identifier, so they keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The window check moves only its own temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally, and CI fails.
 
 - `Sources/Ciel`: the testable CielApp library, with AppKit UI, catalog, hotkeys, window controller, and settings.
 - `Sources/CielMain`: the app executable entry point.
