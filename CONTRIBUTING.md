@@ -12,6 +12,8 @@ Native UI checks use a separate bundle identifier. They do not change your insta
 
 Use `bash scripts/test.sh -c release` to run the discovered Swift Testing tests. This wrapper also handles the missing macro registration in some Command Line Tools builds. It uses the toolchain's bundled library. It does not change the selected toolchain. Normal Xcode toolchains run `swift test` without extra flags.
 
+`bash scripts/mutants.sh` reapplies each recorded past mistake to a temporary copy of the repo and fails if the tests miss one. CI runs it on every pull request. When you move or change code that a mutant targets, update that mutant in the script.
+
 Format Swift changes before running checks:
 
 ```sh

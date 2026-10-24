@@ -52,3 +52,22 @@ jobs:
           path: dist/Ciel-development.zip
           if-no-files-found: error
           retention-days: 14
+  mutants:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Check that the tests catch each recorded past mistake
+        run: bash scripts/mutants.sh
+      - name: Archive mutant logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-mutants
+          path: .build/mutants
+          if-no-files-found: warn
+          retention-days: 14
