@@ -15,6 +15,18 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: "showMenuBarIcon") }
     }
 
+    var hadWindowAccess: Bool {
+        get { defaults.bool(forKey: "hadWindowAccess") }
+        nonmutating set { defaults.set(newValue, forKey: "hadWindowAccess") }
+    }
+
+    /// An ad-hoc rebuild or update changes the code identity, so macOS keeps showing access as
+    /// enabled while denying it. Reports that once, then waits for the next grant.
+    func windowAccessLost(trusted: Bool) -> Bool {
+        defer { hadWindowAccess = trusted }
+        return hadWindowAccess && !trusted
+    }
+
     private func onUnlessTurnedOff(_ key: String) -> Bool {
         defaults.object(forKey: key) == nil || defaults.bool(forKey: key)
     }
