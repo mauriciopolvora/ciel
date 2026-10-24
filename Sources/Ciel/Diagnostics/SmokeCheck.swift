@@ -29,11 +29,13 @@ import CielCore
             }
             NSApp.appearance = NSAppearance(named: .darkAqua)
             let preferences = showSettings()
-            // Exercise the real menu action while keeping this controller lazy in normal use.
-            guard windowShortcuts() == nil, let menu,
-                let index = menu.items.firstIndex(where: { $0.title == "Window Shortcuts…" })
+            guard windowShortcuts() == nil else {
+                print("FAIL Window Shortcuts controller created before its menu action")
+                exit(1)
+            }
+            guard let menu, let index = menu.items.firstIndex(where: { $0.title == "Window Shortcuts…" })
             else {
-                print("FAIL window-shortcut menu setup")
+                print("FAIL Window Shortcuts menu item")
                 exit(1)
             }
             menu.performActionForItem(at: index)

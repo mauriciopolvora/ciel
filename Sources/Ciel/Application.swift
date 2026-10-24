@@ -4,21 +4,41 @@ import AppKit
 public enum CielApplication {
     @MainActor public static func run() {
         AppPerformance.markLaunch()
-        let application = NSApplication.shared
-        // A fixture needs only its window. Construct it before the resident app
-        // services, which have no role in this separate target process.
-        if let index = CommandLine.arguments.firstIndex(of: "--window-fixture"),
-            index + 1 < CommandLine.arguments.count
+        let mode: LaunchMode
+        switch LaunchMode.resolve(
+            arguments: CommandLine.arguments, bundleIdentifier: Bundle.main.bundleIdentifier)
         {
-            let fixture = WindowFixture(output: CommandLine.arguments[index + 1])
-            fixture.run()
-            withExtendedLifetime(fixture) { application.run() }
-            return
+        case .success(let resolved): mode = resolved
+        case .failure(let error):
+            FileHandle.standardError.write(Data((error.description + "\n").utf8))
+            exit(EX_USAGE)
         }
-        let delegate = AppDelegate()
+        let application = NSApplication.shared
+        switch mode {
+        case .app: run(application, check: nil)
+        case .appCheck(let check): run(application, check: check.run)
+        case .processCheck(let check): withExtendedLifetime(check.start()) { application.run() }
+        }
+    }
+
+    @MainActor private static func run(
+        _ application: NSApplication, check: (@MainActor (CheckHandles) -> Void)?
+    ) {
+        let delegate = AppDelegate(check: check)
         application.delegate = delegate
-        // NSApplication does not retain its delegate. Keep it alive for the
-        // complete event loop after moving the entry point into this function.
+        // NSApplication does not retain its delegate.
         withExtendedLifetime(delegate) { application.run() }
     }
+}
+
+@MainActor struct CheckHandles {
+    let launcher: LauncherView
+    let panel: LauncherPanel
+    let fieldEditor: MonochromeFieldEditor
+    let catalog: AppCatalog
+    let hotKeys: HotKeys
+    let menu: NSMenu?
+    let showSettings: () -> SettingsController?
+    let windowShortcuts: () -> WindowShortcutsController?
+    let showGuide: () -> KeyboardGuideController?
 }

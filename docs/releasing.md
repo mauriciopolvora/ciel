@@ -34,13 +34,12 @@ See [Apple's notarization documentation](https://developer.apple.com/documentati
 
 ## Check the release
 
-1. Run `bash scripts/check.sh` with other launcher copies closed.
-2. Run the optional `--window-test` from an authorized process.
-3. Install the exact signed bundle in Applications and open it through Finder.
-4. Check global shortcut, app launch, settings, category control, and window commands in everyday apps.
-5. Check login behavior after logout or reboot. Check light and dark appearance and macOS accessibility display settings.
-6. Download the release on a clean Mac. Verify Gatekeeper acceptance and the checksum.
-7. Check macOS 14 and Intel runtime behavior. Do not treat cross-compilation as those checks.
+1. Run `bash scripts/check.sh` with other launcher copies closed. It skips the window check without Accessibility access, so also confirm that CI passed on the release commit.
+2. Install the exact signed bundle in Applications and open it through Finder.
+3. Check global shortcut, app launch, settings, category control, and window commands in everyday apps.
+4. Check login behavior after logout or reboot. Check light and dark appearance and macOS accessibility display settings.
+5. Download the release on a clean Mac. Verify Gatekeeper acceptance and the checksum.
+6. Check macOS 14 and Intel runtime behavior. Do not treat cross-compilation as those checks.
 
 ## Upgrade identity
 

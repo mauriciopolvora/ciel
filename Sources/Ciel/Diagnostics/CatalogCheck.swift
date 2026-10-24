@@ -4,6 +4,7 @@ import CielCore
 @MainActor
 final class CatalogCheck {
     private var catalog: AppCatalog?
+    // Stays under the /var symlink so the catalog must match FSEvents' /private/var paths itself.
     private let root = FileManager.default.temporaryDirectory.appendingPathComponent(
         "ciel-events-" + UUID().uuidString)
     private var phase = 0
@@ -50,10 +51,7 @@ final class CatalogCheck {
                 }
                 print("PASS initial empty scan completion without a catalog change")
                 phase = 1
-                // FSEventStreamStart connects asynchronously to the filesystem daemon.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                    do { try self?.write("Menu Tool") } catch { self?.finish(false, "Fixture: \(error)") }
-                }
+                try write("Menu Tool")
             case 1:
                 guard entries.first?.title == "Menu Tool" else { return }
                 print("PASS automatic nested app discovery, including menu-bar apps")
@@ -76,10 +74,7 @@ final class CatalogCheck {
                     } catch { self.finish(false, "Icon fixture: \(error)") }
                 }
             case 3:
-                // Directory enumeration can return /private/var while the fixture URL
-                // uses /var. Assert the key that result cells send to the icon cache.
-                guard iconWriteStarted, let appPath = entries.first?.path,
-                    invalidatedPaths.contains(appPath)
+                guard iconWriteStarted, let iconKey = entries.first?.path, invalidatedPaths.contains(iconKey)
                 else { return }
                 guard entries.first?.title == "Renamed Tool", publicationCount == 2 else {
                     finish(false, "An icon-only event published an unchanged catalog")

@@ -4,7 +4,7 @@ Checked on 1 October 2026 on Apple silicon with macOS 27 and Swift 6.4. The depl
 
 ## Source and native checks
 
-Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The optional `--window-test` requires Accessibility access for its process and uses only temporary test windows.
+Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The window check uses only temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally.
 
 | Check | Result |
 | --- | --- |
@@ -22,7 +22,7 @@ Run `bash scripts/check.sh` for the full local check. It creates a diagnostic ap
 | Universal app | arm64 and x86_64 compiled; strict ad-hoc signature passed |
 | Runtime dependencies | App binary links system libraries; no workspace framework is required |
 
-GitHub CI runs the full `bash scripts/check.sh`, including the UI, catalog, smoke, and performance checks. It then runs the universal build, signature checks, and artifact upload. Results are available in [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions).
+GitHub CI runs the full `bash scripts/check.sh`, including the UI, catalog, smoke, performance, and window checks. A skipped window check fails CI. It then runs the universal build, signature checks, and artifact upload. Results are available in [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions).
 
 The local Command Line Tools linker reports missing optional search directories. These are toolchain diagnostics. Swift source checks pass with compiler warnings treated as errors.
 

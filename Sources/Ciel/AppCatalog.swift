@@ -88,7 +88,7 @@ final class AppCatalog {
         if needsRescan, !scanning { refresh() }
     }
 
-    private func changed(_ events: [CatalogEvent]) {
+    func changed(_ events: [CatalogEvent]) {
         let impact = CatalogEventImpact.classify(events, roots: canonicalRoots)
         guard impact.requiresRefresh else { return }
         pendingImpact.merge(impact)
