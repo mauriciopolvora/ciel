@@ -44,13 +44,7 @@ struct LauncherCellTests {
             secondFinished = true
         }
         #expect(await loader.finish("/Second.app", pixels: cellIconPixels(width: 7)))
-        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-        // AppKit can change an image's representations. Wait for the cache's
-        // exact delivered object, then check that cell reuse keeps this object.
-        while !secondFinished {
-            guard ContinuousClock.now < deadline else { throw CellTestError.loadTimedOut }
-            try await Task.sleep(for: .milliseconds(1))
-        }
+        try await waitUntil { secondFinished }
         let current = try #require(loadedSecond)
         #expect(cell.appIcon.image === current)
         #expect(await loader.finish("/First.app", pixels: cellIconPixels(width: 3)))
@@ -59,17 +53,7 @@ struct LauncherCellTests {
         #expect(cell.titleLabel.stringValue == "Second")
         #expect(cell.hintLabel.stringValue == "⌘2")
     }
-
-    private func waitForIdle(_ cache: IconCache) async throws {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-        while cache.pendingCount > 0 {
-            guard ContinuousClock.now < deadline else { throw CellTestError.loadTimedOut }
-            try await Task.sleep(for: .milliseconds(1))
-        }
-    }
 }
-
-private enum CellTestError: Error { case loadTimedOut }
 
 private actor CellIconLoader {
     private var starts = 0

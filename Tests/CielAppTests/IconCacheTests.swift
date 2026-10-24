@@ -201,6 +201,26 @@ struct IconCacheTests {
         #expect(cache.cachedCount == 0)
     }
 
+    @Test func requestFromFailedLoadCallbackStartsFreshLoadAndOtherCallbacksStillRun() async throws {
+        let loader = ControlledIconLoader()
+        let cache = IconCache(loader: { await loader.load($0) })
+        var failuresSeen = 0
+        var retried: NSImage?
+        _ = cache.icon(for: "flaky.app") { path, _ in
+            failuresSeen += 1
+            _ = cache.icon(for: path) { _, image in retried = image }
+        }
+        _ = cache.icon(for: "flaky.app") { _, _ in failuresSeen += 1 }
+        await loader.waitForStarts(1)
+        #expect(await loader.finish("flaky.app", pixels: nil))
+        await loader.waitForStarts(2)
+        #expect(failuresSeen == 2)
+        #expect(await loader.finish("flaky.app", pixels: iconPixels()))
+        try await waitForIdle(cache)
+        #expect(retried != nil)
+        #expect(cache.cachedCount == 1)
+    }
+
     @Test func defaultLoaderProducesRetinaPixelsAndThirtySixPointImage() async throws {
         let cache = IconCache()
         let image = try #require(
@@ -243,19 +263,6 @@ struct IconCacheTests {
         }
         return image
     }
-
-    private func waitForIdle(_ cache: IconCache) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(3))
-        while cache.pendingCount > 0 {
-            guard clock.now < deadline else { throw IconTestError.loadTimedOut }
-            try await Task.sleep(for: .milliseconds(1))
-        }
-    }
-}
-
-private enum IconTestError: Error {
-    case loadTimedOut
 }
 
 private actor ControlledIconLoader {
