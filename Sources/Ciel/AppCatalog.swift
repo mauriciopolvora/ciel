@@ -5,9 +5,7 @@ import CoreServices
 @MainActor
 final class AppCatalog {
     private(set) var entries: [SearchEntry] = []
-    var onChange: (() -> Void)?
-    var onRefreshFinished: (() -> Void)?
-    var onIconsInvalidated: ((Set<String>) -> Void)?
+    var onUpdate: ((CatalogUpdate) -> Void)?
 
     private let worker = CatalogScanWorker()
     private let roots: [URL]
@@ -15,7 +13,7 @@ final class AppCatalog {
     private let watchChanges: Bool
     private var canonicalRoots: [String]
     private var cachedEntries: [SearchEntry]?
-    private var watcher: CatalogWatcher?
+    private var watcher: Cleanup?
     private var pending: Task<Void, Never>?
     private var scanTask: Task<Void, Never>?
     private var debounce = CatalogDebounce()
@@ -81,10 +79,9 @@ final class AppCatalog {
         rescanRequested = false
         scanning = false
         scanTask = nil
-        // Invalidate before publishing so new result cells use fresh icons.
-        if !result.invalidatedIconPaths.isEmpty { onIconsInvalidated?(result.invalidatedIconPaths) }
-        if result.entriesChanged { onChange?() }
-        onRefreshFinished?()
+        onUpdate?(
+            CatalogUpdate(
+                invalidatedIconPaths: result.invalidatedIconPaths, entriesChanged: result.entriesChanged))
         if needsRescan, !scanning { refresh() }
     }
 
@@ -106,28 +103,16 @@ final class AppCatalog {
         guard watchChanges else { return }
         watcher = nil
         canonicalRoots = roots.map { CatalogPaths.canonical($0.path) }
-        // Watch before scanning, including the nearest existing parent when a
-        // root is absent. Full scans preserve nested apps and identifier deduplication.
-        let paths = Array(
-            Set(
-                roots.map { root -> String in
-                    var url = root
-                    if url.pathExtension.lowercased() == "app" { url.deleteLastPathComponent() }
-                    while !FileManager.default.fileExists(atPath: url.path) && url.path != "/" {
-                        url.deleteLastPathComponent()
-                    }
-                    return CatalogPaths.canonical(url.path)
-                }))
-        watcher = CatalogWatcher(paths: paths) { [weak self] events in self?.changed(events) }
+        watcher = CatalogWatcher.start(paths: CatalogPaths.watchPaths(for: roots)) { [weak self] events in
+            self?.changed(events)
+        }
     }
 }
 
-// This owner releases the C stream independently of actor-isolated catalog state.
-// Its callback always runs on the explicitly configured main dispatch queue.
-private final class CatalogWatcher {
-    private var stream: FSEventStreamRef?
-
-    init(paths: [String], onEvents: @escaping @MainActor @Sendable ([CatalogEvent]) -> Void) {
+private enum CatalogWatcher {
+    static func start(
+        paths: [String], onEvents: @escaping @MainActor @Sendable ([CatalogEvent]) -> Void
+    ) -> Cleanup? {
         let handler = CatalogEventHandler(onEvents: onEvents)
         var context = FSEventStreamContext(
             version: 0, info: Unmanaged.passUnretained(handler).toOpaque(),
@@ -139,31 +124,29 @@ private final class CatalogWatcher {
                 guard let info else { return }
                 Unmanaged<CatalogEventHandler>.fromOpaque(info).release()
             }, copyDescription: nil)
-        stream = FSEventStreamCreate(
-            nil,
-            { _, info, count, eventPaths, flags, _ in
-                guard let info else { return }
-                let pointers = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
-                let events = (0..<count).map {
-                    CatalogEvent(path: String(cString: pointers[$0]), flags: flags[$0])
-                }
-                let handler = Unmanaged<CatalogEventHandler>.fromOpaque(info).takeUnretainedValue()
-                MainActor.assumeIsolated { handler.onEvents(events) }
-            }, &context, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.2,
-            FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot))
-        if let stream {
-            FSEventStreamSetDispatchQueue(stream, .main)
-            if !FSEventStreamStart(stream) {
-                FSEventStreamInvalidate(stream)
-                FSEventStreamRelease(stream)
-                self.stream = nil
-                NSLog("Ciel: app watcher could not start. Manual rescan remains available.")
-            }
+        guard
+            let stream = FSEventStreamCreate(
+                nil,
+                { _, info, count, eventPaths, flags, _ in
+                    guard let info else { return }
+                    let pointers = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
+                    let events = (0..<count).map {
+                        CatalogEvent(path: String(cString: pointers[$0]), flags: flags[$0])
+                    }
+                    let handler = Unmanaged<CatalogEventHandler>.fromOpaque(info).takeUnretainedValue()
+                    MainActor.assumeIsolated { handler.onEvents(events) }
+                }, &context, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.2,
+                FSEventStreamCreateFlags(
+                    kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot))
+        else { return nil }
+        FSEventStreamSetDispatchQueue(stream, .main)
+        guard FSEventStreamStart(stream) else {
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            NSLog("Ciel: app watcher could not start. Manual rescan remains available.")
+            return nil
         }
-    }
-
-    deinit {
-        if let stream {
+        return Cleanup {
             FSEventStreamStop(stream)
             FSEventStreamInvalidate(stream)
             FSEventStreamRelease(stream)
@@ -171,8 +154,6 @@ private final class CatalogWatcher {
     }
 }
 
-// The stream retains this immutable context, so an already dispatched C callback
-// does not refer to a destroyed watcher. It does not retain the catalog.
 private final class CatalogEventHandler: Sendable {
     let onEvents: @MainActor @Sendable ([CatalogEvent]) -> Void
 

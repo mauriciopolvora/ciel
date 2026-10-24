@@ -21,7 +21,7 @@ import QuartzCore
     static let easeOut = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
     static var reduceMotion: Bool {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            || !UserDefaults.standard.bool(forKey: "animations")
+            || !Preferences().animations
     }
     static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
 
@@ -74,13 +74,12 @@ final class MonochromeSwitch: NSButton {
 final class SurfaceView: FlippedView {
     var isGroup = false
     var isFloating = false
-    private var observer: NotificationObservation?
+    private var observer: Cleanup?
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        observer = NotificationObservation(
-            center: NSWorkspace.shared.notificationCenter,
-            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        observer = NSWorkspace.shared.notificationCenter.observe(
+            NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
         ) { [weak self] in self?.refreshSurface() }
     }
     required init?(coder: NSCoder) { fatalError() }

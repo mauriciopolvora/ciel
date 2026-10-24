@@ -16,8 +16,8 @@ struct WindowOperationTests {
     func immediateSequence() throws {
         let fixture = fixture()
         let expected = WindowAction.leftHalf.frame(in: screen, current: original)
-        let message = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
-        #expect(message == WindowAction.leftHalf.title)
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
         #expect(fixture.window.currentFrame == expected)
         #expect(
             fixture.window.writes == [.size(expected.size), .position(expected.origin), .size(expected.size)])
@@ -45,14 +45,14 @@ struct WindowOperationTests {
         fixture.window.sizeHandler = { size in
             fixture.window.currentFrame.size = CGSize(width: max(size.width, 900), height: size.height)
         }
-        let message = try fixture.engine.perform(.rightHalf, selection: fixture.selection, displays: displays)
-        #expect(message == "The app limited the window size.")
+        let outcome = try fixture.engine.perform(.rightHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .sizeLimited)
         #expect(fixture.clock.now >= 0.24)
         #expect(fixture.clock.now < 0.35)
         #expect(fixture.window.currentFrame == CGRect(x: 300, y: 30, width: 900, height: 800))
         #expect(screen.contains(fixture.window.currentFrame))
         let restored = try fixture.engine.perform(.restore, selection: fixture.selection, displays: displays)
-        #expect(restored == "The app limited the window size.")
+        #expect(restored == .sizeLimited)
     }
 
     @Test("An already-minimum-size window reserves time for a visibility correction")
@@ -60,8 +60,8 @@ struct WindowOperationTests {
         let fixture = fixture()
         fixture.window.currentFrame = CGRect(x: 0, y: 30, width: 900, height: 800)
         fixture.window.sizeHandler = { _ in }
-        let message = try fixture.engine.perform(.rightHalf, selection: fixture.selection, displays: displays)
-        #expect(message == "The app limited the window size.")
+        let outcome = try fixture.engine.perform(.rightHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .sizeLimited)
         #expect(fixture.clock.now >= 0.44)
         #expect(fixture.clock.now <= 0.5)
         #expect(fixture.window.currentFrame == CGRect(x: 300, y: 30, width: 900, height: 800))
@@ -78,8 +78,8 @@ struct WindowOperationTests {
                 fixture.window.currentFrame.size = requestedSize
             }
         }
-        let message = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
-        #expect(message == WindowAction.leftHalf.title)
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
         #expect(fixture.clock.now >= 0.35)
         #expect(fixture.clock.now <= 0.5)
     }
@@ -95,8 +95,8 @@ struct WindowOperationTests {
                 width: self.original.width + (requestedSize.width - self.original.width) * progress,
                 height: self.original.height + (requestedSize.height - self.original.height) * progress)
         }
-        let message = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
-        #expect(message == WindowAction.leftHalf.title)
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
         #expect(fixture.clock.now >= 0.4)
         #expect(fixture.clock.now <= 0.5)
     }
@@ -182,8 +182,18 @@ struct WindowOperationTests {
         }
         #expect(fixture.window.writes.isEmpty)
         #expect(
-            try fixture.engine.perform(.center, selection: fixture.selection, displays: displays) == "Center")
+            try fixture.engine.perform(.center, selection: fixture.selection, displays: displays) == .applied)
         #expect(fixture.window.currentFrame.size == original.size)
+    }
+
+    @Test("Window commands never target Ciel's own windows")
+    func ownProcessIsNeverATarget() {
+        let fixture = fixture()
+        let own = fixture.engine.capture(ForeignProcess(ProcessInfo.processInfo.processIdentifier))
+        #expect(throws: WindowError.noWindow) {
+            try fixture.engine.perform(.leftHalf, selection: own, displays: displays)
+        }
+        #expect(fixture.window.writes.isEmpty)
     }
 
     @Test("Capture selections remain pinned when a later capture changes the focused window")
@@ -191,7 +201,7 @@ struct WindowOperationTests {
         let fixture = fixture()
         let another = FakeWindow(frame: CGRect(x: 300, y: 300, width: 400, height: 300))
         fixture.accessibility.window = another
-        let later = fixture.engine.capture(pid: 42)
+        let later = fixture.engine.capture(ForeignProcess(42))
         _ = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
         #expect(another.writes.isEmpty)
         #expect(fixture.window.currentFrame == WindowAction.leftHalf.frame(in: screen, current: original))
@@ -208,11 +218,11 @@ struct WindowOperationTests {
         let expected = WindowGeometry.move(original, from: screen, to: other)
         #expect(
             try fixture.engine.perform(.nextDisplay, selection: fixture.selection, displays: both)
-                == "Move to Next Display")
+                == .applied)
         #expect(fixture.window.currentFrame == expected)
         #expect(
             try fixture.engine.perform(.restore, selection: fixture.selection, displays: both)
-                == "Restore Previous Size")
+                == .applied)
         #expect(fixture.window.currentFrame == original)
         #expect(fixture.clock.now == 0)
     }
@@ -234,7 +244,7 @@ struct WindowOperationTests {
         #expect(throws: WindowError.oneDisplay) {
             try fixture.engine.perform(.nextDisplay, selection: fixture.selection, displays: displays)
         }
-        let missing = fixture.engine.capture(pid: nil)
+        let missing = fixture.engine.capture(nil)
         #expect(throws: WindowError.noWindow) {
             try fixture.engine.perform(.leftHalf, selection: missing, displays: displays)
         }
@@ -247,7 +257,7 @@ struct WindowOperationTests {
         fixture.window.minimizedHandler = { fixture.clock.now >= 0.8 }
         #expect(
             try fixture.engine.perform(.minimize, selection: fixture.selection, displays: displays)
-                == "Minimize")
+                == .applied)
         #expect(fixture.clock.now >= 0.8)
         #expect(fixture.clock.now <= 1)
     }
@@ -262,7 +272,7 @@ struct WindowOperationTests {
         }
         #expect(
             try fixture.engine.perform(.minimize, selection: fixture.selection, displays: displays)
-                == "Minimize")
+                == .applied)
         #expect(fixture.clock.now >= 0.4)
         #expect(fixture.clock.now <= 1)
         #expect(fixture.window.writes == [.minimize])
@@ -297,8 +307,8 @@ struct WindowOperationTests {
         fixture.window.positionHandler = { point in
             fixture.window.currentFrame.origin = CGPoint(x: max(100, point.x), y: point.y)
         }
-        let message = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
-        #expect(message == "The app limited the window position.")
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .positionLimited)
         #expect(fixture.clock.now == 0.5)
     }
 
@@ -309,7 +319,7 @@ struct WindowOperationTests {
         let engine = WindowOperationEngine(accessibility: accessibility, clock: clock)
         return Fixture(
             clock: clock, window: window, accessibility: accessibility, engine: engine,
-            selection: engine.capture(pid: 42))
+            selection: engine.capture(ForeignProcess(42)))
     }
 
     private struct Fixture {

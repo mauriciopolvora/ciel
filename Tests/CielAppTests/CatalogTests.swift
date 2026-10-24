@@ -12,11 +12,9 @@ struct CatalogTests {
         let fixture = try CatalogFixture()
         defer { fixture.remove() }
         let catalog = AppCatalog(roots: [fixture.root], cacheURL: nil, watchChanges: false)
-        var changes = 0
-        catalog.onChange = { changes += 1 }
-        await refresh(catalog)
+        let update = await refresh(catalog)
         #expect(catalog.entries.isEmpty)
-        #expect(changes == 0)
+        #expect(update == CatalogUpdate(invalidatedIconPaths: [], entriesChanged: false))
     }
 
     @Test @MainActor
@@ -26,22 +24,17 @@ struct CatalogTests {
         try fixture.writeApp(name: "Tool")
         let cache = fixture.root.appendingPathComponent("cache/catalog.json")
         let catalog = AppCatalog(roots: [fixture.root], cacheURL: cache, watchChanges: false)
-        var changes = 0
-        catalog.onChange = { changes += 1 }
-        await refresh(catalog)
-        #expect(changes == 1)
+        #expect(await refresh(catalog).entriesChanged)
         let firstData = try Data(contentsOf: cache)
         let oldDate = Date(timeIntervalSince1970: 1_000_000)
         try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: cache.path)
-        await refresh(catalog)
-        #expect(changes == 1)
+        #expect(await !refresh(catalog).entriesChanged)
         #expect(try Data(contentsOf: cache) == firstData)
         let attributes = try FileManager.default.attributesOfItem(atPath: cache.path)
         #expect(attributes[.modificationDate] as? Date == oldDate)
 
         try fixture.writeApp(name: "New Tool")
-        await refresh(catalog)
-        #expect(changes == 2)
+        #expect(await refresh(catalog).entriesChanged)
         #expect(catalog.entries.first?.title == "New Tool")
         #expect(try Data(contentsOf: cache) != firstData)
     }
@@ -55,11 +48,27 @@ struct CatalogTests {
         let expected = ApplicationScanner.scan(roots: [fixture.root])
         try JSONEncoder().encode(expected).write(to: cache)
         let catalog = AppCatalog(roots: [fixture.root], cacheURL: cache, watchChanges: false)
-        var changes = 0
-        catalog.onChange = { changes += 1 }
-        await refresh(catalog)
+        #expect(await !refresh(catalog).entriesChanged)
         #expect(catalog.entries == expected)
-        #expect(changes == 0)
+    }
+
+    @Test @MainActor
+    func anIconOnlyChangeInvalidatesTheAppWithoutAnEntryChange() async throws {
+        let fixture = try CatalogFixture()
+        defer { fixture.remove() }
+        try fixture.writeApp(name: "Tool")
+        let catalog = AppCatalog(roots: [fixture.root], cacheURL: nil, watchChanges: false)
+        #expect(await refresh(catalog).entriesChanged)
+        var received: CatalogUpdate?
+        catalog.onUpdate = { received = $0 }
+        catalog.changed([
+            CatalogEvent(
+                path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Resources/Tool.icns", flags: 0)
+        ])
+        try await waitUntil { received != nil }
+        let update = try #require(received)
+        #expect(!update.entriesChanged)
+        #expect(update.invalidatedIconPaths.contains(try #require(catalog.entries.first?.path)))
     }
 
     @Test @MainActor
@@ -69,7 +78,7 @@ struct CatalogTests {
         let catalog = AppCatalog(roots: [fixture.root], cacheURL: nil, watchChanges: false)
         var completions = 0
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            catalog.onRefreshFinished = {
+            catalog.onUpdate = { _ in
                 completions += 1
                 if completions == 2 { continuation.resume() }
             }
@@ -78,7 +87,7 @@ struct CatalogTests {
             catalog.refresh()
         }
         #expect(completions == 2)
-        catalog.onRefreshFinished = nil
+        catalog.onUpdate = nil
     }
 
     @Test @MainActor
@@ -94,7 +103,7 @@ struct CatalogTests {
         await refresh(catalog)
         try fixture.writeApp(name: "Tool")
         var refreshed = false
-        catalog.onRefreshFinished = { refreshed = true }
+        catalog.onUpdate = { _ in refreshed = true }
         catalog.changed([
             CatalogEvent(path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Info.plist", flags: 0)
         ])
@@ -164,6 +173,22 @@ struct CatalogTests {
     }
 
     @Test
+    func missingRootsWatchTheirNearestExistingAncestorOnce() throws {
+        let fixture = try CatalogFixture()
+        defer { fixture.remove() }
+        let nested = fixture.root.appendingPathComponent("Nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let paths = CatalogPaths.watchPaths(for: [
+            fixture.root.appendingPathComponent("Missing/Applications"),
+            fixture.root.appendingPathComponent("Other"),
+            nested.appendingPathComponent("Absent.app"),
+        ])
+        let root = try #require(realpath(fixture.root.path, nil))
+        defer { free(root) }
+        #expect(paths.sorted() == [String(cString: root), String(cString: root) + "/Nested"])
+    }
+
+    @Test
     func realPathsInvalidateSymbolicAppPaths() throws {
         let fixture = try CatalogFixture()
         defer { fixture.remove() }
@@ -188,13 +213,14 @@ struct CatalogTests {
         #expect(debounce.deadline(afterEventAt: 5) == 5.6)
     }
 
-    @MainActor
-    private func refresh(_ catalog: AppCatalog) async {
-        await withCheckedContinuation { continuation in
-            catalog.onRefreshFinished = { continuation.resume() }
+    @MainActor @discardableResult
+    private func refresh(_ catalog: AppCatalog) async -> CatalogUpdate {
+        let update = await withCheckedContinuation { continuation in
+            catalog.onUpdate = { continuation.resume(returning: $0) }
             catalog.refresh()
         }
-        catalog.onRefreshFinished = nil
+        catalog.onUpdate = nil
+        return update
     }
 
     private func entry(path: String) -> SearchEntry {

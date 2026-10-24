@@ -34,14 +34,26 @@ public struct SearchEntry: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
-    public static let utilities = [
-        SearchEntry(
-            id: "settings", title: "Ciel Settings", subtitle: "Preferences", kind: .utility,
-            keywords: "hotkey shortcut permission accessibility login"),
-        SearchEntry(
-            id: "rescan", title: "Rescan Applications", subtitle: "Ciel", kind: .utility,
-            keywords: "refresh index apps"),
-    ]
+    public static let utilities = UtilityCommand.allCases.map(\.entry)
+
+    public var utility: UtilityCommand? { kind == .utility ? UtilityCommand(rawValue: id) : nil }
+}
+
+public enum UtilityCommand: String, CaseIterable, Sendable {
+    case settings, rescan
+
+    public var entry: SearchEntry {
+        switch self {
+        case .settings:
+            SearchEntry(
+                id: rawValue, title: "Ciel Settings", subtitle: "Preferences", kind: .utility,
+                keywords: "hotkey shortcut permission accessibility login")
+        case .rescan:
+            SearchEntry(
+                id: rawValue, title: "Rescan Applications", subtitle: "Ciel", kind: .utility,
+                keywords: "refresh index apps")
+        }
+    }
 }
 
 public enum SearchEngine {

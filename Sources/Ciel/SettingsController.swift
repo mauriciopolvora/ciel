@@ -7,8 +7,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
     let content: SurfaceView
     private let errorLabel = Theme.label("", size: 12, color: Theme.error)
     private let baseSize: NSSize
-    private var recorders: [String: ShortcutRecorder] = [:]
-    var onShortcutChange: (() -> Void)?
+    private var recorders: [HotKeyCommand: ShortcutRecorder] = [:]
 
     init(title: String, size: NSSize, hotKeys: HotKeys) {
         self.hotKeys = hotKeys
@@ -48,32 +47,27 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         view.frame = NSRect(x: x, y: y, width: width, height: 21)
         parent.addSubview(view)
     }
-    func addRecorder(_ id: String, label: String, in parent: NSView, frame: NSRect) {
-        let recorder = ShortcutRecorder(shortcut: hotKeys.shortcuts[id], onRecord: { _ in })
+    func addRecorder(_ command: HotKeyCommand, label: String, in parent: NSView, frame: NSRect) {
+        let recorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: command), onRecord: { _ in })
         recorder.onBegin = { [weak self, weak recorder] in
             self?.hotKeys.recordingHandler = { [weak recorder] shortcut in recorder?.accept(shortcut) }
         }
         recorder.onEnd = { [weak self] in self?.hotKeys.recordingHandler = nil }
         recorder.onRecord = { [weak self, weak recorder] shortcut in
             guard let self else { return }
-            guard id != "launcher" || shortcut != nil else {
-                self.showMessage("Choose a launcher shortcut.")
-                return
-            }
             do {
-                try self.hotKeys.update(id, shortcut: shortcut)
+                try self.hotKeys.update(command, to: shortcut)
                 recorder?.shortcut = shortcut
                 self.showMessage("")
-                self.onShortcutChange?()
             } catch { self.showMessage(error.localizedDescription) }
         }
         recorder.frame = frame
         recorder.setAccessibilityLabel(label)
-        if id == "launcher" {
+        if command == .launcher {
             recorder.toolTip = "Click to change the launcher shortcut. Press Escape to cancel."
         }
         parent.addSubview(recorder)
-        recorders[id] = recorder
+        recorders[command] = recorder
     }
     func showMessage(_ message: String) {
         errorLabel.stringValue = message
@@ -88,8 +82,8 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         window.setFrame(frame, display: true)
     }
     func refresh() {
-        for (id, recorder) in recorders where !recorder.recording {
-            recorder.shortcut = hotKeys.shortcuts[id]
+        for (command, recorder) in recorders where !recorder.recording {
+            recorder.shortcut = hotKeys.shortcut(for: command)
         }
     }
     func present() {
@@ -122,7 +116,7 @@ final class SettingsController: PreferencesController {
         let general = group(NSRect(x: 20, y: 88, width: 440, height: 192))
         label("Launcher shortcut", y: 14, in: general)
         addRecorder(
-            "launcher", label: "Launcher shortcut", in: general,
+            .launcher, label: "Launcher shortcut", in: general,
             frame: NSRect(x: 280, y: 8, width: 144, height: 32))
         label("Launch at login", y: 62, in: general)
         login.frame = NSRect(x: 386, y: 59, width: 38, height: 28)
@@ -179,15 +173,13 @@ final class SettingsController: PreferencesController {
         permissionLabel.textColor = trusted ? Theme.success : Theme.secondary
         permissionButton.isHidden = trusted
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        animations.state = UserDefaults.standard.bool(forKey: "animations") ? .on : .off
-        menuBarIcon.state = UserDefaults.standard.bool(forKey: "showMenuBarIcon") ? .on : .off
+        animations.state = Preferences().animations ? .on : .off
+        menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
     }
     @objc private func requestPermission() { WindowController.requestPermission() }
-    @objc private func toggleAnimations() {
-        UserDefaults.standard.set(animations.state == .on, forKey: "animations")
-    }
+    @objc private func toggleAnimations() { Preferences().animations = animations.state == .on }
     @objc private func toggleMenuBarIcon() {
-        UserDefaults.standard.set(menuBarIcon.state == .on, forKey: "showMenuBarIcon")
+        Preferences().showMenuBarIcon = menuBarIcon.state == .on
         onMenuBarIconChange?()
     }
     @objc private func toggleLogin() {
@@ -222,7 +214,7 @@ final class WindowShortcutsController: PreferencesController {
             let y = CGFloat(index) * 44
             label(action.title, x: 8, y: y + 12, width: 250, size: 13, in: list)
             addRecorder(
-                action.id, label: action.title + " shortcut", in: list,
+                .window(action), label: action.title + " shortcut", in: list,
                 frame: NSRect(x: 270, y: y + 6, width: 148, height: 32))
         }
         scroll.documentView = list

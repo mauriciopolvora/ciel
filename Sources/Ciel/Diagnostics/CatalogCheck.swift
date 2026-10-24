@@ -19,9 +19,12 @@ final class CatalogCheck {
             return
         }
         catalog = AppCatalog(roots: [root], useCache: false)
-        catalog?.onChange = { [weak self] in self?.publicationCount += 1 }
-        catalog?.onIconsInvalidated = { [weak self] paths in self?.invalidatedPaths.formUnion(paths) }
-        catalog?.onRefreshFinished = { [weak self] in self?.changed() }
+        catalog?.onUpdate = { [weak self] update in
+            guard let self else { return }
+            if update.entriesChanged { self.publicationCount += 1 }
+            self.invalidatedPaths.formUnion(update.invalidatedIconPaths)
+            self.changed()
+        }
         catalog?.refresh()
         DispatchQueue.main.asyncAfter(deadline: .now() + 18) { [weak self] in
             guard let self else { return }

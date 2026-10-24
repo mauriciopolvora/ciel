@@ -15,6 +15,10 @@ mutants=(
     "M9|Run a native check under any bundle identifier"
     "M10|Launch the app on an unknown flag"
     "M11|Match FSEvents paths against uncanonicalized catalog roots"
+    "M12|Bind window hotkeys under a renamed key"
+    "M13|Save a shortcut that was never registered"
+    "M14|Let a window command target Ciel itself"
+    "M15|Read an unset toggle as off"
 )
 
 mutate() {
@@ -32,14 +36,14 @@ mutate() {
                 swap Sources/CielCore/WindowAction.swift \
                     's/(case \.minimize: return "Minimize"\n)/$1        case .leftThird: return "Left Third"\n/'
             ;;
-        M5) swap Sources/CielCore/Search.swift 's/id: "settings"/id: "preferences"/' ;;
+        M5) swap Sources/CielCore/Search.swift 's/case settings, rescan/case settings = "preferences", rescan/' ;;
         M6)
             swap Sources/Ciel/LauncherView.swift \
                 's/(insertTab\(_:\)\):\n\s+selectFilter\()filter == nil \? 1 : filter == \.application \? 2 : 0/${1}filter == nil ? 2 : filter == .application ? 0 : 1/' &&
                 swap Sources/Ciel/LauncherView.swift \
                     's/(insertBacktab\(_:\)\):\n\s+selectFilter\()filter == nil \? 2 : filter == \.application \? 0 : 1/${1}filter == nil ? 1 : filter == .application ? 2 : 0/'
             ;;
-        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(window position\."\s*\}\n\s+return )action\.title/$1"Done"/' ;;
+        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(\.positionLimited\s*\}\n\s+return )\.applied/$1.sizeLimited/' ;;
         M8) swap Sources/Ciel/AppIdentity.swift 's/"app\.mauriciopolvora\.ciel"/"app.mauriciopolvora.ciel-app"/' ;;
         M9)
             swap Sources/Ciel/Diagnostics/LaunchMode.swift \
@@ -50,6 +54,16 @@ mutate() {
             swap Sources/Ciel/AppCatalog.swift \
                 's/canonicalRoots = roots\.map \{ CatalogPaths\.canonical\(\$0\.path\) \}/canonicalRoots = roots.map(\\.path)/g'
             ;;
+        M12) swap Sources/Ciel/HotKeys.swift 's/case \.window\(let action\): action\.id/case .window(let action): "win." + action.rawValue/' ;;
+        M13)
+            swap Sources/Ciel/HotKeys.swift \
+                's/(registrations\[command\] != nil \{ return \}\n)\s+try register\(command, shortcut\)\n/$1/'
+            ;;
+        M14)
+            swap Sources/Ciel/WindowController.swift \
+                's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
+            ;;
+        M15) swap Sources/Ciel/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
     esac
 }
 

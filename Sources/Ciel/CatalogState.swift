@@ -11,6 +11,11 @@ struct CatalogScanRequest: Sendable {
     let iconImpact: CatalogEventImpact
 }
 
+struct CatalogUpdate: Equatable, Sendable {
+    let invalidatedIconPaths: Set<String>
+    let entriesChanged: Bool
+}
+
 struct CatalogScanResult: Sendable {
     let entries: [SearchEntry]
     let entriesChanged: Bool
@@ -127,6 +132,19 @@ enum CatalogPaths {
     }
 
     static func overlap(_ a: String, _ b: String) -> Bool { contains(a, b) || contains(b, a) }
+
+    static func watchPaths(for roots: [URL]) -> [String] {
+        Array(
+            Set(
+                roots.map { root in
+                    var url = root
+                    if url.pathExtension.lowercased() == "app" { url.deleteLastPathComponent() }
+                    while !FileManager.default.fileExists(atPath: url.path) && url.path != "/" {
+                        url.deleteLastPathComponent()
+                    }
+                    return canonical(url.path)
+                }))
+    }
 
     static func appBundle(containing path: String, roots: [String]) -> String? {
         var components: [Substring] = []

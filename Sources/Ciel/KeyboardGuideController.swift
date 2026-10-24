@@ -32,6 +32,6 @@ final class KeyboardGuideController: PreferencesController {
     required init?(coder: NSCoder) { fatalError() }
     override func refresh() {
         super.refresh()
-        launcherShortcut.stringValue = hotKeys.shortcuts["launcher"]?.display ?? "Not available"
+        launcherShortcut.stringValue = hotKeys.shortcut(for: .launcher)?.display ?? "Not available"
     }
 }

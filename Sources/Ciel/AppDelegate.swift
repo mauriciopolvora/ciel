@@ -1,76 +1,62 @@
 import AppKit
 import CielCore
 
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     private let catalog = AppCatalog()
     private let windows = WindowController()
-    private let hotKeys = HotKeys()
     private let hud = StatusHUD()
-    private var panel: LauncherPanel!
-    private var launcher: LauncherView!
-    private let fieldEditor = MonochromeFieldEditor()
-    private let placements = LauncherPlacementStore()
-    private let guides = LauncherGuides()
-    private var launcherAnchor: CGPoint?
+    private let history = UsageHistory()
+    private lazy var hotKeys = HotKeys(
+        registrar: CarbonHotKeyRegistrar(),
+        onPress: { [weak self] command in self?.hotKeyPressed(command) },
+        onChange: { [weak self] in self?.updateToolTip() })
+    private lazy var panel = LauncherPanel()
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?
     private var windowShortcuts: WindowShortcutsController?
     private var keyboardGuide: KeyboardGuideController?
     private var about: AboutController?
-    private let history = UsageHistory()
-    private var observers: [NotificationObservation] = []
-    private var opening = false
-    private var executing = false
-    private let check: (@MainActor (CheckHandles) -> Void)?
+    private var observers: [Cleanup] = []
+    private var session: WindowTarget?
+    private var pendingCheck: (@MainActor (CheckHandles) -> Void)?
 
     init(check: (@MainActor (CheckHandles) -> Void)?) {
-        self.check = check
+        pendingCheck = check
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = NSAppearance(named: .darkAqua)
-        UserDefaults.standard.register(defaults: ["animations": true, "showMenuBarIcon": true])
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
-        setupPanel()
-        hotKeys.bind("launcher") { [weak self] in self?.toggle() }
-        for action in WindowAction.allCases {
-            hotKeys.bind(action.id) { [weak self] in self?.runDirect(action) }
-        }
-        catalog.onChange = { [weak self] in
-            self?.reloadEntries()
-        }
-        catalog.onIconsInvalidated = { [weak self] paths in self?.launcher.invalidateIcons(paths: paths) }
-        if let check {
-            catalog.onRefreshFinished = { [weak self] in self?.start(check) }
-        }
+        panel.launcher.onExecute = { [weak self] entry in self?.execute(entry) }
+        panel.onSettings = { [weak self] in self?.showSettings() }
+        catalog.onUpdate = { [weak self] update in self?.catalogUpdated(update) }
         reloadEntries()
         catalog.refresh()
-        for name in [
+        observers = [
             NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification,
             NSWorkspace.didWakeNotification,
-        ] {
-            observers.append(
-                NotificationObservation(center: NSWorkspace.shared.notificationCenter, name: name) {
-                    [weak self] in self?.catalog.refresh()
-                })
+        ].map { name in
+            NSWorkspace.shared.notificationCenter.observe(name) { [weak self] in self?.catalog.refresh() }
         }
-        guard check == nil else { return }
+        guard pendingCheck == nil else { return }
         if !hotKeys.registrationErrors.isEmpty {
             hud.show(
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
                 error: true)
         }
-        let event = NSAppleEventManager.shared().currentAppleEvent
-        let loginLaunch =
-            event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        if !loginLaunch { present() }
+        if !NSAppleEventManager.shared().launchedAsLoginItem { present() }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        present()
+        return false
     }
 
     private func setupMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "cloud", accessibilityDescription: "Ciel")
-        statusItem.button?.toolTip = "Ciel · \(hotKeys.shortcuts["launcher"]?.display ?? "")"
+        updateToolTip()
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Open Ciel", action: #selector(menuOpen), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -90,135 +76,54 @@ import CielCore
     }
 
     private func updateMenuBarIcon() {
-        statusItem.isVisible = UserDefaults.standard.bool(forKey: "showMenuBarIcon")
+        statusItem.isVisible = Preferences().showMenuBarIcon
     }
 
-    private func setupPanel() {
-        panel = LauncherPanel(
-            contentRect: NSRect(x: 0, y: 0, width: LauncherView.width, height: LauncherView.initialHeight),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.title = "Ciel"
-        panel.appearance = NSAppearance(named: .darkAqua)
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.isMovable = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
-        panel.delegate = self
-        fieldEditor.isFieldEditor = true
-        fieldEditor.insertionPointColor = Theme.text
-        fieldEditor.selectedTextAttributes = [
-            .backgroundColor: Theme.selection, .foregroundColor: Theme.text,
-        ]
-        launcher = LauncherView(
-            frame: NSRect(x: 0, y: 0, width: LauncherView.width, height: LauncherView.initialHeight))
-        panel.contentView = launcher
-        launcher.onExecute = { [weak self] entry in self?.execute(entry) }
-        launcher.onDismiss = { [weak self] in self?.dismiss() }
-        launcher.onHeightChange = { [weak self] height in
-            guard let self, let panel = self.panel, panel.frame.height != height else { return }
-            var frame = panel.frame
-            frame.origin.y += frame.height - height
-            frame.size.height = height
-            if let anchor = self.launcherAnchor, let screen = panel.screen ?? NSScreen.main {
-                frame = LauncherPlacement.frame(anchor: anchor, size: frame.size, screen: screen.visibleFrame)
-            }
-            panel.setFrame(frame, display: true)
+    private func updateToolTip() {
+        statusItem.button?.toolTip = "Ciel · \(hotKeys.shortcut(for: .launcher)?.display ?? "")"
+    }
+
+    private func hotKeyPressed(_ command: HotKeyCommand) {
+        switch command {
+        case .launcher: if panel.isVisible { panel.dismiss() } else { present() }
+        case .window(let action): run(action)
         }
-        panel.onDragEnd = { [weak self] moved in
-            guard let self else { return }
-            self.guides.hide()
-            if moved, let screen = self.panel.screen ?? NSScreen.main {
-                let snap = LauncherPlacement.snap(
-                    self.panel.frame, screen: screen.visibleFrame,
-                    headerHeight: LauncherView.initialHeight,
-                    enabled: !NSEvent.modifierFlags.contains(.option))
-                self.panel.setFrame(snap.frame, display: true)
-                self.launcherAnchor = CGPoint(x: snap.frame.minX, y: snap.frame.maxY)
-                self.placements.save(
-                    LauncherPlacement(
-                        frame: snap.frame, screen: screen.visibleFrame,
-                        headerHeight: LauncherView.initialHeight), for: LauncherGuides.displayID(screen))
-            }
-            self.panel.makeFirstResponder(self.launcher.searchField)
+    }
+
+    private func catalogUpdated(_ update: CatalogUpdate) {
+        panel.launcher.invalidateIcons(paths: update.invalidatedIconPaths)
+        if update.entriesChanged { reloadEntries() }
+        if let check = pendingCheck {
+            pendingCheck = nil
+            start(check)
         }
-        panel.onDragModifiersChange = { [weak self] in
-            guard let self else { return }
-            self.guides.update(for: self.panel)
-        }
-        panel.onModifiers = { [weak self] command in self?.launcher.setQuickKeys(command) }
-        panel.onEscape = { [weak self] in self?.dismiss() }
-        panel.onSettings = { [weak self] in self?.showSettings() }
-        panel.onQuickOpen = { [weak self] index in self?.launcher.execute(at: index) }
     }
 
     private func reloadEntries() {
         let entries = catalog.entries + SearchEntry.commands + SearchEntry.utilities
-        launcher.update(entries: entries, usage: history.counts, lastUsed: history.lastUsed)
-    }
-    @objc private func menuOpen() { present() }
-    private func toggle() { if panel.isVisible { dismiss() } else { present() } }
-    private func present() {
-        guard !panel.isDragging else { return }
-        let front = NSWorkspace.shared.frontmostApplication
-        // Each queued window command retains its captured target. Opening a new
-        // launcher session cannot redirect a command that is already running.
-        windows.capture(
-            pid: front?.processIdentifier == ProcessInfo.processInfo.processIdentifier
-                ? nil : front?.processIdentifier)
-        launcher.reset()
-        let screen =
-            NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
-            ?? NSScreen.main
-        if let area = screen?.visibleFrame {
-            let frame: CGRect
-            if let screen, let saved = placements.placement(for: LauncherGuides.displayID(screen)) {
-                frame = saved.frame(
-                    size: panel.frame.size, screen: area, headerHeight: LauncherView.initialHeight)
-            } else {
-                frame = CGRect(
-                    x: area.midX - panel.frame.width / 2,
-                    y: area.minY + (area.height - panel.frame.height) * 0.62,
-                    width: panel.frame.width, height: panel.frame.height)
-            }
-            panel.setFrame(frame, display: true)
-            launcherAnchor = CGPoint(x: frame.minX, y: frame.maxY)
-        }
-        opening = true
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(launcher.searchField)
-        opening = false
-    }
-    private func dismiss() {
-        guides.hide()
-        panel.orderOut(nil)
-    }
-    func windowDidMove(_ notification: Notification) {
-        if panel.isDragging { guides.update(for: panel) }
-    }
-    func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
-        sender === panel && (client as? NSTextField) === launcher.searchField ? fieldEditor : nil
-    }
-    func windowDidResignKey(_ notification: Notification) { if !opening && !panel.isDragging { dismiss() } }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        present()
-        return false
+        panel.launcher.update(entries: entries, usage: history.counts, lastUsed: history.lastUsed)
     }
 
-    private func recordUsage(_ entry: SearchEntry) {
-        history.record(entry.id)
-        launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
+    private func recordUsage(_ id: SearchEntry.ID) {
+        history.record(id)
+        panel.launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
     }
+
+    @objc private func menuOpen() { present() }
+
+    private func present() {
+        guard !panel.isDragging else { return }
+        session = windows.capture(.frontmost)
+        panel.present()
+    }
+
     private func execute(_ entry: SearchEntry) {
         if let action = entry.action {
-            run(action, entry: entry)
+            run(action)
             return
         }
         if let path = entry.path {
-            dismiss()
+            panel.dismiss()
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) {
@@ -228,95 +133,90 @@ import CielCore
                         self?.hud.show(error.localizedDescription, error: true)
                         self?.catalog.refresh()
                     } else {
-                        self?.recordUsage(entry)
+                        self?.recordUsage(entry.id)
                     }
                 }
             }
-        } else if entry.id == "settings" {
-            showSettings()
-        } else if entry.id == "rescan" {
-            dismiss()
-            rescan()
+        } else if let utility = entry.utility {
+            switch utility {
+            case .settings: showSettings()
+            case .rescan:
+                panel.dismiss()
+                rescan()
+            }
         }
     }
-    private func runDirect(_ action: WindowAction) {
-        guard !executing else { return }
-        if !panel.isVisible {
-            windows.capture(pid: NSWorkspace.shared.frontmostApplication?.processIdentifier)
-        }
-        run(action, entry: SearchEntry.commands.first { $0.action == action }!)
-    }
-    private func run(_ action: WindowAction, entry: SearchEntry) {
-        guard !executing else { return }
+
+    private func run(_ action: WindowAction) {
+        guard !windows.isBusy else { return }
         guard WindowController.isTrusted else {
-            dismiss()
+            panel.dismiss()
             showSettings()
             WindowController.requestPermission()
             return
         }
-        let displays = DisplaySnapshot.current()
-        executing = true
-        dismiss()
-        windows.perform(action, displays: displays) { [weak self] result in
+        let target = (panel.isVisible ? session : nil) ?? windows.capture(.frontmost)
+        panel.dismiss()
+        windows.perform(action, on: target) { [weak self] result in
             guard let self else { return }
-            self.executing = false
             switch result {
-            case .success(let message):
-                self.recordUsage(entry)
-                // Successful snaps stay quiet. Explain only application-imposed limits.
-                if message != action.title { self.hud.show(message) }
+            case .success(let outcome):
+                self.recordUsage(action.id)
+                if let notice = outcome.notice { self.hud.show(notice) }
             case .failure(let error): self.hud.show(error.localizedDescription, error: true)
             }
         }
     }
+
     @objc private func showSettings() {
-        dismiss()
+        panel.dismiss()
         if settings == nil {
             settings = SettingsController(hotKeys: hotKeys)
             settings?.onMenuBarIconChange = { [weak self] in self?.updateMenuBarIcon() }
             settings?.onGuide = { [weak self] in self?.showGuide() }
             settings?.onAbout = { [weak self] in self?.showAbout() }
-            settings?.onShortcutChange = { [weak self] in
-                self?.statusItem.button?.toolTip =
-                    "Ciel · \(self?.hotKeys.shortcuts["launcher"]?.display ?? "")"
-            }
         }
         settings?.present()
     }
+
     @objc private func showWindowShortcuts() {
-        dismiss()
+        panel.dismiss()
         if windowShortcuts == nil {
             windowShortcuts = WindowShortcutsController(hotKeys: hotKeys)
         }
         windowShortcuts?.present()
     }
+
     @objc private func showGuide() {
-        dismiss()
+        panel.dismiss()
         if keyboardGuide == nil { keyboardGuide = KeyboardGuideController(hotKeys: hotKeys) }
         keyboardGuide?.present()
     }
+
     @objc private func showAbout() {
-        dismiss()
+        panel.dismiss()
         if about == nil { about = AboutController() }
         about?.present()
     }
+
     @objc private func showNotices() {
         if let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt") {
             NSWorkspace.shared.open(url)
         }
     }
+
     @objc private func rescan() {
         catalog.refresh()
         hud.show("Refreshing applications")
     }
+
     @objc private func quit() { NSApp.terminate(nil) }
 
     private func start(_ check: @MainActor (CheckHandles) -> Void) {
-        catalog.onRefreshFinished = nil
         present()
         check(
             CheckHandles(
-                launcher: launcher, panel: panel, fieldEditor: fieldEditor, catalog: catalog,
+                launcher: panel.launcher, panel: panel, fieldEditor: panel.fieldEditor, catalog: catalog,
                 hotKeys: hotKeys,
                 menu: statusItem.menu,
                 showSettings: { [self] in
@@ -328,5 +228,12 @@ import CielCore
                     showGuide()
                     return keyboardGuide
                 }))
+    }
+}
+
+extension NSAppleEventManager {
+    fileprivate var launchedAsLoginItem: Bool {
+        currentAppleEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
+            == keyAELaunchedAsLogInItem
     }
 }
