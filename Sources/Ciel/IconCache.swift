@@ -5,15 +5,20 @@ final class IconCache {
     typealias Loader = @Sendable (String) async -> CGImage?
     typealias Completion = @MainActor (String, NSImage?) -> Void
 
+    private enum Metrics {
+        static let pointSize = NSSize(width: 36, height: 36)
+        static let scale: CGFloat = 2
+    }
+
     private struct CachedIcon {
         let image: NSImage
         let cost: Int
         var lastUse: UInt64
     }
 
-    private struct Request {
-        let id: UUID
+    @MainActor private final class Load {
         var completions: [Completion]
+        init(_ completion: @escaping Completion) { completions = [completion] }
     }
 
     private let loader: Loader
@@ -23,15 +28,14 @@ final class IconCache {
     private let concurrentLimit: Int
     private let completionLimit: Int
     private var cached: [String: CachedIcon] = [:]
-    private var requests: [String: Request] = [:]
+    private var loads: [String: Load] = [:]
     private var queued: [String] = []
-    private var running: [UUID: Task<Void, Never>] = [:]
-    private var delivering: [String: UUID] = [:]
+    private var loadsInFlight = 0
+    private var deliveringPath: String?
     private var cacheCost = 0
     private var clock: UInt64 = 0
 
-    /// Include obsolete running loads so diagnostic checks can wait for all icon work.
-    var pendingCount: Int { queued.count + running.count }
+    var pendingCount: Int { queued.count + loadsInFlight }
     var cachedCount: Int { cached.count }
 
     init(
@@ -56,17 +60,16 @@ final class IconCache {
             cached[path] = hit
             return hit.image
         }
-        if var request = requests[path] {
-            if request.completions.count == completionLimit { request.completions.removeFirst() }
-            request.completions.append(onLoad)
-            requests[path] = request
+        if let load = loads[path] {
+            if load.completions.count == completionLimit { load.completions.removeFirst() }
+            load.completions.append(onLoad)
             return nil
         }
         if pendingCount >= pendingLimit {
             guard !queued.isEmpty else { return nil }
-            requests.removeValue(forKey: queued.removeFirst())
+            loads.removeValue(forKey: queued.removeFirst())
         }
-        requests[path] = Request(id: UUID(), completions: [onLoad])
+        loads[path] = Load(onLoad)
         queued.append(path)
         startQueuedLoads()
         return nil
@@ -75,51 +78,48 @@ final class IconCache {
     func invalidate(paths: Set<String>) {
         for path in paths {
             if let old = cached.removeValue(forKey: path) { cacheCost -= old.cost }
-            requests.removeValue(forKey: path)
-            delivering.removeValue(forKey: path)
+            loads.removeValue(forKey: path)
         }
         queued.removeAll { paths.contains($0) }
-        // Running work may finish after invalidation. Its request ID no longer matches.
+        if let deliveringPath, paths.contains(deliveringPath) { self.deliveringPath = nil }
     }
 
     private func startQueuedLoads() {
-        while running.count < concurrentLimit, !queued.isEmpty {
+        while loadsInFlight < concurrentLimit, !queued.isEmpty {
             let path = queued.removeFirst()
-            guard let request = requests[path] else { continue }
-            let id = request.id
+            guard let load = loads[path] else { continue }
+            loadsInFlight += 1
             let loader = loader
-            running[id] = Task.detached(priority: .userInitiated) { [weak self] in
+            Task.detached(priority: .userInitiated) { [weak self] in
                 let pixels = await loader(path)
-                await self?.complete(path: path, id: id, pixels: pixels)
+                await self?.complete(load, path: path, pixels: pixels)
             }
         }
     }
 
-    private func complete(path: String, id: UUID, pixels: CGImage?) {
-        running.removeValue(forKey: id)
+    private func complete(_ load: Load, path: String, pixels: CGImage?) {
+        loadsInFlight -= 1
         defer { startQueuedLoads() }
-        guard let request = requests[path], request.id == id else { return }
-        requests.removeValue(forKey: path)
-        delivering[path] = id
-        defer {
-            if delivering[path] == id { delivering.removeValue(forKey: path) }
-        }
-        let image = pixels.map { pixels in
-            // Keep source pixel dimensions separate from the image's point size.
-            let size = NSSize(width: 36, height: 36)
-            let representation = NSBitmapImageRep(cgImage: pixels)
-            representation.size = size
-            let image = NSImage(size: size)
-            image.addRepresentation(representation)
-            return image
-        }
+        guard loads[path] === load else { return }
+        loads.removeValue(forKey: path)
+        let image = pixels.map(Self.image)
         if let image, let pixels {
             store(image, path: path, cost: pixels.bytesPerRow * pixels.height)
         }
-        for completion in request.completions {
-            guard delivering[path] == id else { break }
+        deliveringPath = path
+        defer { deliveringPath = nil }
+        for completion in load.completions {
+            guard deliveringPath == path else { break }
             completion(path, image)
         }
+    }
+
+    private static func image(_ pixels: CGImage) -> NSImage {
+        let representation = NSBitmapImageRep(cgImage: pixels)
+        representation.size = Metrics.pointSize
+        let image = NSImage(size: Metrics.pointSize)
+        image.addRepresentation(representation)
+        return image
     }
 
     private func store(_ image: NSImage, path: String, cost: Int) {
@@ -136,10 +136,9 @@ final class IconCache {
 
     nonisolated private static func loadIcon(_ path: String) async -> CGImage? {
         autoreleasepool {
-            // Apple permits icon(forFile:) on any thread. Keep AppKit image work here;
-            // only the immutable CGImage crosses to the main actor.
+            // Apple permits icon(forFile:) on any thread.
             let source = NSWorkspace.shared.icon(forFile: path)
-            let pixels = 72
+            let pixels = Int(Metrics.pointSize.width * Metrics.scale)
             guard
                 let context = CGContext(
                     data: nil, width: pixels, height: pixels, bitsPerComponent: 8,
@@ -147,12 +146,12 @@ final class IconCache {
                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
                 )
             else { return nil }
-            context.scaleBy(x: 2, y: 2)
+            context.scaleBy(x: Metrics.scale, y: Metrics.scale)
             NSGraphicsContext.saveGraphicsState()
             defer { NSGraphicsContext.restoreGraphicsState() }
             NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
             source.draw(
-                in: NSRect(x: 0, y: 0, width: 36, height: 36), from: .zero, operation: .sourceOver,
+                in: NSRect(origin: .zero, size: Metrics.pointSize), from: .zero, operation: .sourceOver,
                 fraction: 1)
             return context.makeImage()
         }
