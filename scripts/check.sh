@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--unit-only" && "$1" != "--core-only" ) ]]; then
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--unit-only" ) ]]; then
     printf 'Usage: bash scripts/check.sh [--unit-only]\n' >&2; exit 1
 fi
 bash -n scripts/*.sh
@@ -9,7 +9,6 @@ plutil -lint Resources/Info.plist
 swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
 bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
 bash scripts/benchmark.sh
-# --core-only is kept for existing local commands. Both modes include app unit tests.
 if [[ $# -eq 1 ]]; then exit 0; fi
 bash scripts/build.sh
 # Give native checks a separate identity so they do not read or write user settings.
@@ -17,7 +16,8 @@ check_dir="$(mktemp -d "$PWD/.build/ciel-checks.XXXXXX")"
 trap 'rm -rf "$check_dir"' EXIT
 check_app="$check_dir/CielChecks.app"
 ditto dist/Ciel.app "$check_app"
-/usr/libexec/PlistBuddy -c 'Set CFBundleIdentifier app.mauriciopolvora.ciel.checks' "$check_app/Contents/Info.plist"
+check_identifier="$(plutil -extract CFBundleIdentifier raw Resources/Info.plist).checks"
+/usr/libexec/PlistBuddy -c "Set CFBundleIdentifier $check_identifier" "$check_app/Contents/Info.plist"
 codesign --force --sign - --options runtime "$check_app"
 check_binary="$check_app/Contents/MacOS/Ciel"
 "$check_binary" --ui-test

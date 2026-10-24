@@ -1,6 +1,6 @@
 # Architecture improvement plan
 
-The app keeps AppKit and its existing black launcher design. The bundle identifier, saved shortcuts, usage history, and display placement remain compatible.
+The app keeps AppKit and its existing black launcher design.
 
 ## Work and acceptance
 
@@ -41,7 +41,7 @@ bash scripts/benchmark.sh --output .build/performance/search-engine.json
 bash scripts/benchmark.sh --baseline .build/performance/previous-search-engine.json
 ```
 
-The release benchmark covers 12 query cases at 1,000 and 10,000 synthetic apps. It includes broad queries, typing errors, multiple words, and no matches. Each case records median, p95, maximum, result validity, and its budget. The default absolute p95 allowance is 100 ms per 1,000 apps. This is a broad guard against severe regressions on shared CI machines. A saved passing report permits a tighter comparison: four times its p95, with a 1 ms floor. Use the same hardware, toolchain, and settings for comparisons. Budget failures return a nonzero status and still write the report. `CIEL_BENCHMARK_P95_MS_PER_1000` changes the absolute allowance.
+The release benchmark runs each query case at 1,000 and 10,000 synthetic apps. The cases include broad queries, typing errors, multiple words, and no matches. Each case records median, p95, maximum, result validity, and its budget. The default absolute p95 allowance is 100 ms per 1,000 apps. This is a broad guard against severe regressions on shared CI machines. A saved passing report permits a tighter comparison: four times its p95, with a 1 ms floor. Use the same hardware, toolchain, and settings for comparisons. Budget failures return a nonzero status and still write the report. `CIEL_BENCHMARK_P95_MS_PER_1000` changes the absolute allowance.
 
 The local native report is `.build/performance/native-ui.json`. Its defaults cover 300 query changes and five idle seconds. It checks startup, query layout/display submission, idle CPU, and resident growth. `CIEL_NATIVE_CYCLES` and `CIEL_NATIVE_IDLE_SECONDS` extend the workload. `CIEL_NATIVE_MAX_P95_MS`, `CIEL_NATIVE_MAX_STARTUP_MS`, `CIEL_NATIVE_MAX_IDLE_CPU_PERCENT`, and `CIEL_NATIVE_MAX_GROWTH_MIB` set its limits.
 

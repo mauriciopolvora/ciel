@@ -44,10 +44,10 @@ See [Apple's notarization documentation](https://developer.apple.com/documentati
 
 ## Upgrade identity
 
-The display name and executable are Ciel. The bundle identifier remains `app.mauriciopolvora.jumpstart`. This preserves saved shortcuts and launch history from Jumpstart. Keep this identifier stable in future releases.
+The display name and executable are Ciel. The bundle identifier is `app.mauriciopolvora.ciel`. Saved shortcuts and launch history belong to this identifier. Keep it stable in future releases.
 
 Ad-hoc signatures change identity when code changes. If window access stops working after a local rebuild, re-authorize the installed Ciel app in macOS privacy settings. Do not use a broad bundle-identifier-only signing requirement. Use the same valid signing certificate for future public updates.
 
-The install script saves old Ciel or Jumpstart bundles under `.build/backups` before replacing them. For rollback, quit Ciel and copy the saved bundle back to `~/Applications`. Avoid running two copies with the same bundle identifier.
+The install script saves the old Ciel bundle under `.build/backups` before it replaces it. For rollback, quit Ciel and copy the saved bundle back to `~/Applications`. Avoid running two copies with the same bundle identifier.
 
 Ciel 0.4.2 has no automatic update service. Updates require a manual download or build and installation.

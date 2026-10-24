@@ -24,9 +24,8 @@ final class AppCatalog {
     private var rescanRequested = false
 
     convenience init(roots: [URL] = ApplicationScanner.defaultRoots, useCache: Bool = true) {
-        // Keep the existing production path. A separate diagnostic app identity
-        // must not read or overwrite the installed app's catalog cache.
-        let identifier = Bundle.main.bundleIdentifier ?? "app.mauriciopolvora.jumpstart"
+        // Native checks run under their own bundle id, so they keep a separate catalog cache.
+        let identifier = Bundle.main.bundleIdentifier ?? AppIdentity.bundleIdentifier
         let cacheURL =
             useCache
             ? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -34,7 +33,6 @@ final class AppCatalog {
         self.init(roots: roots, cacheURL: cacheURL, watchChanges: true)
     }
 
-    // An explicit cache and disabled watcher keep unit checks separate from user files.
     init(roots: [URL], cacheURL: URL?, watchChanges: Bool) {
         self.roots = roots
         self.cacheURL = cacheURL
@@ -55,7 +53,6 @@ final class AppCatalog {
     }
 
     func refresh() {
-        // A manual refresh also consumes events already queued by the watcher.
         pending?.cancel()
         pending = nil
         debounce.reset()

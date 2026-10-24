@@ -80,7 +80,6 @@ struct CatalogEventImpact: Equatable, Sendable {
             if let bundle = CatalogPaths.appBundle(containing: event.path, roots: roots) {
                 result.appBundles.insert(bundle)
             } else {
-                // A directory event can cover several installed, removed, or renamed apps.
                 result.directories.insert(event.path)
             }
         }

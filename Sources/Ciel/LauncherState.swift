@@ -1,7 +1,6 @@
 import CielCore
 import Foundation
 
-/// Owns launcher transitions independently of AppKit drawing and input controls.
 @MainActor final class LauncherState {
     struct Change: Equatable {
         var queryChanged = false

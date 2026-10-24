@@ -1,7 +1,6 @@
 import AppKit
 import CielCore
 
-/// Captures native surfaces and checks real menu actions in an isolated test app.
 @MainActor enum SmokeCheck {
     static func run(
         launcher: LauncherView, fieldEditor: MonochromeFieldEditor, catalog: AppCatalog, hotKeys: HotKeys,

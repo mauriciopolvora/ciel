@@ -10,14 +10,14 @@ Run `bash scripts/check.sh` for the full local check. It creates a diagnostic ap
 | --- | --- |
 | Swift format, shell syntax, and Info.plist | Passed |
 | Swift 6 language mode | Passed; compiler warnings treated as errors in unit checks |
-| Discovered Swift Testing tests | 90 passed: 30 core and 60 app tests |
-| Window adapter and operation engine | 21 deterministic tests passed |
+| Swift Testing core and app tests | Passed |
+| Window adapter and operation engine | Deterministic tests passed |
 | Async icon cache and cell reuse | Cache limits, coalescing, stale completion, and invalidation tests passed |
 | Catalog | Unchanged cache writes and publications suppressed; empty/cache-equal completion and event classification passed |
-| Real filesystem events | Five checks passed: empty completion, nested addition, metadata update, icon-only invalidation, removal |
+| Real filesystem events | Passed: empty completion, nested addition, metadata update, icon-only invalidation, removal |
 | Native launcher | 240 query/category changes passed; blank input, native selection, panel sizing, and retained cells passed |
 | Native help | Real Window Shortcuts menu action and Keyboard Guide passed; screenshots captured |
-| Native window fixture | 12 checks passed on two displays, including minimize and minimum-size handling |
+| Native window fixture | Passed on two displays, including minimize and minimum-size handling |
 | Normal launcher Accessibility hierarchy | Remote `AXWindows` contains an `AXWindow` |
 | Universal app | arm64 and x86_64 compiled; strict ad-hoc signature passed |
 | Runtime dependencies | App binary links system libraries; no workspace framework is required |
@@ -28,7 +28,7 @@ The local Command Line Tools linker reports missing optional search directories.
 
 ## Performance measurements
 
-The release search benchmark covers 12 query cases at each catalog size. Three warmup searches precede 20 measured searches for each case. Reports are saved under `.build/performance` and uploaded by CI.
+The release search benchmark runs each query case at each catalog size. Three warmup searches precede 20 measured searches for each case. Reports are saved under `.build/performance` and uploaded by CI.
 
 | Catalog | Observed p95 range |
 | --- | --- |
@@ -62,8 +62,7 @@ Enhanced UI restoration passed injected success and error tests. The real AppKit
 
 ## Installed app and distribution
 
-The architecture work builds `dist/Ciel.app`. It does not install a replacement or change the installed app's Accessibility grant. Saved shortcuts, usage history, menu icon preference, display placement, and the production bundle identifier remain compatible.
-
+The architecture work builds `dist/Ciel.app`. It does not install a replacement or change the installed app's Accessibility grant.
 Earlier installed-app checks covered blank input, typed results, app launch, the global shortcut, drag placement, snapping, native text selection, saved placement after restart, readable About text, and the menu icon setting.
 
 Remaining coverage:

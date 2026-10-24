@@ -283,8 +283,6 @@ struct WindowOperationTests {
         let fixture = fixture()
         fixture.window.beforeCall = { timeout in
             #expect(timeout > 0 && timeout <= 0.25)
-            // Simulate a responsive but slow app. Setup and writes consume the
-            // same budget as frame verification, instead of starting a new wait.
             fixture.clock.now += min(0.08, timeout)
         }
         #expect(throws: WindowError.timedOut) {

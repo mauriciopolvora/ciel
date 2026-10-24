@@ -57,14 +57,12 @@ final class IconCache {
             return hit.image
         }
         if var request = requests[path] {
-            // Repeated table updates must not retain unlimited callbacks for the same icon.
             if request.completions.count == completionLimit { request.completions.removeFirst() }
             request.completions.append(onLoad)
             requests[path] = request
             return nil
         }
         if pendingCount >= pendingLimit {
-            // Prefer recent results when a query changes faster than icons can load.
             guard !queued.isEmpty else { return nil }
             requests.removeValue(forKey: queued.removeFirst())
         }

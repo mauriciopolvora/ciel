@@ -2,9 +2,7 @@ import CoreGraphics
 import Foundation
 
 public enum WindowAction: String, CaseIterable, Codable, Sendable {
-    case leftHalf, rightHalf, firstThreeFourths, lastThreeFourths
-    // Keep the stored identifier for existing shortcuts and usage history.
-    case centerThreeFourths = "centerTwoThirds"
+    case leftHalf, rightHalf, firstThreeFourths, lastThreeFourths, centerThreeFourths
     case maximize, almostMaximize, center, nextDisplay, previousDisplay, restore
     case topHalf, bottomHalf, topLeft, topRight, bottomLeft, bottomRight, minimize
 
@@ -71,7 +69,6 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable {
                 x: (visible.midX - size.width / 2).rounded(), y: (visible.midY - size.height / 2).rounded(),
                 width: size.width, height: size.height)
         }
-        // Round shared boundaries, not independent widths, to avoid seams.
         let x = (visible.minX + unit.minX * visible.width).rounded()
         let y = (visible.minY + unit.minY * visible.height).rounded()
         let maxX = (visible.minX + unit.maxX * visible.width).rounded()

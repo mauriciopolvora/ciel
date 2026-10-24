@@ -2,7 +2,6 @@ import AppKit
 import CielCore
 import ServiceManagement
 
-// Shared native window and shortcut handling for the two preferences screens.
 class PreferencesController: NSWindowController, NSWindowDelegate {
     let hotKeys: HotKeys
     let content: SurfaceView

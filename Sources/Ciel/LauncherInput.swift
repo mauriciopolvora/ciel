@@ -23,7 +23,6 @@ final class LauncherSearchField: NSTextField {
     }
 }
 
-/// Keep native editing behavior while removing the system accent from the caret and selection.
 final class MonochromeFieldEditor: NSTextView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func resetCursorRects() {

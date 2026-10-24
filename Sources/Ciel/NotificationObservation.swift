@@ -12,7 +12,6 @@ final class NotificationObservation {
     ) {
         self.center = center
         token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
-            // This observer always uses OperationQueue.main.
             MainActor.assumeIsolated { handler() }
         }
     }

@@ -30,7 +30,6 @@ struct Shortcut: Codable, Equatable, Sendable {
             49: "Space", 36: "↩", 48: "⇥", 51: "⌫", 53: "⎋", 123: "←", 124: "→", 125: "↓", 126: "↑",
         ]
         if let name = special[code] { return name }
-        // Read the current keyboard layout, rather than assuming US key positions.
         if let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
             let raw = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
         {
@@ -59,7 +58,7 @@ struct Shortcut: Codable, Equatable, Sendable {
     private var nextID: UInt32 = 1
     private(set) var shortcuts: [String: Shortcut] = [:]
     private(set) var registrationErrors: [String] = []
-    nonisolated static let signature: OSType = 0x4A55_4D50  // JUMP
+    nonisolated static let signature: OSType = 0x4349_454C  // CIEL
 
     init() {
         if let data = UserDefaults.standard.data(forKey: "shortcuts"),

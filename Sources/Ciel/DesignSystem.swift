@@ -1,7 +1,6 @@
 import AppKit
 import QuartzCore
 
-/// Shared monochrome tokens. Ciel keeps the same black surface in every appearance.
 @MainActor enum Theme {
     static let accent = NSColor(white: 0.92, alpha: 1)
     static let text = NSColor(white: 0.94, alpha: 1)
@@ -41,7 +40,6 @@ import QuartzCore
     }
 }
 
-/// Native button behavior and accessibility, with a neutral switch track.
 final class MonochromeSwitch: NSButton {
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -72,7 +70,6 @@ final class MonochromeSwitch: NSButton {
     }
 }
 
-/// Opaque preference groups and panels update for appearance and contrast changes.
 final class SurfaceView: FlippedView {
     var isGroup = false
     var isFloating = false
