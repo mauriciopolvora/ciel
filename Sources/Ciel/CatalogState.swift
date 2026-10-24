@@ -11,6 +11,12 @@ struct CatalogScanRequest: Sendable {
     let iconImpact: CatalogEventImpact
 }
 
+/// One finished refresh, published whether or not anything changed.
+struct CatalogUpdate: Equatable, Sendable {
+    let invalidatedIconPaths: Set<String>
+    let entriesChanged: Bool
+}
+
 struct CatalogScanResult: Sendable {
     let entries: [SearchEntry]
     let entriesChanged: Bool

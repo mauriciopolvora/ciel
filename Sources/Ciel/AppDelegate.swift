@@ -24,10 +24,10 @@ import CielCore
     private var observers: [Cleanup] = []
     private var opening = false
     private var executing = false
-    private let check: (@MainActor (CheckHandles) -> Void)?
+    private var pendingCheck: (@MainActor (CheckHandles) -> Void)?
 
     init(check: (@MainActor (CheckHandles) -> Void)?) {
-        self.check = check
+        pendingCheck = check
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -36,13 +36,7 @@ import CielCore
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
         setupPanel()
-        catalog.onChange = { [weak self] in
-            self?.reloadEntries()
-        }
-        catalog.onIconsInvalidated = { [weak self] paths in self?.launcher.invalidateIcons(paths: paths) }
-        if let check {
-            catalog.onRefreshFinished = { [weak self] in self?.start(check) }
-        }
+        catalog.onUpdate = { [weak self] update in self?.catalogUpdated(update) }
         reloadEntries()
         catalog.refresh()
         observers = [
@@ -51,7 +45,7 @@ import CielCore
         ].map { name in
             NSWorkspace.shared.notificationCenter.observe(name) { [weak self] in self?.catalog.refresh() }
         }
-        guard check == nil else { return }
+        guard pendingCheck == nil else { return }
         if !hotKeys.registrationErrors.isEmpty {
             hud.show(
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
@@ -160,6 +154,16 @@ import CielCore
         panel.onEscape = { [weak self] in self?.dismiss() }
         panel.onSettings = { [weak self] in self?.showSettings() }
         panel.onQuickOpen = { [weak self] index in self?.launcher.execute(at: index) }
+    }
+
+    private func catalogUpdated(_ update: CatalogUpdate) {
+        // Invalidate first, so the cells a reload configures miss the stale icons.
+        launcher.invalidateIcons(paths: update.invalidatedIconPaths)
+        if update.entriesChanged { reloadEntries() }
+        if let check = pendingCheck {
+            pendingCheck = nil
+            start(check)
+        }
     }
 
     private func reloadEntries() {
@@ -315,7 +319,6 @@ import CielCore
     @objc private func quit() { NSApp.terminate(nil) }
 
     private func start(_ check: @MainActor (CheckHandles) -> Void) {
-        catalog.onRefreshFinished = nil
         present()
         check(
             CheckHandles(

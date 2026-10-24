@@ -5,9 +5,7 @@ import CoreServices
 @MainActor
 final class AppCatalog {
     private(set) var entries: [SearchEntry] = []
-    var onChange: (() -> Void)?
-    var onRefreshFinished: (() -> Void)?
-    var onIconsInvalidated: ((Set<String>) -> Void)?
+    var onUpdate: ((CatalogUpdate) -> Void)?
 
     private let worker = CatalogScanWorker()
     private let roots: [URL]
@@ -81,10 +79,9 @@ final class AppCatalog {
         rescanRequested = false
         scanning = false
         scanTask = nil
-        // Invalidate before publishing so new result cells use fresh icons.
-        if !result.invalidatedIconPaths.isEmpty { onIconsInvalidated?(result.invalidatedIconPaths) }
-        if result.entriesChanged { onChange?() }
-        onRefreshFinished?()
+        onUpdate?(
+            CatalogUpdate(
+                invalidatedIconPaths: result.invalidatedIconPaths, entriesChanged: result.entriesChanged))
         if needsRescan, !scanning { refresh() }
     }
 
