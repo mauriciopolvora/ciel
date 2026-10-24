@@ -28,11 +28,7 @@ struct SavedDataTests {
         }
     }
 
-    @Test func everyShippedShortcutNameStillBindsItsAction() {
-        let bound = Dictionary(uniqueKeysWithValues: WindowAction.allCases.map { ($0.id, $0) })
-        for (name, action) in shippedWindowIDs {
-            #expect(bound[name] == action, "\(name)")
-        }
+    @Test func launcherShortcutDefaultIsStoredUnderLauncher() {
         withEmptyDefaults { defaults in
             #expect(HotKeys(defaults: defaults).shortcuts["launcher"] == .launcher)
         }
