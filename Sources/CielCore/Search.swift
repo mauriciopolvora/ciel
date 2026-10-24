@@ -29,10 +29,19 @@ public struct SearchEntry: Identifiable, Codable, Equatable, Sendable {
     public static var commands: [SearchEntry] {
         WindowAction.allCases.map {
             SearchEntry(
-                id: "window." + $0.rawValue, title: $0.title, subtitle: "Window Management",
+                id: $0.id, title: $0.title, subtitle: "Window Management",
                 kind: .window, action: $0, keywords: $0.keywords)
         }
     }
+
+    public static let utilities = [
+        SearchEntry(
+            id: "settings", title: "Ciel Settings", subtitle: "Preferences", kind: .utility,
+            keywords: "hotkey shortcut permission accessibility login"),
+        SearchEntry(
+            id: "rescan", title: "Rescan Applications", subtitle: "Ciel", kind: .utility,
+            keywords: "refresh index apps"),
+    ]
 }
 
 public enum SearchEngine {

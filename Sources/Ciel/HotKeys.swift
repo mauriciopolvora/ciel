@@ -60,8 +60,11 @@ struct Shortcut: Codable, Equatable, Sendable {
     private(set) var registrationErrors: [String] = []
     nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: "shortcuts"),
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: "shortcuts"),
             let saved = try? JSONDecoder().decode([String: Shortcut].self, from: data)
         {
             shortcuts = saved
@@ -122,7 +125,7 @@ struct Shortcut: Codable, Equatable, Sendable {
             if let ref = resources.refs.removeValue(forKey: name) { UnregisterEventHotKey(ref) }
             shortcuts.removeValue(forKey: name)
         }
-        UserDefaults.standard.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
+        defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
     }
 
     private func register(_ name: String, _ shortcut: Shortcut) throws {

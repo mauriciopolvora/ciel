@@ -6,6 +6,8 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable {
     case maximize, almostMaximize, center, nextDisplay, previousDisplay, restore
     case topHalf, bottomHalf, topLeft, topRight, bottomLeft, bottomRight, minimize
 
+    public var id: String { "window." + rawValue }
+
     public var title: String {
         switch self {
         case .leftHalf: return "Left Half"
@@ -56,7 +58,7 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable {
         case .topRight: return CGRect(x: 0.5, y: 0, width: 0.5, height: 0.5)
         case .bottomLeft: return CGRect(x: 0, y: 0.5, width: 0.5, height: 0.5)
         case .bottomRight: return CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)
-        default: return nil
+        case .center, .nextDisplay, .previousDisplay, .restore, .minimize: return nil
         }
     }
 

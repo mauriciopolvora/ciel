@@ -222,7 +222,7 @@ final class WindowShortcutsController: PreferencesController {
             let y = CGFloat(index) * 44
             label(action.title, x: 8, y: y + 12, width: 250, size: 13, in: list)
             addRecorder(
-                "window." + action.rawValue, label: action.title + " shortcut", in: list,
+                action.id, label: action.title + " shortcut", in: list,
                 frame: NSRect(x: 270, y: y + 6, width: 148, height: 32))
         }
         scroll.documentView = list

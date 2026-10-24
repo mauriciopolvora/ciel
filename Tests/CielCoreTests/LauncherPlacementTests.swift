@@ -31,14 +31,18 @@ struct LauncherPlacementTests {
     }
 
     @Test
-    func testNarrowScreenAndEdges() {
+    func testGuideIgnoredWhenCenteredBoxWouldLeaveDisplay() {
         let narrow = CGRect(x: -1024, y: 50, width: 1024, height: 700)
         let snap = LauncherPlacement.snap(
             CGRect(x: -1088, y: 141, width: 640, height: 68),
             screen: narrow, headerHeight: 68)
         #expect(snap.frame.minX == narrow.minX)
-        #expect(snap.xGuide == nil)  // Quarter guide would leave the box outside this display.
+        #expect(snap.xGuide == nil)
         #expect(narrow.contains(snap.frame))
+    }
+
+    @Test
+    func testFrameOutsideDisplayIsClampedInside() {
         let outside = LauncherPlacement.snap(
             CGRect(x: 1500, y: -100, width: 640, height: 404),
             screen: screen, headerHeight: 68, enabled: false)
@@ -79,6 +83,20 @@ struct LauncherPlacementTests {
         #expect(reopened.placement(for: "unknown-display") == nil)
         let resized = CGRect(x: -1200, y: -200, width: 1200, height: 800)
         #expect(resized.contains(placement.frame(size: original.size, screen: resized, headerHeight: 68)))
+    }
+
+    @Test
+    func testPlacementInTheStoredFormatStillRestores() throws {
+        let suite = "ciel.placement.test." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(
+            Data(#"{"main":{"horizontal":0.25,"vertical":0.5}}"#.utf8), forKey: "launcher.placements")
+        let saved = try #require(LauncherPlacementStore(defaults: defaults).placement(for: "main"))
+        let frame = saved.frame(
+            size: CGSize(width: 600, height: 68), screen: CGRect(x: 0, y: 0, width: 1000, height: 800),
+            headerHeight: 68)
+        #expect(frame == CGRect(x: 100, y: 366, width: 600, height: 68))
     }
 
     @Test
