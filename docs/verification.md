@@ -63,6 +63,7 @@ Enhanced UI restoration passed injected success and error tests. The real AppKit
 ## Installed app and distribution
 
 The architecture work builds `dist/Ciel.app`. It does not install a replacement or change the installed app's Accessibility grant.
+
 Earlier installed-app checks covered blank input, typed results, app launch, the global shortcut, drag placement, snapping, native text selection, saved placement after restart, readable About text, and the menu icon setting.
 
 Remaining coverage:

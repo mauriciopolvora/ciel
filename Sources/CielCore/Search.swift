@@ -41,6 +41,10 @@ public enum SearchEngine {
             options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 
+    public static func tokens(in query: String) -> [String] {
+        normalize(query).split(whereSeparator: { $0.isWhitespace }).map(String.init)
+    }
+
     private static let strict = FuzzyMatcher(
         config: MatchConfig(
             minScore: 0.3,
@@ -54,9 +58,9 @@ public enum SearchEngine {
         _ query: String, entries: [SearchEntry], kind: SearchEntry.Kind? = nil,
         usage: [String: Int] = [:], lastUsed: [String: Double] = [:], limit: Int = 60
     ) -> [SearchEntry] {
-        let q = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
-        let tokens = q.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        let tokens = tokens(in: query)
         guard limit > 0, !tokens.isEmpty else { return [] }
+        let q = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
         let prepared = tokens.map { token in
             let matcher = token.count < 4 ? strict : tolerant
             return (token, matcher, matcher.prepare(token))
