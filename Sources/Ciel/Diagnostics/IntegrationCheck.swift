@@ -258,9 +258,6 @@ import CielCore
             window.title = "Ciel temporary minimum-size test"
         }
         window.isReleasedWhenClosed = false
-        let label = NSTextField(labelWithString: "Testing window commands. This window closes automatically.")
-        label.frame = NSRect(x: 30, y: 200, width: 620, height: 30)
-        window.contentView?.addSubview(label)
         window.delegate = self
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

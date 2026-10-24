@@ -4,9 +4,7 @@ cd "$(dirname "$0")/.."
 
 tokens=Sources/Ciel/DesignSystem.swift
 files=()
-while IFS= read -r file; do files+=("$file"); done < <(
-    find Sources -name '*.swift' ! -path "$tokens" ! -path 'Sources/Ciel/Diagnostics/*' | sort
-)
+while IFS= read -r file; do files+=("$file"); done < <(find Sources -name '*.swift' ! -path "$tokens" | sort)
 
 awk -v tokens="$tokens" -v today="$(date +%Y-%m-%d)" '
 BEGIN {
