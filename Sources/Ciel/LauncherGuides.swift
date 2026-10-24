@@ -21,7 +21,7 @@ final class LauncherGuideView: NSView {
         let path = NSBezierPath()
         path.move(to: start)
         path.line(to: end)
-        NSColor.white.withAlphaComponent(active ? 0.7 : 0.18).setStroke()
+        Theme.guide.withAlphaComponent(active ? 0.7 : 0.18).setStroke()
         path.lineWidth = active ? 1.5 : 1
         path.stroke()
     }

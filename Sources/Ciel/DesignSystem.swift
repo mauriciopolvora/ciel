@@ -11,6 +11,7 @@ import QuartzCore
     static let group = NSColor(white: 0.075, alpha: 1)
     static let selection = NSColor(white: 0.14, alpha: 1)
     static let border = NSColor(white: 0.30, alpha: 1)
+    static let guide = NSColor.white
     static let rowHeight: CGFloat = 44
     static let panelRadius: CGFloat = 16
     static let groupRadius: CGFloat = 10
