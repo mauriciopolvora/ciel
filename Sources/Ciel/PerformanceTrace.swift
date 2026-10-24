@@ -1,10 +1,9 @@
 import Foundation
 import os
 
-/// Named intervals are recorded only when a profiling tool enables signposts.
 enum PerformanceTrace {
     private static let signposter = OSSignposter(
-        subsystem: "app.mauriciopolvora.jumpstart", category: "Performance")
+        subsystem: AppIdentity.bundleIdentifier, category: "Performance")
 
     static func measure<Value>(_ name: StaticString, _ operation: () throws -> Value) rethrows -> Value {
         let interval = signposter.beginInterval(name, id: signposter.makeSignpostID())

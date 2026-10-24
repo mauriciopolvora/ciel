@@ -17,7 +17,6 @@ struct DisplaySnapshot: Sendable {
     }
 }
 
-/// The main actor owns the current capture. AX references never leave the worker.
 @MainActor final class WindowController {
     private let worker = WindowWorker()
     private var captureTask: Task<WindowSelection, Never>?

@@ -1,7 +1,6 @@
 import AppKit
 import CielCore
 
-// Exercise real FSEvents without changing the user's application folders.
 @MainActor
 final class CatalogCheck {
     private var catalog: AppCatalog?

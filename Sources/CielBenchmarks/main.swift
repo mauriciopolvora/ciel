@@ -118,7 +118,6 @@ struct Report: Codable {
 }
 
 let queries: [QueryCase] = [
-    .init(name: "empty-broad", query: "", expectsMatches: true),
     .init(name: "single-character-broad", query: "a", expectsMatches: true),
     .init(name: "keyword-broad", query: "application", expectsMatches: true),
     .init(name: "prefix", query: "safari", expectsMatches: true),

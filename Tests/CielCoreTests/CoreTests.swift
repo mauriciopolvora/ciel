@@ -10,6 +10,10 @@ struct SearchTests {
         SearchEntry(id: "code", title: "Visual Studio Code", subtitle: "Application", kind: .application),
         SearchEntry(id: "cafe", title: "Café", subtitle: "Application", kind: .application),
     ]
+    let notes = [
+        SearchEntry(id: "alpha", title: "Notes Alpha", subtitle: "Application", kind: .application),
+        SearchEntry(id: "beta", title: "Notes Beta", subtitle: "Application", kind: .application),
+    ]
 
     @Test
     func testExactMatchOutranksFrequentlyUsedPrefix() {
@@ -49,30 +53,21 @@ struct SearchTests {
         #expect(SearchEngine.search("undo", entries: SearchEntry.commands).first?.action == .restore)
         #expect(SearchEngine.search("safari", entries: apps + SearchEntry.commands, kind: .window).isEmpty)
         #expect(
-            SearchEngine.search("", entries: apps + SearchEntry.commands, kind: .window).count
+            SearchEngine.search("window", entries: apps + SearchEntry.commands, kind: .window).count
                 == WindowAction.allCases.count)
     }
     @Test
     func testHistoryAndLimit() {
-        #expect(SearchEngine.search("", entries: apps, usage: ["code": 5], limit: 1).map(\.id) == ["code"])
-        #expect(SearchEngine.search("", entries: apps, limit: 0).isEmpty)
-    }
-    @Test
-    func testFrequentCommandsRankAboveApps() {
-        let usage = ["window.centerTwoThirds": 40, "window.minimize": 20, "safari": 10]
-        let results = SearchEngine.search("", entries: apps + SearchEntry.commands, usage: usage)
         #expect(
-            Array(results.prefix(3).map(\.id)) == ["window.centerTwoThirds", "window.minimize", "safari"])
+            SearchEngine.search("notes", entries: notes, usage: ["beta": 5], limit: 1).map(\.id) == ["beta"])
+        #expect(SearchEngine.search("notes", entries: notes, limit: 0).isEmpty)
     }
     @Test
     func testRecentUseBreaksFrequencyTies() {
-        let usage = ["window.centerTwoThirds": 3, "safari": 3]
-        let dates = ["window.centerTwoThirds": 200.0, "safari": 100.0]
+        let usage = ["alpha": 3, "beta": 3]
+        let dates = ["alpha": 100.0, "beta": 200.0]
         #expect(
-            SearchEngine.search(
-                "", entries: apps + SearchEntry.commands,
-                usage: usage, lastUsed: dates
-            ).first?.id == "window.centerTwoThirds")
+            SearchEngine.search("notes", entries: notes, usage: usage, lastUsed: dates).first?.id == "beta")
     }
     @Test
     func testMinimizeSearch() {
@@ -80,6 +75,8 @@ struct SearchTests {
     }
     @Test
     func testEmptyAndUnicodeQueries() {
+        #expect(SearchEngine.search("", entries: apps, usage: ["code": 5]).isEmpty)
+        #expect(SearchEngine.search("   ", entries: apps).isEmpty)
         #expect(SearchEngine.search("🚀", entries: apps).isEmpty)
         #expect(SearchEngine.search("anything", entries: []).isEmpty)
     }
@@ -89,7 +86,6 @@ struct SearchTests {
             SearchEntry(
                 id: "app\($0)", title: "Application \($0)", subtitle: "Application", kind: .application)
         }
-        // Exercise actual ranking at this catalog size. The benchmark script records release timing separately.
         #expect(SearchEngine.search("Application 789", entries: entries).first?.id == "app789")
     }
 }
@@ -109,9 +105,9 @@ struct GeometryTests {
         #expect(right.maxX == screen.maxX)
     }
     @Test
-    func testCenterThreeFourthsPreservesStoredIdentifierAndCentersWidth() {
+    func testCenterThreeFourthsCentersWidth() {
         let action = WindowAction.centerThreeFourths
-        #expect(WindowAction(rawValue: "centerTwoThirds") == action)
+        #expect(WindowAction(rawValue: "centerThreeFourths") == action)
         #expect(action.title == "Center Three Fourths")
         let visible = CGRect(x: -1600, y: 25, width: 1600, height: 900)
         let result = action.frame(in: visible, current: current)
@@ -272,12 +268,12 @@ struct UsageHistoryTests {
         let history = UsageHistory(defaults: defaults)
         #expect(history.counts["safari"] == 3)
         #expect(history.lastUsed.isEmpty)
-        history.record("window.centerTwoThirds", at: Date(timeIntervalSince1970: 200))
+        history.record("window.centerThreeFourths", at: Date(timeIntervalSince1970: 200))
         history.record("safari", at: Date(timeIntervalSince1970: 100))
         let reopened = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
         #expect(reopened.counts["safari"] == 4)
-        #expect(reopened.counts["window.centerTwoThirds"] == 1)
-        #expect(reopened.lastUsed["window.centerTwoThirds"] == 200)
+        #expect(reopened.counts["window.centerThreeFourths"] == 1)
+        #expect(reopened.lastUsed["window.centerThreeFourths"] == 200)
         #expect(reopened.lastUsed["safari"] == 100)
     }
 }

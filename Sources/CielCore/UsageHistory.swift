@@ -1,6 +1,5 @@
 import Foundation
 
-/// Small local history. Keys remain compatible with earlier Ciel builds.
 public final class UsageHistory {
     private let defaults: UserDefaults
     public private(set) var counts: [String: Int]

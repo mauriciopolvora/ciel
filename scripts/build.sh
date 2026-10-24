@@ -36,7 +36,6 @@ else
     codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp "$staged_app"
 fi
 codesign --verify --strict "$staged_app"
-# Replace only the generated bundle after the staged build and signature pass.
 rm -rf "$app_path"
 mv "$staged_app" "$app_path"
 printf 'Built %s\n' "$app_path"

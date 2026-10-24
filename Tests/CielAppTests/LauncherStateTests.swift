@@ -11,7 +11,7 @@ struct LauncherStateTests {
         SearchEntry(id: "calibre", title: "Calibre", subtitle: "Applications", kind: .application),
     ]
 
-    @Test(arguments: ["", "   ", "\n\t"])
+    @Test(arguments: ["", "   ", "\n\t", " \u{301}"])
     func blankQueryHasNoSuggestions(_ query: String) {
         let state = LauncherState()
         state.update(entries: applications + SearchEntry.commands, usage: ["calculator": 8], lastUsed: [:])

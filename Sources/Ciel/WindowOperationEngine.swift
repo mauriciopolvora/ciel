@@ -21,8 +21,6 @@ private struct SystemWindowClock: WindowOperationClock {
     func sleep(for interval: TimeInterval) { Thread.sleep(forTimeInterval: interval) }
 }
 
-/// Queue-owned state and geometry decisions. A fake window and clock can test
-/// rejections, delayed frames, and size constraints without moving user windows.
 final class WindowOperationEngine {
     private struct Capture {
         let selectionID: UUID

@@ -28,7 +28,7 @@ bash scripts/install.sh
 open ~/Applications/Ciel.app
 ```
 
-The scripts create `dist/Ciel.app` and install it in `~/Applications`. Quit the installed launcher before an update. If its menu bar icon is hidden, use Activity Monitor to quit it. Installation saves the previous app under `.build/backups`. Existing Jumpstart preferences and usage history remain compatible.
+The scripts create `dist/Ciel.app` and install it in `~/Applications`. Quit the installed launcher before an update. If its menu bar icon is hidden, use Activity Monitor to quit it. Installation saves the previous app under `.build/backups`.
 
 Local builds use an ad-hoc signature. They are not notarized public releases. macOS window access may need approval again after a rebuild. See the [release guide](docs/releasing.md) for Developer ID signing, notarization, universal builds, and distribution.
 
@@ -74,7 +74,7 @@ If macOS shows access enabled but Ciel reports no access after a local rebuild, 
 
 ## Privacy and resource use
 
-Preferences and launch history remain in the `app.mauriciopolvora.jumpstart` defaults domain. The app retains this identifier for upgrade compatibility. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.jumpstart/apps.json`.
+Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
 
 Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. There is no recurring idle timer.
 
@@ -86,7 +86,7 @@ Search and keyboard selection do not wait for animation. Pointer hover uses a 12
 bash scripts/check.sh
 ```
 
-Native UI checks open temporary windows. They use a separate bundle identifier to keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The previous `--core-only` option is an alias. The separate `--window-test` uses temporary native test windows and requires access for its test process. It does not operate on existing windows.
+Native UI checks open temporary windows. They use a separate bundle identifier to keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The separate `--window-test` uses temporary native test windows and requires access for its test process. It does not operate on existing windows.
 
 - `Sources/Ciel`: the testable CielApp library, with AppKit UI, catalog, hotkeys, window controller, and settings.
 - `Sources/CielMain`: the app executable entry point.

@@ -1,7 +1,6 @@
 import CielCore
 import Foundation
 
-/// Owns launcher transitions independently of AppKit drawing and input controls.
 @MainActor final class LauncherState {
     struct Change: Equatable {
         var queryChanged = false
@@ -25,7 +24,7 @@ import Foundation
     private var usage: [String: Int] = [:]
     private var lastUsed: [String: Double] = [:]
 
-    var hasQuery: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var hasQuery: Bool { !SearchEngine.tokens(in: query).isEmpty }
     var selectedEntry: SearchEntry? { selectedIndex.map { results[$0] } }
 
     @discardableResult

@@ -2,7 +2,6 @@ import AppKit
 import ApplicationServices
 import CielCore
 
-/// Explicit test mode. The fixture is a separate process, as real target apps are.
 @MainActor final class IntegrationCheck {
     private let controller = WindowController()
     private var child = Process()

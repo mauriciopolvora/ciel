@@ -41,6 +41,10 @@ public enum SearchEngine {
             options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 
+    public static func tokens(in query: String) -> [String] {
+        normalize(query).split(whereSeparator: { $0.isWhitespace }).map(String.init)
+    }
+
     private static let strict = FuzzyMatcher(
         config: MatchConfig(
             minScore: 0.3,
@@ -54,10 +58,9 @@ public enum SearchEngine {
         _ query: String, entries: [SearchEntry], kind: SearchEntry.Kind? = nil,
         usage: [String: Int] = [:], lastUsed: [String: Double] = [:], limit: Int = 60
     ) -> [SearchEntry] {
-        guard limit > 0 else { return [] }
+        let tokens = tokens(in: query)
+        guard limit > 0, !tokens.isEmpty else { return [] }
         let q = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
-        let tokens = q.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        // Prepare each token once. Reuse the scoring buffer for the complete catalog.
         let prepared = tokens.map { token in
             let matcher = token.count < 4 ? strict : tolerant
             return (token, matcher, matcher.prepare(token))
@@ -65,12 +68,7 @@ public enum SearchEngine {
         var buffer = tolerant.makeBuffer()
         return entries.compactMap { entry -> (SearchEntry, Int)? in
             if let kind, entry.kind != kind { return nil }
-            let count = max(0, usage[entry.id, default: 0])
-            let history = min(count, 30)
-            if q.isEmpty {
-                // Frequency ranks apps and window commands equally.
-                return (entry, count)
-            }
+            let history = min(max(0, usage[entry.id, default: 0]), 30)
             var score = 0
             for (token, matcher, query) in prepared {
                 if entry.normalizedTitle == token {
@@ -91,15 +89,9 @@ public enum SearchEngine {
             return (entry, score + history)
         }.sorted {
             if $0.1 != $1.1 { return $0.1 > $1.1 }
-            if $0.1 > 0 {
-                let a = lastUsed[$0.0.id, default: 0]
-                let b = lastUsed[$1.0.id, default: 0]
-                if a != b { return a > b }
-            } else if q.isEmpty {
-                let a = $0.0.kind == .application ? 2 : $0.0.kind == .window ? 1 : 0
-                let b = $1.0.kind == .application ? 2 : $1.0.kind == .window ? 1 : 0
-                if a != b { return a > b }
-            }
+            let a = lastUsed[$0.0.id, default: 0]
+            let b = lastUsed[$1.0.id, default: 0]
+            if a != b { return a > b }
             return $0.0.title.localizedStandardCompare($1.0.title) == .orderedAscending
         }.prefix(limit).map(\.0)
     }

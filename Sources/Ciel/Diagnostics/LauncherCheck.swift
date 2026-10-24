@@ -1,7 +1,6 @@
 import AppKit
 import CielCore
 
-/// Native checks run only when Ciel starts with --ui-test.
 @MainActor enum LauncherCheck {
     static func run(launcher: LauncherView, panel: LauncherPanel, entries: [SearchEntry]) {
         guard launcher.results.isEmpty, launcher.table.numberOfRows == 0,

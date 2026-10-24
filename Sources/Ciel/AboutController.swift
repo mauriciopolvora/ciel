@@ -1,6 +1,5 @@
 import AppKit
 
-/// Use the app's explicit surface and text colors for readable credits.
 final class AboutController: NSWindowController {
     init() {
         let content = SurfaceView(frame: NSRect(x: 0, y: 0, width: 420, height: 388))

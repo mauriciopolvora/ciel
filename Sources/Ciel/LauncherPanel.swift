@@ -19,8 +19,6 @@ final class LauncherPanel: NSPanel {
             isDragging = false
             onDragEnd?(origin != frame.origin)
         }
-        // Track our own mouse sequence so the guide preview and final snap share
-        // one lifecycle. No global input monitor or idle timer is needed.
         trackEvents(
             matching: [.leftMouseDragged, .leftMouseUp, .flagsChanged], timeout: 0.1,
             mode: .eventTracking

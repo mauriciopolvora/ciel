@@ -13,8 +13,6 @@ enum WindowAttribute {
     }
 }
 
-/// The operation engine depends on window behavior, not Core Foundation types.
-/// Implementations remain confined to their owner; they are not Sendable.
 protocol WindowAccess: AnyObject {
     func isSameWindow(as other: any WindowAccess) -> Bool
     func frame(timeout: TimeInterval) throws -> CGRect
@@ -72,8 +70,6 @@ private final class SystemWindowAccess: WindowAccess {
         let position: CFTypeRef
         let size: CFTypeRef
         if result == .notImplemented || result == .attributeUnsupported {
-            // Some apps implement individual reads without the batch operation.
-            // Both fallback reads share the remaining timeout for this frame.
             guard
                 let p = try value(
                     window, kAXPositionAttribute,
