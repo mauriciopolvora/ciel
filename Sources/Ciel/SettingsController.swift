@@ -173,15 +173,13 @@ final class SettingsController: PreferencesController {
         permissionLabel.textColor = trusted ? Theme.success : Theme.secondary
         permissionButton.isHidden = trusted
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        animations.state = UserDefaults.standard.bool(forKey: "animations") ? .on : .off
-        menuBarIcon.state = UserDefaults.standard.bool(forKey: "showMenuBarIcon") ? .on : .off
+        animations.state = Preferences().animations ? .on : .off
+        menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
     }
     @objc private func requestPermission() { WindowController.requestPermission() }
-    @objc private func toggleAnimations() {
-        UserDefaults.standard.set(animations.state == .on, forKey: "animations")
-    }
+    @objc private func toggleAnimations() { Preferences().animations = animations.state == .on }
     @objc private func toggleMenuBarIcon() {
-        UserDefaults.standard.set(menuBarIcon.state == .on, forKey: "showMenuBarIcon")
+        Preferences().showMenuBarIcon = menuBarIcon.state == .on
         onMenuBarIconChange?()
     }
     @objc private func toggleLogin() {

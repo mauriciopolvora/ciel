@@ -21,7 +21,7 @@ import QuartzCore
     static let easeOut = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
     static var reduceMotion: Bool {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            || !UserDefaults.standard.bool(forKey: "animations")
+            || !Preferences().animations
     }
     static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
 

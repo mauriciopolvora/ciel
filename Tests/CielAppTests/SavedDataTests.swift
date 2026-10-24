@@ -27,8 +27,21 @@ struct SavedDataTests {
         for (id, action) in Self.shippedWindowIDs {
             #expect(entries[id]?.action == action, "\(id)")
         }
-        for id in ["settings", "rescan"] {
-            #expect(entries[id]?.kind == .utility, "\(id)")
+        #expect(entries["settings"]?.utility == .settings)
+        #expect(entries["rescan"]?.utility == .rescan)
+    }
+
+    @Test func togglesAreOnUntilTurnedOffUnderTheirShippedKeys() {
+        withEmptyDefaults { defaults in
+            let preferences = Preferences(defaults: defaults)
+            #expect(preferences.animations)
+            #expect(preferences.showMenuBarIcon)
+            preferences.animations = false
+            preferences.showMenuBarIcon = false
+            #expect(defaults.object(forKey: "animations") as? Bool == false)
+            #expect(defaults.object(forKey: "showMenuBarIcon") as? Bool == false)
+            #expect(!preferences.animations)
+            #expect(!preferences.showMenuBarIcon)
         }
     }
 

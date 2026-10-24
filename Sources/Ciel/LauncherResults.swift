@@ -129,13 +129,22 @@ final class ResultCell: NSTableCellView {
                 self.appIcon.image = image
             }
         } else {
-            appIcon.image = NSImage(
-                systemSymbolName: entry.id == "settings" ? "slider.horizontal.3" : "arrow.clockwise",
-                accessibilityDescription: nil)
+            appIcon.image = entry.utility.flatMap {
+                NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: nil)
+            }
         }
         appIcon.contentTintColor = Theme.secondary
         commandIcon.action = entry.action
         setAccessibilityElement(true)
         setAccessibilityLabel(entry.title + ", " + entry.subtitle)
+    }
+}
+
+extension UtilityCommand {
+    var symbolName: String {
+        switch self {
+        case .settings: "slider.horizontal.3"
+        case .rescan: "arrow.clockwise"
+        }
     }
 }

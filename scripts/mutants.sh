@@ -18,6 +18,7 @@ mutants=(
     "M12|Bind window hotkeys under a renamed key"
     "M13|Save a shortcut that was never registered"
     "M14|Let a window command target Ciel itself"
+    "M15|Read an unset toggle as off"
 )
 
 mutate() {
@@ -35,7 +36,7 @@ mutate() {
                 swap Sources/CielCore/WindowAction.swift \
                     's/(case \.minimize: return "Minimize"\n)/$1        case .leftThird: return "Left Third"\n/'
             ;;
-        M5) swap Sources/CielCore/Search.swift 's/id: "settings"/id: "preferences"/' ;;
+        M5) swap Sources/CielCore/Search.swift 's/case settings, rescan/case settings = "preferences", rescan/' ;;
         M6)
             swap Sources/Ciel/LauncherView.swift \
                 's/(insertTab\(_:\)\):\n\s+selectFilter\()filter == nil \? 1 : filter == \.application \? 2 : 0/${1}filter == nil ? 2 : filter == .application ? 0 : 1/' &&
@@ -62,6 +63,7 @@ mutate() {
             swap Sources/Ciel/WindowController.swift \
                 's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
             ;;
+        M15) swap Sources/Ciel/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
     esac
 }
 

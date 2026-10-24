@@ -32,7 +32,6 @@ import CielCore
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.appearance = NSAppearance(named: .darkAqua)
-        UserDefaults.standard.register(defaults: ["animations": true, "showMenuBarIcon": true])
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
         setupPanel()
@@ -51,10 +50,7 @@ import CielCore
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
                 error: true)
         }
-        let event = NSAppleEventManager.shared().currentAppleEvent
-        let loginLaunch =
-            event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        if !loginLaunch { present() }
+        if !NSAppleEventManager.shared().launchedAsLoginItem { present() }
     }
 
     private func setupMenu() {
@@ -80,7 +76,7 @@ import CielCore
     }
 
     private func updateMenuBarIcon() {
-        statusItem.isVisible = UserDefaults.standard.bool(forKey: "showMenuBarIcon")
+        statusItem.isVisible = Preferences().showMenuBarIcon
     }
 
     private func updateToolTip() {
@@ -238,11 +234,13 @@ import CielCore
                     }
                 }
             }
-        } else if entry.id == "settings" {
-            showSettings()
-        } else if entry.id == "rescan" {
-            dismiss()
-            rescan()
+        } else if let utility = entry.utility {
+            switch utility {
+            case .settings: showSettings()
+            case .rescan:
+                dismiss()
+                rescan()
+            }
         }
     }
     /// A nil target captures the frontmost app, after the checks that can drop the command.
@@ -320,5 +318,12 @@ import CielCore
                     showGuide()
                     return keyboardGuide
                 }))
+    }
+}
+
+extension NSAppleEventManager {
+    fileprivate var launchedAsLoginItem: Bool {
+        currentAppleEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
+            == keyAELaunchedAsLogInItem
     }
 }
