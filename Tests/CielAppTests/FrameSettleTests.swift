@@ -16,11 +16,13 @@ struct FrameSettleTests {
             original: original, desired: desired ?? leftHalf, visible: screen, first: original, at: 0)
     }
 
-    @Test("A frame within tolerance of the target matches at once")
+    @Test("A frame within 3 points of the target matches at once")
     func matchWithinTolerance() {
         var settle = settle()
-        settle.observe(leftHalf.offsetBy(dx: 2, dy: -2), at: 0.01)
+        settle.observe(leftHalf.offsetBy(dx: 3, dy: -3), at: 0.01)
         #expect(settle.decide(now: 0.01, remaining: 0.49) == .matched)
+        settle.observe(leftHalf.offsetBy(dx: 4, dy: 0), at: 0.02)
+        #expect(settle.decide(now: 0.02, remaining: 0.48) == .keepPolling)
     }
 
     @Test("An unchanged frame gets time to respond before the retry")
@@ -57,6 +59,16 @@ struct FrameSettleTests {
         let stable = 0.13 + FrameSettle.settleInterval
         #expect(settle.decide(now: stable - 0.001, remaining: 0.5 - stable) == .keepPolling)
         #expect(settle.decide(now: stable, remaining: 0.5 - stable) == .constrained)
+    }
+
+    @Test("A frame that changes after the retry is still settling, not constrained")
+    func frameChangedAfterRetryKeepsPolling() {
+        var settle = settle()
+        settle.observe(minimumSize, at: 0.01)
+        settle.retried(minimumSize, at: 0.13)
+        settle.observe(CGRect(x: 0, y: 30, width: 750, height: 800), at: 0.2)
+        let stable = 0.2 + FrameSettle.settleInterval
+        #expect(settle.decide(now: stable, remaining: 0.5 - stable) == .keepPolling)
     }
 
     @Test("An unchanged size after the retry is a pending write, not a minimum size")

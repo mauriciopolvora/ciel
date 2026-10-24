@@ -12,9 +12,9 @@ struct IconCacheTests {
         var completions: [(String, NSImage?)] = []
         #expect(cache.icon(for: "one.app") { completions.append(($0, $1)) } == nil)
         #expect(cache.icon(for: "one.app") { completions.append(($0, $1)) } == nil)
-        await loader.waitForStarts(1)
-        #expect(await loader.paths == ["one.app"])
-        #expect(await loader.finish("one.app", pixels: iconPixels()))
+        try await loader.waitForStarts(1)
+        #expect(loader.paths == ["one.app"])
+        #expect(loader.finish("one.app", pixels: iconPixels()))
         try await waitForIdle(cache)
 
         try #require(completions.count == 2)
@@ -24,7 +24,7 @@ struct IconCacheTests {
         #expect(hit === completions[0].1)
         #expect(cache.cachedCount == 1)
         #expect(cache.pendingCount == 0)
-        #expect(await loader.paths.count == 1)
+        #expect(loader.paths.count == 1)
     }
 
     @Test func invalidationRejectsInFlightImageAndStartsFreshLoad() async throws {
@@ -33,17 +33,17 @@ struct IconCacheTests {
         var staleDelivered = false
         var fresh: NSImage?
         _ = cache.icon(for: "updated.app") { _, _ in staleDelivered = true }
-        await loader.waitForStarts(1)
+        try await loader.waitForStarts(1)
         cache.invalidate(paths: ["updated.app"])
         _ = cache.icon(for: "updated.app") { _, image in fresh = image }
         #expect(cache.pendingCount == 2)
 
-        #expect(await loader.finish("updated.app", pixels: iconPixels(red: 1)))
-        await loader.waitForStarts(2)
+        #expect(loader.finish("updated.app", pixels: iconPixels(red: 1)))
+        try await loader.waitForStarts(2)
         #expect(cache.cachedCount == 0)
         #expect(!staleDelivered)
         #expect(fresh == nil)
-        #expect(await loader.finish("updated.app", pixels: iconPixels(green: 1)))
+        #expect(loader.finish("updated.app", pixels: iconPixels(green: 1)))
         try await waitForIdle(cache)
 
         #expect(!staleDelivered)
@@ -102,16 +102,16 @@ struct IconCacheTests {
         var discardedDelivered = false
         var latestDelivered = false
         _ = cache.icon(for: "active.app") { _, _ in }
-        await loader.waitForStarts(1)
+        try await loader.waitForStarts(1)
         _ = cache.icon(for: "old-query.app") { _, _ in discardedDelivered = true }
         _ = cache.icon(for: "new-query.app") { _, _ in latestDelivered = true }
         #expect(cache.pendingCount == 2)
-        #expect(await loader.paths == ["active.app"])
+        #expect(loader.paths == ["active.app"])
 
-        #expect(await loader.finish("active.app", pixels: iconPixels()))
-        await loader.waitForStarts(2)
-        #expect(await loader.paths == ["active.app", "new-query.app"])
-        #expect(await loader.finish("new-query.app", pixels: iconPixels()))
+        #expect(loader.finish("active.app", pixels: iconPixels()))
+        try await loader.waitForStarts(2)
+        #expect(loader.paths == ["active.app", "new-query.app"])
+        #expect(loader.finish("new-query.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(!discardedDelivered)
         #expect(latestDelivered)
@@ -122,14 +122,14 @@ struct IconCacheTests {
         let cache = IconCache(pendingLimit: 2, concurrentLimit: 2, loader: { await loader.load($0) })
         _ = cache.icon(for: "first.app") { _, _ in }
         _ = cache.icon(for: "second.app") { _, _ in }
-        await loader.waitForStarts(2)
+        try await loader.waitForStarts(2)
         #expect(cache.icon(for: "extra.app") { _, _ in Issue.record("Rejected path completed") } == nil)
         #expect(cache.pendingCount == 2)
-        #expect(Set(await loader.paths) == ["first.app", "second.app"])
-        #expect(await loader.finish("first.app", pixels: iconPixels()))
-        #expect(await loader.finish("second.app", pixels: iconPixels()))
+        #expect(Set(loader.paths) == ["first.app", "second.app"])
+        #expect(loader.finish("first.app", pixels: iconPixels()))
+        #expect(loader.finish("second.app", pixels: iconPixels()))
         try await waitForIdle(cache)
-        #expect(await loader.paths.count == 2)
+        #expect(loader.paths.count == 2)
     }
 
     @Test func invalidatedRunningLoadsStillCountTowardPendingLimit() async throws {
@@ -137,16 +137,16 @@ struct IconCacheTests {
         let cache = IconCache(pendingLimit: 2, concurrentLimit: 1, loader: { await loader.load($0) })
         var staleDelivered = false
         _ = cache.icon(for: "old.app") { _, _ in staleDelivered = true }
-        await loader.waitForStarts(1)
+        try await loader.waitForStarts(1)
         cache.invalidate(paths: ["old.app"])
         _ = cache.icon(for: "old.app") { _, _ in staleDelivered = true }
         _ = cache.icon(for: "latest.app") { _, _ in }
         #expect(cache.pendingCount == 2)
 
-        #expect(await loader.finish("old.app", pixels: iconPixels()))
-        await loader.waitForStarts(2)
-        #expect(await loader.paths == ["old.app", "latest.app"])
-        #expect(await loader.finish("latest.app", pixels: iconPixels()))
+        #expect(loader.finish("old.app", pixels: iconPixels()))
+        try await loader.waitForStarts(2)
+        #expect(loader.paths == ["old.app", "latest.app"])
+        #expect(loader.finish("latest.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(!staleDelivered)
         #expect(cache.cachedCount == 1)
@@ -159,8 +159,8 @@ struct IconCacheTests {
         for value in 1...3 {
             _ = cache.icon(for: "one.app") { _, _ in delivered.append(value) }
         }
-        await loader.waitForStarts(1)
-        #expect(await loader.finish("one.app", pixels: iconPixels()))
+        try await loader.waitForStarts(1)
+        #expect(loader.finish("one.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(delivered == [2, 3])
     }
@@ -175,15 +175,15 @@ struct IconCacheTests {
             #expect(image == nil)
             failureReported = true
         }
-        await loader.waitForStarts(1)
-        #expect(await loader.finish("missing.app", pixels: nil))
+        try await loader.waitForStarts(1)
+        #expect(loader.finish("missing.app", pixels: nil))
         try await waitForIdle(cache)
         #expect(failureReported)
         #expect(cache.cachedCount == 0)
 
         _ = cache.icon(for: "missing.app") { _, _ in }
-        await loader.waitForStarts(2)
-        #expect(await loader.finish("missing.app", pixels: iconPixels()))
+        try await loader.waitForStarts(2)
+        #expect(loader.finish("missing.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(cache.cachedCount == 1)
     }
@@ -194,8 +194,8 @@ struct IconCacheTests {
         var staleDelivered = false
         _ = cache.icon(for: "changed.app") { path, _ in cache.invalidate(paths: [path]) }
         _ = cache.icon(for: "changed.app") { _, _ in staleDelivered = true }
-        await loader.waitForStarts(1)
-        #expect(await loader.finish("changed.app", pixels: iconPixels()))
+        try await loader.waitForStarts(1)
+        #expect(loader.finish("changed.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(!staleDelivered)
         #expect(cache.cachedCount == 0)
@@ -211,11 +211,11 @@ struct IconCacheTests {
             _ = cache.icon(for: path) { _, image in retried = image }
         }
         _ = cache.icon(for: "flaky.app") { _, _ in failuresSeen += 1 }
-        await loader.waitForStarts(1)
-        #expect(await loader.finish("flaky.app", pixels: nil))
-        await loader.waitForStarts(2)
+        try await loader.waitForStarts(1)
+        #expect(loader.finish("flaky.app", pixels: nil))
+        try await loader.waitForStarts(2)
         #expect(failuresSeen == 2)
-        #expect(await loader.finish("flaky.app", pixels: iconPixels()))
+        #expect(loader.finish("flaky.app", pixels: iconPixels()))
         try await waitForIdle(cache)
         #expect(retried != nil)
         #expect(cache.cachedCount == 1)
@@ -265,24 +265,20 @@ struct IconCacheTests {
     }
 }
 
-private actor ControlledIconLoader {
+@MainActor
+private final class ControlledIconLoader {
     private(set) var paths: [String] = []
     private var loads: [String: [CheckedContinuation<CGImage?, Never>]] = [:]
-    private var started: [(Int, CheckedContinuation<Void, Never>)] = []
 
     func load(_ path: String) async -> CGImage? {
         await withCheckedContinuation { continuation in
             paths.append(path)
             loads[path, default: []].append(continuation)
-            let ready = started.filter { paths.count >= $0.0 }
-            started.removeAll { paths.count >= $0.0 }
-            for (_, waiter) in ready { waiter.resume() }
         }
     }
 
-    func waitForStarts(_ count: Int) async {
-        guard paths.count < count else { return }
-        await withCheckedContinuation { continuation in started.append((count, continuation)) }
+    func waitForStarts(_ count: Int) async throws {
+        try await waitUntil { paths.count >= count }
     }
 
     func finish(_ path: String, pixels: CGImage?) -> Bool {

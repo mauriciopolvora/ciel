@@ -21,6 +21,8 @@
 | The bundle id lives only in `AppIdentity` and `Resources/Info.plist` | `SavedDataTests.bundleIdentifierMatchesInfoPlist`, mutant M8 |
 | Native checks run only under the checks bundle id, and an unknown flag never launches the app | `LaunchMode` and `LaunchModeTests`, the identity step in `check.sh` (exit 64), mutants M9 and M10 |
 | Window commands never target Ciel's own windows | `ForeignProcess` in `WindowController.swift`, `WindowOperationTests.ownProcessIsNeverATarget`, mutant M14 |
+| Window settle retries an unchanged window after 0.2 s, matches within 3 pt, settles as constrained only when the retry repeats, and never yields before the window responds | `FrameSettleTests`, `WindowOperationTests`, mutants M16 to M20 |
+| An invalidated icon load never delivers and never holds a load slot | `IconCacheTests`, whose waits fail after 3 s instead of hanging, mutants M21 and M22 |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |
 | Colors, labels, switches and the About panel come from `Sources/Ciel/DesignSystem.swift` | `scripts/lint-colors.sh` in `check.sh`. Its error names the token to use |
