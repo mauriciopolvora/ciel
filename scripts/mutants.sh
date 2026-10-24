@@ -17,6 +17,7 @@ mutants=(
     "M11|Match FSEvents paths against uncanonicalized catalog roots"
     "M12|Bind window hotkeys under a renamed key"
     "M13|Save a shortcut that was never registered"
+    "M14|Let a window command target Ciel itself"
 )
 
 mutate() {
@@ -41,7 +42,7 @@ mutate() {
                 swap Sources/Ciel/LauncherView.swift \
                     's/(insertBacktab\(_:\)\):\n\s+selectFilter\()filter == nil \? 2 : filter == \.application \? 0 : 1/${1}filter == nil ? 1 : filter == .application ? 2 : 0/'
             ;;
-        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(window position\."\s*\}\n\s+return )action\.title/$1"Done"/' ;;
+        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(\.positionLimited\s*\}\n\s+return )\.applied/$1.sizeLimited/' ;;
         M8) swap Sources/Ciel/AppIdentity.swift 's/"app\.mauriciopolvora\.ciel"/"app.mauriciopolvora.ciel-app"/' ;;
         M9)
             swap Sources/Ciel/Diagnostics/LaunchMode.swift \
@@ -56,6 +57,10 @@ mutate() {
         M13)
             swap Sources/Ciel/HotKeys.swift \
                 's/(registrations\[command\] != nil \{ return \}\n)\s+try register\(command, shortcut\)\n/$1/'
+            ;;
+        M14)
+            swap Sources/Ciel/WindowController.swift \
+                's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
             ;;
     esac
 }

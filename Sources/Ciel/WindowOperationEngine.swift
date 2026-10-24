@@ -43,16 +43,15 @@ final class WindowOperationEngine {
         self.clock = clock ?? SystemWindowClock()
     }
 
-    func capture(pid: pid_t?, onRelease: (@Sendable (UUID) -> Void)? = nil) -> WindowSelection {
+    func capture(
+        _ process: ForeignProcess?, onRelease: (@Sendable (UUID) -> Void)? = nil
+    ) -> WindowSelection {
         let selection = WindowSelection(onRelease: onRelease)
-        // AX calls into our own AppKit views can deadlock AppKit.
-        let validPID = pid.flatMap {
-            $0 != ProcessInfo.processInfo.processIdentifier && accessibility.isTrusted ? $0 : nil
-        }
+        let pid = accessibility.isTrusted ? process?.pid : nil
         captures.append(
             Capture(
-                selectionID: selection.id, pid: validPID,
-                window: validPID.flatMap { accessibility.focusedWindow(pid: $0) }))
+                selectionID: selection.id, pid: pid,
+                window: pid.flatMap { accessibility.focusedWindow(pid: $0) }))
         return selection
     }
 
@@ -60,7 +59,7 @@ final class WindowOperationEngine {
 
     func perform(
         _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
-    ) throws -> String {
+    ) throws -> WindowOutcome {
         guard accessibility.isTrusted else { throw WindowError.permission }
         guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
             throw WindowError.noWindow
@@ -72,7 +71,10 @@ final class WindowOperationEngine {
         let budget = Budget(
             clock: clock, duration: action == .minimize ? Self.minimizeBudget : Self.frameBudget)
         if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }
-        if action == .minimize { return try minimize(window, action: action, budget: budget) }
+        if action == .minimize {
+            try minimize(window, budget: budget)
+            return .applied
+        }
 
         let original = try window.frame(timeout: budget.timeout())
         guard let index = WindowGeometry.displayIndex(for: original, displays: displays.map(\.full)) else {
@@ -121,11 +123,9 @@ final class WindowOperationEngine {
         history.removeAll { $0.window.isSameWindow(as: window) }
         history.append((window, original))
         if history.count > 24 { history.removeFirst() }
-        if !FrameSettle.matches(actual.size, desired.size) { return "The app limited the window size." }
-        if !FrameSettle.matches(actual.origin, desired.origin) {
-            return "The app limited the window position."
-        }
-        return action.title
+        if !FrameSettle.matches(actual.size, desired.size) { return .sizeLimited }
+        if !FrameSettle.matches(actual.origin, desired.origin) { return .positionLimited }
+        return .applied
     }
 
     private func withEnhancedUserInterfaceDisabled<T>(
@@ -151,7 +151,7 @@ final class WindowOperationEngine {
             budget: budget)
     }
 
-    private func minimize(_ window: any WindowAccess, action: WindowAction, budget: Budget) throws -> String {
+    private func minimize(_ window: any WindowAccess, budget: Budget) throws {
         guard try window.isSettable(.minimized, timeout: budget.timeout()) else {
             throw WindowError.unsupported
         }
@@ -159,7 +159,6 @@ final class WindowOperationEngine {
         while try !reportsMinimized(window, budget: budget) {
             try budget.pause(Self.pollInterval)
         }
-        return action.title
     }
 
     private func reportsMinimized(_ window: any WindowAccess, budget: Budget) throws -> Bool {

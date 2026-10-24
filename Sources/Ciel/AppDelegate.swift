@@ -23,7 +23,7 @@ import CielCore
     private let history = UsageHistory()
     private var observers: [Cleanup] = []
     private var opening = false
-    private var executing = false
+    private var session: WindowTarget?
     private var pendingCheck: (@MainActor (CheckHandles) -> Void)?
 
     init(check: (@MainActor (CheckHandles) -> Void)?) {
@@ -90,7 +90,7 @@ import CielCore
     private func hotKeyPressed(_ command: HotKeyCommand) {
         switch command {
         case .launcher: toggle()
-        case .window(let action): runDirect(action)
+        case .window(let action): run(action, on: panel.isVisible ? session : nil)
         }
     }
 
@@ -174,12 +174,7 @@ import CielCore
     private func toggle() { if panel.isVisible { dismiss() } else { present() } }
     private func present() {
         guard !panel.isDragging else { return }
-        let front = NSWorkspace.shared.frontmostApplication
-        // Each queued window command retains its captured target. Opening a new
-        // launcher session cannot redirect a command that is already running.
-        windows.capture(
-            pid: front?.processIdentifier == ProcessInfo.processInfo.processIdentifier
-                ? nil : front?.processIdentifier)
+        session = windows.capture(.frontmost)
         launcher.reset()
         let screen =
             NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
@@ -219,13 +214,13 @@ import CielCore
         return false
     }
 
-    private func recordUsage(_ entry: SearchEntry) {
-        history.record(entry.id)
+    private func recordUsage(_ id: SearchEntry.ID) {
+        history.record(id)
         launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
     }
     private func execute(_ entry: SearchEntry) {
         if let action = entry.action {
-            run(action, entry: entry)
+            run(action, on: session)
             return
         }
         if let path = entry.path {
@@ -239,7 +234,7 @@ import CielCore
                         self?.hud.show(error.localizedDescription, error: true)
                         self?.catalog.refresh()
                     } else {
-                        self?.recordUsage(entry)
+                        self?.recordUsage(entry.id)
                     }
                 }
             }
@@ -250,32 +245,23 @@ import CielCore
             rescan()
         }
     }
-    private func runDirect(_ action: WindowAction) {
-        guard !executing else { return }
-        if !panel.isVisible {
-            windows.capture(pid: NSWorkspace.shared.frontmostApplication?.processIdentifier)
-        }
-        run(action, entry: SearchEntry.commands.first { $0.action == action }!)
-    }
-    private func run(_ action: WindowAction, entry: SearchEntry) {
-        guard !executing else { return }
+    /// A nil target captures the frontmost app, after the checks that can drop the command.
+    private func run(_ action: WindowAction, on target: WindowTarget?) {
+        guard !windows.isBusy else { return }
         guard WindowController.isTrusted else {
             dismiss()
             showSettings()
             WindowController.requestPermission()
             return
         }
-        let displays = DisplaySnapshot.current()
-        executing = true
+        let target = target ?? windows.capture(.frontmost)
         dismiss()
-        windows.perform(action, displays: displays) { [weak self] result in
+        windows.perform(action, on: target) { [weak self] result in
             guard let self else { return }
-            self.executing = false
             switch result {
-            case .success(let message):
-                self.recordUsage(entry)
-                // Successful snaps stay quiet. Explain only application-imposed limits.
-                if message != action.title { self.hud.show(message) }
+            case .success(let outcome):
+                self.recordUsage(action.id)
+                if let notice = outcome.notice { self.hud.show(notice) }
             case .failure(let error): self.hud.show(error.localizedDescription, error: true)
             }
         }

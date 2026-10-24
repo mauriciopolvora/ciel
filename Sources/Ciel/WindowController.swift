@@ -17,9 +17,39 @@ struct DisplaySnapshot: Sendable {
     }
 }
 
+struct ForeignProcess: Equatable, Sendable {
+    let pid: pid_t
+
+    init?(_ pid: pid_t?) {
+        guard let pid, pid != ProcessInfo.processInfo.processIdentifier else { return nil }
+        self.pid = pid
+    }
+
+    @MainActor static var frontmost: ForeignProcess? {
+        ForeignProcess(NSWorkspace.shared.frontmostApplication?.processIdentifier)
+    }
+}
+
+/// The window chosen when it was captured. A later capture never redirects a command on this one.
+struct WindowTarget: Sendable {
+    fileprivate let selection: Task<WindowSelection, Never>
+}
+
+enum WindowOutcome: Equatable, Sendable {
+    case applied, sizeLimited, positionLimited
+
+    var notice: String? {
+        switch self {
+        case .applied: nil
+        case .sizeLimited: "The app limited the window size."
+        case .positionLimited: "The app limited the window position."
+        }
+    }
+}
+
 @MainActor final class WindowController {
     private let worker = WindowWorker()
-    private var captureTask: Task<WindowSelection, Never>?
+    private(set) var isBusy = false
 
     static var isTrusted: Bool { AXIsProcessTrusted() }
 
@@ -30,27 +60,22 @@ struct DisplaySnapshot: Sendable {
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    func capture(pid: pid_t?) {
+    func capture(_ process: ForeignProcess?) -> WindowTarget {
         let worker = worker
-        captureTask = Task { await worker.capture(pid: pid) }
+        return WindowTarget(selection: Task { await worker.capture(process) })
     }
 
     func perform(
-        _ action: WindowAction, displays: [DisplaySnapshot],
-        completion: @escaping @MainActor @Sendable (Result<String, Error>) -> Void
+        _ action: WindowAction, on target: WindowTarget,
+        completion: @escaping @MainActor @Sendable (Result<WindowOutcome, Error>) -> Void
     ) {
-        // Pin this capture before awaiting it. Reopening the launcher can create
-        // another capture without changing a command that is already pending.
-        let capture = captureTask
+        let displays = DisplaySnapshot.current()
         let worker = worker
+        isBusy = true
         Task {
-            let selection: WindowSelection
-            if let capture {
-                selection = await capture.value
-            } else {
-                selection = await worker.capture(pid: nil)
-            }
-            completion(await worker.perform(action, selection: selection, displays: displays))
+            let result = await worker.perform(action, selection: target.selection.value, displays: displays)
+            isBusy = false
+            completion(result)
         }
     }
 }
@@ -63,8 +88,8 @@ private actor WindowWorker {
 
     nonisolated var unownedExecutor: UnownedSerialExecutor { executor.asUnownedSerialExecutor() }
 
-    func capture(pid: pid_t?) -> WindowSelection {
-        engine.capture(pid: pid) { [weak self] id in
+    func capture(_ process: ForeignProcess?) -> WindowSelection {
+        engine.capture(process) { [weak self] id in
             Task { await self?.releaseCapture(id) }
         }
     }
@@ -73,7 +98,7 @@ private actor WindowWorker {
 
     func perform(
         _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
-    ) -> Result<String, Error> {
+    ) -> Result<WindowOutcome, Error> {
         Result {
             try PerformanceTrace.measure("WindowOperation") {
                 try engine.perform(action, selection: selection, displays: displays)

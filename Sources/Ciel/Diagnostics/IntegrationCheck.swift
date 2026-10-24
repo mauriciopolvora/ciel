@@ -120,24 +120,23 @@ import CielCore
         } else {
             print("SKIP fixture Enhanced UI mode: no focused fixture window")
         }
-        controller.capture(pid: child.processIdentifier)
-        next()
+        next(on: controller.capture(ForeignProcess(child.processIdentifier)))
     }
 
-    private func next() {
+    private func next(on target: WindowTarget) {
         guard !steps.isEmpty else {
-            checkMinimize()
+            checkMinimize(on: target)
             return
         }
         let (action, expected) = steps.removeFirst()
         let started = ProcessInfo.processInfo.systemUptime
-        controller.perform(action, displays: DisplaySnapshot.current()) { [self] result in
+        controller.perform(action, on: target) { [self] result in
             let elapsed = (ProcessInfo.processInfo.systemUptime - started) * 1000
             switch result {
             case .failure(let error):
                 failures += 1
                 print("FAIL \(action.title): \(error.localizedDescription) [\(error)]")
-                next()
+                next(on: target)
             case .success:
                 if let window = enhancedFixture, (try? window.enhancedUI(timeout: 0.25)) != true {
                     failures += 1
@@ -152,7 +151,7 @@ import CielCore
                         print(
                             "\(matches ? "PASS" : "FAIL") \(action.title): actual=\(actual), expected=\(expected), command=\(Int(elapsed)) ms"
                         )
-                        next()
+                        next(on: target)
                     })
             }
         }
@@ -164,8 +163,8 @@ import CielCore
             && abs(actual.width - expected.width) <= 2 && abs(actual.height - expected.height) <= 2
     }
 
-    private func checkMinimize() {
-        controller.perform(.minimize, displays: DisplaySnapshot.current()) { [self] result in
+    private func checkMinimize(on target: WindowTarget) {
+        controller.perform(.minimize, on: target) { [self] result in
             switch result {
             case .failure(let error):
                 failures += 1
@@ -185,16 +184,16 @@ import CielCore
     }
 
     private func checkMinimumSize(original: CGRect, visible: CGRect) {
-        controller.capture(pid: child.processIdentifier)
+        let target = controller.capture(ForeignProcess(child.processIdentifier))
         let started = ProcessInfo.processInfo.systemUptime
-        controller.perform(.rightHalf, displays: DisplaySnapshot.current()) { [self] result in
+        controller.perform(.rightHalf, on: target) { [self] result in
             let elapsed = ProcessInfo.processInfo.systemUptime - started
             switch result {
             case .failure(let error):
                 failures += 1
                 print("FAIL Minimum size: \(error)")
                 finish()
-            case .success(let message):
+            case .success(let outcome):
                 let reachable = { (frame: CGRect) in
                     frame.minX >= visible.minX - 3 && frame.maxX <= visible.maxX + 3
                         && frame.minY >= visible.minY - 3 && frame.maxY <= visible.maxY + 3
@@ -208,11 +207,11 @@ import CielCore
                 poll(readFrame, within: 1, until: settled) { [self] frame in
                     let actual = frame ?? .zero
                     let matches =
-                        message == "The app limited the window size." && settled(frame)
+                        outcome == .sizeLimited && settled(frame)
                         && elapsed < Self.minimumSizeCommandLimit
                     if !matches { failures += 1 }
                     print(
-                        "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable(actual)), command=\(Int(elapsed * 1000)) ms, message=\(message)"
+                        "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable(actual)), command=\(Int(elapsed * 1000)) ms, outcome=\(outcome)"
                     )
                     finish()
                 }
