@@ -59,14 +59,14 @@ struct CatalogTests {
         try fixture.writeApp(name: "Tool")
         let catalog = AppCatalog(roots: [fixture.root], cacheURL: nil, watchChanges: false)
         #expect(await refresh(catalog).entriesChanged)
-        let update = await withCheckedContinuation { continuation in
-            catalog.onUpdate = { continuation.resume(returning: $0) }
-            catalog.changed([
-                CatalogEvent(
-                    path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Resources/Tool.icns", flags: 0
-                )
-            ])
-        }
+        var received: CatalogUpdate?
+        catalog.onUpdate = { received = $0 }
+        catalog.changed([
+            CatalogEvent(
+                path: CatalogPaths.canonical(fixture.app.path) + "/Contents/Resources/Tool.icns", flags: 0)
+        ])
+        try await waitUntil { received != nil }
+        let update = try #require(received)
         #expect(!update.entriesChanged)
         #expect(update.invalidatedIconPaths.contains(try #require(catalog.entries.first?.path)))
     }
