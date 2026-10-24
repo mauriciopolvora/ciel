@@ -15,6 +15,8 @@ mutants=(
     "M9|Run a native check under any bundle identifier"
     "M10|Launch the app on an unknown flag"
     "M11|Match FSEvents paths against uncanonicalized catalog roots"
+    "M12|Bind window hotkeys under a renamed key"
+    "M13|Save a shortcut that was never registered"
 )
 
 mutate() {
@@ -49,6 +51,11 @@ mutate() {
         M11)
             swap Sources/Ciel/AppCatalog.swift \
                 's/canonicalRoots = roots\.map \{ CatalogPaths\.canonical\(\$0\.path\) \}/canonicalRoots = roots.map(\\.path)/g'
+            ;;
+        M12) swap Sources/Ciel/HotKeys.swift 's/case \.window\(let action\): action\.id/case .window(let action): "win." + action.rawValue/' ;;
+        M13)
+            swap Sources/Ciel/HotKeys.swift \
+                's/(registrations\[command\] != nil \{ return \}\n)\s+try register\(command, shortcut\)\n/$1/'
             ;;
     esac
 }

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import CielCore
 
 struct Shortcut: Codable, Equatable, Sendable {
     let keyCode: UInt32
@@ -50,28 +51,101 @@ struct Shortcut: Codable, Equatable, Sendable {
     }
 }
 
+enum HotKeyCommand: Hashable, Sendable {
+    case launcher
+    case window(WindowAction)
+
+    static var allCases: [HotKeyCommand] { [.launcher] + WindowAction.allCases.map(Self.window) }
+
+    /// The key of this command's shortcut in the saved `shortcuts` JSON.
+    var name: String {
+        switch self {
+        case .launcher: "launcher"
+        case .window(let action): action.id
+        }
+    }
+}
+
+@MainActor protocol HotKeyRegistrar {
+    /// Releasing the returned value unregisters the shortcut.
+    func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup
+}
+
 @MainActor final class HotKeys {
     var recordingHandler: ((Shortcut) -> Void)?
-    private let resources = HotKeyResources()
-    private var handlers: [UInt32: () -> Void] = [:]
-    private var ids: [String: UInt32] = [:]
-    private var nextID: UInt32 = 1
-    private(set) var shortcuts: [String: Shortcut] = [:]
     private(set) var registrationErrors: [String] = []
-    nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
-
+    private var shortcuts: [String: Shortcut] = [:]
+    private var registrations: [HotKeyCommand: Cleanup] = [:]
     private let defaults: UserDefaults
+    private let registrar: any HotKeyRegistrar
+    private let onPress: (HotKeyCommand) -> Void
+    private let onChange: () -> Void
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard, registrar: any HotKeyRegistrar,
+        onPress: @escaping (HotKeyCommand) -> Void, onChange: @escaping () -> Void
+    ) {
         self.defaults = defaults
+        self.registrar = registrar
+        self.onPress = onPress
+        self.onChange = onChange
         if let data = defaults.data(forKey: "shortcuts"),
             let saved = try? JSONDecoder().decode([String: Shortcut].self, from: data)
         {
             shortcuts = saved
         }
-        if shortcuts["launcher"] == nil { shortcuts["launcher"] = .launcher }
+        if shortcuts[HotKeyCommand.launcher.name] == nil {
+            shortcuts[HotKeyCommand.launcher.name] = .launcher
+        }
+        for command in HotKeyCommand.allCases {
+            guard let shortcut = shortcuts[command.name] else { continue }
+            do { try register(command, shortcut) } catch {
+                registrationErrors.append("\(command.name): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func shortcut(for command: HotKeyCommand) -> Shortcut? { shortcuts[command.name] }
+
+    func update(_ command: HotKeyCommand, to shortcut: Shortcut?) throws {
+        if let shortcut {
+            if shortcuts.contains(where: { $0.key != command.name && $0.value == shortcut }) {
+                throw HotKeyError.duplicate
+            }
+            if shortcut == shortcuts[command.name], registrations[command] != nil { return }
+            try register(command, shortcut)
+        } else {
+            guard command != .launcher else { throw HotKeyError.required }
+            registrations[command] = nil
+        }
+        shortcuts[command.name] = shortcut
+        defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
+        onChange()
+    }
+
+    private func register(_ command: HotKeyCommand, _ shortcut: Shortcut) throws {
+        registrations[command] = try registrar.register(shortcut) { [weak self] in self?.pressed(command) }
+    }
+
+    private func pressed(_ command: HotKeyCommand) {
+        if let recordingHandler, let shortcut = shortcuts[command.name] {
+            recordingHandler(shortcut)
+        } else {
+            onPress(command)
+        }
+    }
+}
+
+@MainActor final class CarbonHotKeyRegistrar: HotKeyRegistrar {
+    nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
+    private var handlers: [UInt32: @MainActor () -> Void] = [:]
+    private var nextID: UInt32 = 1
+    private var eventHandler: Cleanup?
+
+    init() {
         var type = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        var handler: EventHandlerRef?
         InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, context in
@@ -80,85 +154,39 @@ struct Shortcut: Codable, Equatable, Sendable {
                 let status = GetEventParameter(
                     event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                     nil, MemoryLayout<EventHotKeyID>.size, nil, &identifier)
-                guard status == noErr, identifier.signature == HotKeys.signature else {
+                guard status == noErr, identifier.signature == CarbonHotKeyRegistrar.signature else {
                     return OSStatus(eventNotHandledErr)
                 }
-                let owner = Unmanaged<HotKeys>.fromOpaque(context).takeUnretainedValue()
+                let owner = Unmanaged<CarbonHotKeyRegistrar>.fromOpaque(context).takeUnretainedValue()
                 // Carbon sends application-target events through the main event loop.
                 return MainActor.assumeIsolated {
-                    if let recording = owner.recordingHandler,
-                        let name = owner.ids.first(where: { $0.value == identifier.id })?.key,
-                        let shortcut = owner.shortcuts[name]
-                    {
-                        recording(shortcut)
-                        return noErr
-                    }
                     owner.handlers[identifier.id]?()
                     return noErr
                 }
-            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &resources.eventHandler)
+            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &handler)
+        if let handler { eventHandler = Cleanup { RemoveEventHandler(handler) } }
     }
 
-    func bind(_ name: String, handler: @escaping () -> Void) {
-        if ids[name] == nil {
-            ids[name] = nextID
-            nextID += 1
-        }
-        handlers[ids[name]!] = handler
-        if let shortcut = shortcuts[name] {
-            do { try register(name, shortcut) } catch {
-                registrationErrors.append("\(name): \(error.localizedDescription)")
-            }
-        }
-    }
-
-    func update(_ name: String, shortcut: Shortcut?) throws {
-        if let shortcut {
-            if shortcuts.contains(where: { $0.key != name && $0.value == shortcut }) {
-                throw HotKeyError.duplicate
-            }
-            // Register before removing the previous hotkey, so failure leaves it working.
-            if shortcut == shortcuts[name], resources.refs[name] != nil { return }
-            try register(name, shortcut)
-            shortcuts[name] = shortcut
-        } else {
-            if let ref = resources.refs.removeValue(forKey: name) { UnregisterEventHotKey(ref) }
-            shortcuts.removeValue(forKey: name)
-        }
-        defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
-    }
-
-    private func register(_ name: String, _ shortcut: Shortcut) throws {
-        guard let id = ids[name] else { return }
+    func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup {
+        let id = nextID
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(
             shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: Self.signature, id: id),
             GetApplicationEventTarget(), 0, &ref)
         guard status == noErr, let ref else { throw HotKeyError.unavailable }
-        if let old = resources.refs[name] { UnregisterEventHotKey(old) }
-        resources.refs[name] = ref
-    }
-
-}
-
-/// HotKeys confines this handle owner to the main actor. The handles clean up
-/// when the owner is released, without an isolated class reading them in deinit.
-private final class HotKeyResources {
-    var refs: [String: EventHotKeyRef] = [:]
-    var eventHandler: EventHandlerRef?
-
-    deinit {
-        for ref in refs.values { UnregisterEventHotKey(ref) }
-        if let eventHandler { RemoveEventHandler(eventHandler) }
+        nextID += 1
+        handlers[id] = onPress
+        return Cleanup { UnregisterEventHotKey(ref) }
     }
 }
 
 enum HotKeyError: LocalizedError {
-    case duplicate, unavailable
+    case duplicate, unavailable, required
     var errorDescription: String? {
         switch self {
         case .duplicate: return "This shortcut is already assigned in Ciel."
         case .unavailable: return "This shortcut is used by macOS or another app. Choose another."
+        case .required: return "Choose a launcher shortcut."
         }
     }
 }

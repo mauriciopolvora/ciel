@@ -4,7 +4,10 @@ import CielCore
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let catalog = AppCatalog()
     private let windows = WindowController()
-    private let hotKeys = HotKeys()
+    private lazy var hotKeys = HotKeys(
+        registrar: CarbonHotKeyRegistrar(),
+        onPress: { [weak self] command in self?.hotKeyPressed(command) },
+        onChange: { [weak self] in self?.updateToolTip() })
     private let hud = StatusHUD()
     private var panel: LauncherPanel!
     private var launcher: LauncherView!
@@ -33,10 +36,6 @@ import CielCore
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
         setupPanel()
-        hotKeys.bind("launcher") { [weak self] in self?.toggle() }
-        for action in WindowAction.allCases {
-            hotKeys.bind(action.id) { [weak self] in self?.runDirect(action) }
-        }
         catalog.onChange = { [weak self] in
             self?.reloadEntries()
         }
@@ -67,7 +66,7 @@ import CielCore
     private func setupMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "cloud", accessibilityDescription: "Ciel")
-        statusItem.button?.toolTip = "Ciel · \(hotKeys.shortcuts["launcher"]?.display ?? "")"
+        updateToolTip()
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Open Ciel", action: #selector(menuOpen), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -88,6 +87,17 @@ import CielCore
 
     private func updateMenuBarIcon() {
         statusItem.isVisible = UserDefaults.standard.bool(forKey: "showMenuBarIcon")
+    }
+
+    private func updateToolTip() {
+        statusItem.button?.toolTip = "Ciel · \(hotKeys.shortcut(for: .launcher)?.display ?? "")"
+    }
+
+    private func hotKeyPressed(_ command: HotKeyCommand) {
+        switch command {
+        case .launcher: toggle()
+        case .window(let action): runDirect(action)
+        }
     }
 
     private func setupPanel() {
@@ -273,10 +283,6 @@ import CielCore
             settings?.onMenuBarIconChange = { [weak self] in self?.updateMenuBarIcon() }
             settings?.onGuide = { [weak self] in self?.showGuide() }
             settings?.onAbout = { [weak self] in self?.showAbout() }
-            settings?.onShortcutChange = { [weak self] in
-                self?.statusItem.button?.toolTip =
-                    "Ciel · \(self?.hotKeys.shortcuts["launcher"]?.display ?? "")"
-            }
         }
         settings?.present()
     }
