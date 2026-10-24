@@ -36,7 +36,7 @@ mutate() {
                 swap Sources/Ciel/LauncherView.swift \
                     's/(insertBacktab\(_:\)\):\n\s+selectFilter\()filter == nil \? 2 : filter == \.application \? 0 : 1/${1}filter == nil ? 1 : filter == .application ? 2 : 0/'
             ;;
-        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(window position\." \}\n\s+return )action\.title/$1"Done"/' ;;
+        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(window position\."\s*\}\n\s+return )action\.title/$1"Done"/' ;;
         M8) swap Sources/Ciel/AppIdentity.swift 's/"app\.mauriciopolvora\.ciel"/"app.mauriciopolvora.ciel-app"/' ;;
     esac
 }
