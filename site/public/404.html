@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found · Ciel</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon-32.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <main id="main" class="lost">
+    <h1 class="section-title">Ciel found nothing at this address</h1>
+    <div class="launcher lost-launcher">
+      <div class="launcher-top"><span class="launcher-input" data-path></span></div>
+      <ul class="results" role="listbox" aria-label="Results">
+        <li><a class="row" href="/" aria-selected="true">
+          <span class="tile"><img src="/assets/icon-32.png" width="20" height="20" alt=""></span>
+          <span class="row-title">Ciel home</span>
+          <span class="row-key" aria-hidden="true">↵</span>
+        </a></li>
+      </ul>
+    </div>
+  </main>
+  <script>
+    document.querySelector("[data-path]").textContent = decodeURIComponent(location.pathname.replace(/^\//, "")) || "nothing";
+    addEventListener("keydown", (event) => { if (event.key === "Enter") location.href = "/"; });
+  </script>
+</body>
+</html>

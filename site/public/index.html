@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ciel · A small native launcher for macOS</title>
+  <meta name="description" content="Open apps and arrange windows without leaving the keyboard. Ciel is a free, open source macOS launcher with typo tolerant search, eighteen window commands, and no network requests.">
+  <link rel="canonical" href="https://cielmac.app/">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ciel">
+  <meta property="og:title" content="Ciel · Open apps and arrange windows without leaving the keyboard">
+  <meta property="og:description" content="A free, open source macOS launcher. Typo tolerant search, eighteen window commands, and nothing leaves your Mac.">
+  <meta property="og:url" content="https://cielmac.app/">
+  <meta property="og:image" content="https://cielmac.app/assets/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The empty black Ciel launcher floating over a painted cloud sky">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/cloud-desktop.webp" as="image" type="image/webp">
+  <link rel="stylesheet" href="assets/site.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Ciel",
+    "operatingSystem": "macOS 14 or later",
+    "applicationCategory": "UtilitiesApplication",
+    "softwareVersion": "0.4.2",
+    "license": "https://opensource.org/license/mit",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Mauricio Polvora" },
+    "codeRepository": "https://github.com/mauriciopolvora/ciel"
+  }
+  </script>
+  <script>document.documentElement.classList.add("js")</script>
+  <script defer src="assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav-wrap">
+    <nav class="nav" aria-label="Main">
+      <a class="nav-brand" href="/" aria-current="page">
+        <img src="assets/icon-32.png" width="24" height="24" alt="">
+        <span>Ciel</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <a class="nav-icon" href="https://github.com/mauriciopolvora/ciel" aria-label="Source on GitHub">
+        <svg aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>
+      </a>
+      <a class="btn btn-sm" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>Download</a>
+      <button class="burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
+        <span></span><span></span>
+      </button>
+    </nav>
+  </header>
+
+  <div class="menu" id="menu" hidden>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/mauriciopolvora/ciel">Source on GitHub</a></li>
+      <li><a href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>Download for macOS</a></li>
+    </ul>
+  </div>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <h1 id="hero-title" class="hero-title reveal">Every app and window,<br> a few keystrokes away</h1>
+      <p class="hero-sub reveal">Ciel is a small native launcher for macOS. Press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>Space</kbd>, type a few letters, and press Return. Nothing leaves your Mac.</p>
+      <div class="hero-cta reveal">
+        <a class="btn" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>
+          <svg aria-hidden="true"><use href="assets/icons.svg#apple-logo"/></svg>
+          Download for macOS
+        </a>
+        <p class="proof">Free and MIT licensed · macOS 14 or later</p>
+      </div>
+
+      <div class="stage reveal" id="demo">
+        <img class="stage-sky" src="assets/cloud-desktop.webp" width="1254" height="784" alt="A painted sky with one large ivory cloud, used as the desktop wallpaper">
+        <div class="menubar" aria-hidden="true">
+          <svg><use href="assets/icons.svg#apple-logo"/></svg>
+          <span class="menubar-app" data-app-name>Finder</span>
+          <img class="menubar-ciel" src="assets/icon-32.png" width="16" height="16" alt="">
+        </div>
+        <div class="area">
+          <div class="win" data-window aria-hidden="true">
+            <div class="win-bar">
+              <i></i><i></i><i></i>
+              <span class="win-title"><svg><use href="assets/icons.svg#folder-simple" data-app-icon/></svg><span data-app-name>Finder</span></span>
+            </div>
+            <div class="win-body">
+              <span class="skel w60"></span>
+              <span class="skel w80"></span>
+              <span class="skel w40"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="launcher" data-launcher>
+          <div class="launcher-top">
+            <label class="sr-only" for="demo-input">Search apps and window commands</label>
+            <input id="demo-input" class="launcher-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="demo-results" aria-autocomplete="list">
+            <button class="chip" type="button" data-category hidden>All <span aria-hidden="true">⇥</span></button>
+          </div>
+          <ul class="results" id="demo-results" role="listbox" aria-label="Results" hidden></ul>
+        </div>
+        <p class="hud" data-hud role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Measured performance">
+      <dl>
+        <div class="stat reveal"><dt>Slowest search p95 across 1,018 apps</dt><dd>5.56 ms</dd></div>
+        <div class="stat reveal"><dt>Window commands on one display</dt><dd>2 to 9 ms</dd></div>
+        <div class="stat reveal"><dt>Network requests while running</dt><dd>0</dd></div>
+        <div class="stat reveal"><dt>Resident processes, no idle timer</dt><dd>1</dd></div>
+      </dl>
+    </section>
+
+    <section class="tagline" aria-label="What Ciel does">
+      <p class="tagline-text" data-words>Ciel shows nothing until you type. Then it finds what you meant, even misspelled, and disappears on Return.</p>
+    </section>
+
+    <section class="features" id="features" aria-labelledby="features-title">
+      <h2 id="features-title" class="section-title reveal">Small on screen, thorough underneath</h2>
+      <div class="grid">
+        <article class="card card-wide reveal">
+          <div class="card-copy">
+            <h3>Finds what you meant</h3>
+            <p>Prefixes, abbreviations like vsc, typos like safrai, accents, and words in any order. Exact matches always win over history.</p>
+          </div>
+          <ul class="mini-results" aria-label="Search examples">
+            <li><code>safrai</code><span><svg aria-hidden="true"><use href="assets/icons.svg#compass"/></svg>Safari</span></li>
+            <li><code>vsc</code><span><svg aria-hidden="true"><use href="assets/icons.svg#code"/></svg>Visual Studio Code</span></li>
+            <li><code>calclator</code><span><svg aria-hidden="true"><use href="assets/icons.svg#calculator"/></svg>Calculator</span></li>
+            <li><code>set sys</code><span><svg aria-hidden="true"><use href="assets/icons.svg#gear-six"/></svg>System Settings</span></li>
+          </ul>
+        </article>
+
+        <article class="card card-wide reveal">
+          <div class="card-copy">
+            <h3>Puts windows where you want them</h3>
+            <p>Eighteen commands for halves, quarters, three fourths, center, almost maximize, restore, minimize, and moving between displays. Bind any of them to a global shortcut.</p>
+          </div>
+          <div class="shapes" data-shapes aria-hidden="true"></div>
+        </article>
+
+        <article class="card reveal">
+          <div class="card-art" aria-hidden="true"><svg><use href="assets/icons.svg#lock-key"/></svg></div>
+          <h3>Keeps your Mac to itself</h3>
+          <p>No account, server, analytics, or network requests. Preferences and launch history stay on your Mac.</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card-art" aria-hidden="true"><svg><use href="assets/icons.svg#feather"/></svg></div>
+          <h3>Stays light</h3>
+          <p>One resident process and no idle timer. The app list refreshes in the background only when apps change.</p>
+        </article>
+
+        <article class="card reveal">
+          <div class="card-art guides" aria-hidden="true"><i class="gx"></i><i class="gy"></i><b></b></div>
+          <h3>Remembers where you put it</h3>
+          <p>Drag the launcher and it snaps to guides at each quarter of the screen. Every display keeps its own spot.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="how" id="how" aria-labelledby="how-title">
+      <h2 id="how-title" class="section-title reveal">Three keys between you and any app</h2>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><kbd>⌃</kbd><kbd>⌥</kbd><kbd class="wide">Space</kbd></div>
+          <h3>Open Ciel from anywhere</h3>
+          <p>Control Option Space works over any app. Record a different shortcut in Settings.</p>
+        </li>
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><kbd>s</kbd><kbd>a</kbd><kbd>f</kbd></div>
+          <h3>Type a few letters</h3>
+          <p>Results appear as you type. Tab switches between all results, apps, and window commands.</p>
+        </li>
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><kbd class="wide">Return</kbd></div>
+          <h3>Press Return</h3>
+          <p>Or hold Command and press 1 through 9 to run one of the first nine results.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="faq" id="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" class="section-title reveal">Questions</h2>
+      <div class="faq-list">
+        <details class="reveal">
+          <summary>Is Ciel free?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Yes. Ciel is free and open source under the MIT license. There is no account, trial, or paid tier.</p>
+        </details>
+        <details class="reveal">
+          <summary>Which Macs does it run on?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Ciel needs macOS 14 Sonoma or later. The download is a universal app for Apple silicon and Intel Macs.</p>
+        </details>
+        <details class="reveal">
+          <summary>Why does Ciel ask for Accessibility access?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Only window commands need it, because macOS requires that permission to move and resize other apps' windows. App search works without it. Choose Allow Access in Ciel Settings, then turn Ciel on in Privacy and Security.</p>
+        </details>
+        <details class="reveal">
+          <summary>Does Ciel collect any data?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>No. Ciel makes no network requests while it runs and has no analytics. Preferences and launch history are stored in the <code>app.mauriciopolvora.ciel</code> defaults domain, and the app list is cached in your Library folder.</p>
+        </details>
+        <details class="reveal">
+          <summary>Can it replace Spotlight?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Ciel launches apps and runs window commands. It does not search files or the web. To put Ciel on Command Space, turn off the Spotlight shortcut in System Settings first, then record it in Ciel Settings. Ciel keeps your previous shortcut if the new one is taken.</p>
+        </details>
+        <details class="reveal">
+          <summary>How does it rank results?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Exact matches come first. After that, apps and commands you run often move up. That history never leaves your Mac.</p>
+        </details>
+        <details class="reveal">
+          <summary>Does it work with full screen apps and Spaces?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Window commands work on regular windows. Full screen windows and moving windows between Spaces are not supported. When an app enforces a minimum size or refuses a resize, Ciel tells you.</p>
+        </details>
+        <details class="reveal">
+          <summary>Can I hide the menu bar icon?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Yes. Turn off Show menu bar icon in Settings. To get back to Settings later, open the launcher and press Command Comma.</p>
+        </details>
+        <details class="reveal">
+          <summary>How do I uninstall it?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Quit Ciel from its menu bar icon and drag it from Applications to the Trash. To remove its saved settings too, run <code>defaults delete app.mauriciopolvora.ciel</code> in Terminal.</p>
+        </details>
+        <details class="reveal">
+          <summary>Can I build it myself?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Yes. Clone the repository and run <code>bash scripts/build.sh</code> with a Swift 6 toolchain. Apple's Command Line Tools are enough. The <a href="https://github.com/mauriciopolvora/ciel#build-and-install">README</a> covers installing and signing.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="final" aria-labelledby="final-title">
+      <img class="final-icon reveal" src="assets/icon-256.png" width="128" height="128" alt="Ciel app icon, a painted ivory cloud on a blue sky">
+      <h2 id="final-title" class="section-title reveal">Try it on the next app you open</h2>
+      <div class="hero-cta reveal">
+        <a class="btn" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>
+          <svg aria-hidden="true"><use href="assets/icons.svg#apple-logo"/></svg>
+          Download for macOS
+        </a>
+        <p class="proof">Free, no account, and gone the moment you drag it to the Trash.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Mauricio Polvora</p>
+    <ul>
+      <li><a href="https://github.com/mauriciopolvora/ciel">Source</a></li>
+      <li><a href="https://github.com/mauriciopolvora/ciel/blob/main/LICENSE">License</a></li>
+      <li><a href="/privacy">Privacy</a></li>
+    </ul>
+  </footer>
+</body>
+</html>

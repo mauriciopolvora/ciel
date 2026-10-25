@@ -6,6 +6,8 @@
 
 A small native macOS launcher for apps and window commands. Open it, type, and press Return.
 
+Website: [cielmac.app](https://cielmac.app)
+
 Ciel uses Swift and AppKit. It runs locally, with no account, server, analytics, or runtime network requests. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
 
 ![Ciel opens as a blank black input box](docs/launcher-empty.png)
@@ -97,6 +99,7 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
 - `Resources`: app metadata, artwork, and dependency notices.
 - `scripts`: build, install, checks, and notarized release packaging.
+- `site`: the [cielmac.app](https://cielmac.app) landing page, a static Cloudflare Worker. Deploy it with `cd site && npm ci && npm run deploy`.
 
 Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
 
