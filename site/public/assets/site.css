@@ -411,6 +411,11 @@ main > section {
   color: var(--secondary);
   font-size: 18px;
   line-height: 28px;
+  text-wrap: balance;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .hero-cta {
