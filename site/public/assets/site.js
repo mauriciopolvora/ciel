@@ -3,6 +3,12 @@
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/* Smooth scroll: wheel and anchor jumps glide to a stop instead of stepping */
+
+const lenis = reduceMotion
+  ? null
+  : new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - 2 ** (-10 * t)), autoRaf: true, anchors: true });
+
 /* Scroll reveal */
 
 const revealer = new IntersectionObserver(
@@ -26,6 +32,8 @@ function setMenu(open) {
   burger.setAttribute("aria-expanded", String(open));
   burger.setAttribute("aria-label", open ? "Close menu" : "Open menu");
   document.body.style.overflow = open ? "hidden" : "";
+  if (open) lenis?.stop();
+  else lenis?.start();
   if (open) {
     menu.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => menu.classList.add("open")));
@@ -429,7 +437,8 @@ function initDemo(stage) {
     takeOver();
     clearTimeout(reopenTimer);
     launcher.classList.remove("closed");
-    stage.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+    if (lenis) lenis.scrollTo(scrollY + stage.getBoundingClientRect().top - (innerHeight - stage.offsetHeight) / 2);
+    else stage.scrollIntoView({ block: "center" });
     input.focus({ preventScroll: true });
   });
 
