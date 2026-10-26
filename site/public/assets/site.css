@@ -60,6 +60,24 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Lenis animates the scroll itself, so native smoothing would fight it */
+html.lenis {
+  scroll-behavior: auto;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
 body {
   margin: 0;
   background: var(--bg);

@@ -38,6 +38,7 @@
   }
   </script>
   <script>document.documentElement.classList.add("js")</script>
+  <script defer src="assets/lenis/lenis.min.js"></script>
   <script defer src="assets/site.js"></script>
 </head>
 <body>
@@ -113,7 +114,7 @@
             <input id="demo-input" class="launcher-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="demo-results" aria-autocomplete="list">
             <button class="chip" type="button" data-category hidden>All <span aria-hidden="true">⇥</span></button>
           </div>
-          <ul class="results" id="demo-results" role="listbox" aria-label="Results" hidden></ul>
+          <ul class="results" id="demo-results" data-lenis-prevent role="listbox" aria-label="Results" hidden></ul>
         </div>
         <p class="hud" data-hud role="status" aria-live="polite"></p>
       </div>
