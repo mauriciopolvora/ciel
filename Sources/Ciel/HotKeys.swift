@@ -179,7 +179,7 @@ enum HotKeyEvent: Sendable {
                     owner.handlers[identifier.id]?(kind)
                     return noErr
                 }
-            }, ItemCount(types.count), &types, Unmanaged.passUnretained(self).toOpaque(), &handler)
+            }, types.count, &types, Unmanaged.passUnretained(self).toOpaque(), &handler)
         if let handler { eventHandler = Cleanup { RemoveEventHandler(handler) } }
     }
 
