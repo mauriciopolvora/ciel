@@ -9,7 +9,9 @@ import os
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct SpeechModelStoreTests {
-    private let body = Data((0..<1000).map { UInt8($0 % 251) })
+    /// URLSession holds back the first 512 bytes of a reply to sniff its type, so every reply that
+    /// breaks off sends more than that.
+    private let body = Data((0..<4000).map { UInt8($0 % 251) })
 
     @Test func aVerifiedDownloadIsReady() async throws {
         try await withStore(replies: [.init(status: 200, body: body)]) { store in
@@ -39,8 +41,8 @@ struct SpeechModelStoreTests {
 
     @Test func aRetryResumesAnInterruptedDownload() async throws {
         let replies: [StubURLProtocol.Reply] = [
-            .init(status: 200, body: body.prefix(400), ending: .drop),
-            .init(status: 206, body: body.suffix(600)),
+            .init(status: 200, body: body.prefix(1600), ending: .drop),
+            .init(status: 206, body: body.suffix(2400)),
         ]
         try await withStore(replies: replies) { store in
             store.download()
@@ -50,7 +52,7 @@ struct SpeechModelStoreTests {
                 return
             }
             let partial = try Data(contentsOf: store.partialURL)
-            #expect(partial.count == 400)
+            #expect(partial.count == 1600)
             store.download()
             await store.idle()
             #expect(store.state == .ready)
@@ -59,13 +61,13 @@ struct SpeechModelStoreTests {
             let ranges = StubURLProtocol.requests(for: store.model.url).map {
                 $0.value(forHTTPHeaderField: "Range")
             }
-            #expect(ranges == [nil, "bytes=400-"])
+            #expect(ranges == [nil, "bytes=1600-"])
         }
     }
 
     @Test func aServerThatIgnoresTheRangeStartsOver() async throws {
         let replies: [StubURLProtocol.Reply] = [
-            .init(status: 200, body: body.prefix(400), ending: .drop), .init(status: 200, body: body),
+            .init(status: 200, body: body.prefix(1600), ending: .drop), .init(status: 200, body: body),
         ]
         try await withStore(replies: replies) { store in
             store.download()
@@ -90,7 +92,7 @@ struct SpeechModelStoreTests {
     }
 
     @Test func removeDuringADownloadStopsItAndKeepsNoFiles() async throws {
-        try await withStore(replies: [.init(status: 200, body: body.prefix(500), ending: .hang)]) { store in
+        try await withStore(replies: [.init(status: 200, body: body.prefix(2000), ending: .hang)]) { store in
             store.download()
             try await waitUntil { store.state == .downloading(fraction: 0.5) }
             store.remove()
@@ -103,7 +105,7 @@ struct SpeechModelStoreTests {
     }
 
     @Test func cancelStopsADownloadAndDeletesThePartialFile() async throws {
-        try await withStore(replies: [.init(status: 200, body: body.prefix(500), ending: .hang)]) { store in
+        try await withStore(replies: [.init(status: 200, body: body.prefix(2000), ending: .hang)]) { store in
             store.download()
             try await waitUntil { store.state == .downloading(fraction: 0.5) }
             store.cancel()
@@ -175,7 +177,8 @@ final class StubURLProtocol: URLProtocol {
         let reply = Self.replies.withLock { $0[url]?.isEmpty == false ? $0[url]?.removeFirst() : nil }
         guard let reply,
             let response = HTTPURLResponse(
-                url: url, statusCode: reply.status, httpVersion: nil, headerFields: nil)
+                url: url, statusCode: reply.status, httpVersion: nil,
+                headerFields: ["Content-Type": "application/octet-stream"])
         else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
