@@ -17,7 +17,8 @@ struct SpeechModelStoreTests {
             #expect(store.state == .downloading(fraction: 0))
             await store.idle()
             #expect(store.state == .ready)
-            #expect(try Data(contentsOf: store.fileURL) == body)
+            let saved = try Data(contentsOf: store.fileURL)
+            #expect(saved == body)
             #expect(!FileManager.default.fileExists(atPath: store.partialURL.path))
             let reopened = SpeechModelStore(
                 model: store.model, folder: store.fileURL.deletingLastPathComponent())
@@ -48,11 +49,13 @@ struct SpeechModelStoreTests {
                 Issue.record("Expected a failure, got \(store.state)")
                 return
             }
-            #expect(try Data(contentsOf: store.partialURL).count == 400)
+            let partial = try Data(contentsOf: store.partialURL)
+            #expect(partial.count == 400)
             store.download()
             await store.idle()
             #expect(store.state == .ready)
-            #expect(try Data(contentsOf: store.fileURL) == body)
+            let saved = try Data(contentsOf: store.fileURL)
+            #expect(saved == body)
             let ranges = StubURLProtocol.requests(for: store.model.url).map {
                 $0.value(forHTTPHeaderField: "Range")
             }
@@ -70,7 +73,8 @@ struct SpeechModelStoreTests {
             store.download()
             await store.idle()
             #expect(store.state == .ready)
-            #expect(try Data(contentsOf: store.fileURL) == body)
+            let saved = try Data(contentsOf: store.fileURL)
+            #expect(saved == body)
         }
     }
 
@@ -166,6 +170,7 @@ final class StubURLProtocol: URLProtocol {
 
     override func startLoading() {
         guard let url = request.url else { return }
+        let request = request
         Self.received.withLock { $0.append(request) }
         let reply = Self.replies.withLock { $0[url]?.isEmpty == false ? $0[url]?.removeFirst() : nil }
         guard let reply,
