@@ -8,7 +8,7 @@ A small native macOS launcher for apps and window commands. Open it, type, and p
 
 Website: [cielmac.app](https://cielmac.app)
 
-Ciel uses Swift and AppKit. It runs locally, with no account, server, analytics, or runtime network requests. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
+Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. Its only network request is the speech model download you start in Settings. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
 
 ![Ciel opens as a blank black input box](docs/launcher-empty.png)
 
@@ -20,7 +20,7 @@ Results appear after you type. Clearing the input returns to the empty box.
 
 Ciel is available as source. A notarized download is not available yet.
 
-Requires **macOS 14 or later** and a **Swift 6 toolchain**. Apple's Command Line Tools are sufficient for local builds. Full Xcode is optional.
+Requires an **Apple Silicon Mac** with **macOS 14 or later** and a **Swift 6 toolchain**. Apple's Command Line Tools are sufficient for local builds. Full Xcode is optional.
 
 ```sh
 git clone https://github.com/mauriciopolvora/ciel.git
@@ -32,7 +32,7 @@ open ~/Applications/Ciel.app
 
 The scripts create `dist/Ciel.app` and install it in `~/Applications`. Quit the installed launcher before an update. If its menu bar icon is hidden, use Activity Monitor to quit it. Installation saves the previous app under `.build/backups`.
 
-Local builds use an ad-hoc signature. They are not notarized public releases. macOS window access may need approval again after a rebuild. See the [release guide](docs/releasing.md) for Developer ID signing, notarization, universal builds, and distribution.
+Local builds use an ad-hoc signature. They are not notarized public releases. macOS window access may need approval again after a rebuild. See the [release guide](docs/releasing.md) for Developer ID signing, notarization, and distribution.
 
 ## Use
 
@@ -74,9 +74,17 @@ Some apps enforce minimum sizes or reject resizing. Ciel reports these limits. F
 
 If macOS shows access enabled but Ciel reports no access after a local rebuild, quit Ciel, remove the old launcher entry from Accessibility (Device Control and Data Access on newer macOS), add `~/Applications/Ciel.app`, enable it, and reopen Ciel. A stable Developer ID certificate avoids the ad-hoc identity change.
 
+## Speech to text
+
+Ciel turns speech into text on your Mac with the Parakeet Ultra model. Turn on **Settings → Speech to text**, choose **Download** next to Speech model, and set a dictation shortcut. Hold the shortcut, speak, and release. Ciel pastes the text into the front app. Without window access, it copies the text to the clipboard instead. macOS asks for microphone access the first time you dictate.
+
+The model is a 550 MB download. Ciel checks its size and SHA-256 against pinned values before using it, and resumes an interrupted download. It is stored in `~/Library/Application Support/app.mauriciopolvora.ciel/Models`. **Remove** deletes it. Speech runs on [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) with Metal.
+
 ## Privacy and resource use
 
 Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
+
+The only network request is the speech model download, and it starts only when you choose **Download** in Settings. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
 
 Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. There is no recurring idle timer.
 
@@ -93,7 +101,7 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `Sources/Ciel`: the testable CielApp library, with AppKit UI, catalog, hotkeys, window controller, and settings.
 - `Sources/CielMain`: the app executable entry point.
 - `Sources/Ciel/Diagnostics`: explicit native launcher, catalog, and window checks.
-- `Sources/CielCore`: search, usage history, app discovery, and window geometry.
+- `Sources/CielCore`: search, usage history, app discovery, window geometry, and speech model state.
 - `Sources/CielBenchmarks`: release search benchmarks with JSON reports and configurable budgets.
 - `Tests/CielCoreTests`: discovered Swift Testing tests for core behavior.
 - `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
@@ -109,4 +117,4 @@ See [contributing](CONTRIBUTING.md), [design system](docs/design-system.md), and
 
 ## License
 
-MIT. Search uses [FuzzyMatch 1.4.0](https://github.com/ordo-one/FuzzyMatch), licensed under Apache 2.0. Its license is included in `Resources/ThirdPartyNotices.txt` and the app bundle. See [artwork provenance](docs/artwork.md) for the icon source.
+MIT. Search uses [FuzzyMatch 1.4.0](https://github.com/ordo-one/FuzzyMatch), licensed under Apache 2.0. Speech uses [transcribe.cpp 0.4.1](https://github.com/handy-computer/transcribe.cpp) and the bundled ggml, miniz, and Silero VAD code, all under MIT-style licenses. The [Parakeet Ultra](https://huggingface.co/handy-computer/parakeet-ultra-gguf) model is by Moondream, post-trained from NVIDIA parakeet-tdt-0.6b-v3, and licensed under CC BY 4.0. These licenses are included in `Resources/ThirdPartyNotices.txt` and the app bundle. See [artwork provenance](docs/artwork.md) for the icon source.

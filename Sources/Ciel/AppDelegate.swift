@@ -6,10 +6,23 @@ import CielCore
     private let windows = WindowController()
     private let hud = StatusHUD()
     private let history = UsageHistory()
+    private let speech = SpeechModelStore()
+    private var transcriber: TranscribeCppTranscriber?
     private lazy var hotKeys = HotKeys(
         registrar: CarbonHotKeyRegistrar(),
         onPress: { [weak self] command in self?.hotKeyPressed(command) },
+        onRelease: { [weak self] command in if command == .dictation { self?.dictation.release() } },
         onChange: { [weak self] in self?.updateToolTip() })
+    private lazy var dictation = Dictation(
+        recorder: Microphone(),
+        transcriber: { [weak self] in
+            guard let self else { throw DictationError.off }
+            return try self.speechTranscriber()
+        },
+        deliver: { [weak self] text in
+            if !TextPaster.paste(text) { self?.hud.show("Copied. Allow window access in Settings to paste.") }
+        },
+        fail: { [weak self] message in self?.hud.show(message, error: true) })
     private lazy var panel = LauncherPanel()
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?
@@ -31,6 +44,7 @@ import CielCore
         panel.launcher.onExecute = { [weak self] entry in self?.execute(entry) }
         panel.onSettings = { [weak self] in self?.showSettings() }
         catalog.onUpdate = { [weak self] update in self?.catalogUpdated(update) }
+        speech.onChange = { [weak self] in self?.speechChanged() }
         reloadEntries()
         catalog.refresh()
         observers = [
@@ -92,7 +106,23 @@ import CielCore
         switch command {
         case .launcher: if panel.isVisible { panel.dismiss() } else { present() }
         case .window(let action): run(action)
+        case .dictation: dictation.press()
         }
+    }
+
+    private func speechTranscriber() throws -> TranscribeCppTranscriber {
+        guard Preferences().speechEnabled else { throw DictationError.off }
+        guard speech.state == .ready else { throw DictationError.notReady }
+        if let transcriber { return transcriber }
+        let loaded = TranscribeCppTranscriber(modelURL: speech.fileURL)
+        transcriber = loaded
+        return loaded
+    }
+
+    /// Dropping the transcriber frees the loaded model.
+    private func speechChanged() {
+        if !Preferences().speechEnabled || speech.state != .ready { transcriber = nil }
+        settings?.refresh()
     }
 
     private func catalogUpdated(_ update: CatalogUpdate) {
@@ -177,8 +207,9 @@ import CielCore
     @objc private func showSettings() {
         panel.dismiss()
         if settings == nil {
-            settings = SettingsController(hotKeys: hotKeys)
+            settings = SettingsController(hotKeys: hotKeys, speech: speech)
             settings?.onMenuBarIconChange = { [weak self] in self?.updateMenuBarIcon() }
+            settings?.onSpeechChange = { [weak self] in self?.speechChanged() }
             settings?.onGuide = { [weak self] in self?.showGuide() }
             settings?.onAbout = { [weak self] in self?.showAbout() }
         }
@@ -223,7 +254,7 @@ import CielCore
         check(
             CheckHandles(
                 launcher: panel.launcher, panel: panel, fieldEditor: panel.fieldEditor, catalog: catalog,
-                hotKeys: hotKeys,
+                hotKeys: hotKeys, speech: speech,
                 menu: statusItem.menu,
                 showSettings: { [self] in
                     showSettings()

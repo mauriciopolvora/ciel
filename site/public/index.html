@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ciel · A fast macOS launcher with nothing extra</title>
-  <meta name="description" content="Ciel is a free, open source macOS launcher without the bloat. It opens apps and moves windows, in milliseconds, with no account, store, plugins, AI, or network requests.">
+  <meta name="description" content="Ciel is a free, open source macOS launcher without the bloat. It opens apps and moves windows, in milliseconds, with no account, store, plugins, or tracking.">
   <link rel="canonical" href="https://cielmac.app/">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
@@ -124,7 +124,7 @@
       <dl>
         <div class="stat reveal"><dt>Slowest search p95 across 1,018 apps</dt><dd>5.56 ms</dd></div>
         <div class="stat reveal"><dt>Window commands on one display</dt><dd>2 to 9 ms</dd></div>
-        <div class="stat reveal"><dt>Network requests while running</dt><dd>0</dd></div>
+        <div class="stat reveal"><dt>Background network requests</dt><dd>0</dd></div>
         <div class="stat reveal"><dt>CPU while idle, share of one core</dt><dd>0.36%</dd></div>
       </dl>
     </section>
@@ -160,7 +160,7 @@
         <article class="card reveal">
           <div class="card-art" aria-hidden="true"><svg><use href="assets/icons.svg#lock-key"/></svg></div>
           <h3>Keeps your Mac to itself</h3>
-          <p>No server, analytics, or network requests. Preferences and launch history stay on your Mac.</p>
+          <p>No server or analytics. The only network request is the speech model download you start. Preferences, launch history and dictated audio stay on your Mac.</p>
         </article>
 
         <article class="card reveal">
@@ -211,7 +211,7 @@
         </details>
         <details class="reveal">
           <summary>Which Macs does it run on?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>Ciel needs macOS 14 Sonoma or later. The download is a universal app for Apple silicon and Intel Macs.</p>
+          <p>Ciel needs an Apple silicon Mac with macOS 14 Sonoma or later.</p>
         </details>
         <details class="reveal">
           <summary>Why does Ciel ask for Accessibility access?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
@@ -219,7 +219,7 @@
         </details>
         <details class="reveal">
           <summary>Does Ciel collect any data?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>No. Ciel makes no network requests while it runs and has no analytics. Preferences and launch history are stored in the <code>app.mauriciopolvora.ciel</code> defaults domain, and the app list is cached in your Library folder.</p>
+          <p>No. Ciel has no analytics, and its only network request is the speech model download you start in Settings. Dictated audio stays on your Mac. Preferences and launch history are stored in the <code>app.mauriciopolvora.ciel</code> defaults domain, and the app list is cached in your Library folder.</p>
         </details>
         <details class="reveal">
           <summary>Can it replace Spotlight?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>

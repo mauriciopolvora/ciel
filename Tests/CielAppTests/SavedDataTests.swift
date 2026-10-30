@@ -19,7 +19,8 @@ struct SavedDataTests {
     ]
 
     private nonisolated static let shippedShortcutKeys: [(String, HotKeyCommand)] =
-        [("launcher", .launcher)] + shippedWindowIDs.map { ($0.key, .window($0.value)) }
+        [("launcher", .launcher), ("dictation", .dictation)]
+        + shippedWindowIDs.map { ($0.key, .window($0.value)) }
 
     @Test func everyShippedEntryIDStillResolves() {
         let entries = Dictionary(
@@ -42,6 +43,16 @@ struct SavedDataTests {
             #expect(defaults.object(forKey: "showMenuBarIcon") as? Bool == false)
             #expect(!preferences.animations)
             #expect(!preferences.showMenuBarIcon)
+        }
+    }
+
+    @Test func speechStaysOffUntilTurnedOnUnderItsShippedKey() {
+        withEmptyDefaults { defaults in
+            let preferences = Preferences(defaults: defaults)
+            #expect(!preferences.speechEnabled)
+            preferences.speechEnabled = true
+            #expect(defaults.object(forKey: "speechEnabled") as? Bool == true)
+            #expect(Preferences(defaults: defaults).speechEnabled)
         }
     }
 

@@ -4,15 +4,17 @@
 
 Ciel 0.4.2 is prepared for local use. The local app is ad-hoc signed. It is not a notarized public release. Source is published at [mauriciopolvora/ciel](https://github.com/mauriciopolvora/ciel) under the MIT license. A notarized download is not available yet.
 
-The workflow in `.github/workflows/checks.yml` checks the core, builds a universal app, verifies its signature, and uploads a development archive. It does not sign with Developer ID or publish a release. See [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions) for hosted build results.
+The workflow in `.github/workflows/checks.yml` checks the core, builds an Apple Silicon app, verifies its architecture and signature, and uploads a development archive. It does not sign with Developer ID or publish a release. See [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions) for hosted build results.
 
 ## Build architectures
 
 ```sh
-CIEL_ARCH=universal bash scripts/build.sh
+CIEL_ARCH=arm64 bash scripts/build.sh
 ```
 
-The universal app contains arm64 and x86_64. `CIEL_ARCH` also accepts `native`, `arm64`, or `x86_64`. Universal compilation does not prove runtime behavior on Intel. Test the app on each supported platform before release.
+Ciel runs on Apple Silicon only, because speech to text uses transcribe.cpp with Metal. `CIEL_ARCH` accepts `native` or `arm64`, and the build stops if the app binary is not arm64.
+
+The build copies `CTranscribe.framework` into `Contents/Frameworks`, keeps only its arm64 slice, and removes its headers and module map. It adds the `@executable_path/../Frameworks` rpath to the app binary when SwiftPM did not. It signs the framework first, then the app with `Resources/Ciel.entitlements`, which grants microphone input under the hardened runtime. `codesign --verify --strict --deep` must pass.
 
 ## Sign and notarize
 
@@ -26,9 +28,9 @@ NOTARY_PROFILE='ciel-notary' \
 bash scripts/release.sh
 ```
 
-The release script builds a universal app with hardened runtime and a secure timestamp. It submits the archive to Apple's notarization service and waits for the result. It then staples and validates the ticket, checks Gatekeeper acceptance, creates a fresh ZIP, and writes a SHA-256 checksum. A failed step stops the script.
+The release script builds an Apple Silicon app with hardened runtime and a secure timestamp. It submits the archive to Apple's notarization service and waits for the result. It then staples and validates the ticket, checks Gatekeeper acceptance, creates a fresh ZIP, and writes a SHA-256 checksum. A failed step stops the script.
 
-The final files are `dist/Ciel-0.4.2-universal.zip` and its `.sha256` file. Review the signed app before uploading these files to a release. The release script does not publish or create a repository.
+The final files are `dist/Ciel-0.4.2-arm64.zip` and its `.sha256` file. Review the signed app before uploading these files to a release. The release script does not publish or create a repository.
 
 See [Apple's notarization documentation](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [notarytool guidance](https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool).
 
@@ -36,10 +38,10 @@ See [Apple's notarization documentation](https://developer.apple.com/documentati
 
 1. Run `bash scripts/check.sh` with other launcher copies closed. It skips the window check without Accessibility access, so also confirm that CI passed on the release commit.
 2. Install the exact signed bundle in Applications and open it through Finder.
-3. Check global shortcut, app launch, settings, category control, and window commands in everyday apps.
+3. Check global shortcut, app launch, settings, category control, and window commands in everyday apps. Download the speech model, grant microphone access, and dictate into a text field.
 4. Check login behavior after logout or reboot. Check light and dark appearance and macOS accessibility display settings.
 5. Download the release on a clean Mac. Verify Gatekeeper acceptance and the checksum.
-6. Check macOS 14 and Intel runtime behavior. Do not treat cross-compilation as those checks.
+6. Check macOS 14 runtime behavior on an Apple Silicon Mac.
 
 ## Upgrade identity
 

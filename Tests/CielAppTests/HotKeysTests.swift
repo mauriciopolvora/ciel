@@ -83,6 +83,35 @@ struct HotKeysTests {
         }
     }
 
+    @Test func aReleaseReachesTheReleaseHandlerEvenWhileRecording() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            var pressed: [HotKeyCommand] = []
+            var released: [HotKeyCommand] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { pressed.append($0) },
+                onRelease: { released.append($0) }, onChange: {})
+            try hotKeys.update(.dictation, to: f13)
+            registrar.press(f13)
+            registrar.release(f13)
+            #expect(pressed == [.dictation])
+            #expect(released == [.dictation])
+            registrar.press(f13)
+            hotKeys.recordingHandler = { _ in }
+            registrar.release(f13)
+            #expect(pressed == [.dictation, .dictation])
+            #expect(released == [.dictation, .dictation])
+        }
+    }
+
+    @Test func dictationHasNoDefaultShortcut() {
+        withEmptyDefaults { defaults in
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
+            #expect(hotKeys.shortcut(for: .dictation) == nil)
+        }
+    }
+
     @Test func releasingHotKeysUnregistersEveryShortcut() throws {
         try withEmptyDefaults { defaults in
             let registrar = FakeHotKeyRegistrar()
@@ -98,21 +127,28 @@ struct HotKeysTests {
 
 @MainActor final class FakeHotKeyRegistrar: HotKeyRegistrar {
     var refused: [Shortcut] = []
-    private var live: [Int: (shortcut: Shortcut, onPress: @MainActor () -> Void)] = [:]
+    private var live: [Int: (shortcut: Shortcut, handler: @MainActor (HotKeyEvent) -> Void)] = [:]
     private var nextID = 0
 
     var liveShortcuts: [Shortcut] { live.values.map(\.shortcut) }
 
-    func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup {
+    func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
+    {
         if refused.contains(shortcut) { throw HotKeyError.unavailable }
         let id = nextID
         nextID += 1
-        live[id] = (shortcut, onPress)
+        live[id] = (shortcut, handler)
         return Cleanup { [weak self] in MainActor.assumeIsolated { _ = self?.live.removeValue(forKey: id) } }
     }
 
-    func press(_ shortcut: Shortcut) {
-        for registration in live.values where registration.shortcut == shortcut { registration.onPress() }
+    func press(_ shortcut: Shortcut) { send(.pressed, to: shortcut) }
+
+    func release(_ shortcut: Shortcut) { send(.released, to: shortcut) }
+
+    private func send(_ event: HotKeyEvent, to shortcut: Shortcut) {
+        for registration in live.values where registration.shortcut == shortcut {
+            registration.handler(event)
+        }
     }
 }
 

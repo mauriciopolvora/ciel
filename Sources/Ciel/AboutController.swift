@@ -2,7 +2,7 @@ import AppKit
 
 final class AboutController: NSWindowController {
     init() {
-        let content = SurfaceView(frame: NSRect(x: 0, y: 0, width: 420, height: 388))
+        let content = SurfaceView(frame: NSRect(x: 0, y: 0, width: 420, height: 426))
         let window = NSWindow(
             contentRect: content.frame, styleMask: [.titled, .closable],
             backing: .buffered, defer: false)
@@ -42,10 +42,10 @@ final class AboutController: NSWindowController {
             color: Theme.secondary, centered: true)
         label("App launcher and window controls for macOS.", y: 188, height: 38)
         label(
-            "Made by Mauricio Polvora.\nOriginal generated cloud artwork, inspired by Monet.\nSearch uses FuzzyMatch 1.4.0 (Apache 2.0).",
-            y: 244, height: 76, color: Theme.secondary)
+            "Made by Mauricio Polvora.\nOriginal generated cloud artwork, inspired by Monet.\nSearch uses FuzzyMatch 1.4.0 (Apache 2.0).\nSpeech uses Parakeet Ultra by Moondream (CC BY 4.0) and transcribe.cpp 0.4.1 (MIT).",
+            y: 244, height: 114, color: Theme.secondary)
         let copyright = info["NSHumanReadableCopyright"] as? String ?? ""
-        label(copyright, y: 340, height: 20, size: 11, centered: true)
+        label(copyright, y: 378, height: 20, size: 11, centered: true)
         window.center()
     }
 
