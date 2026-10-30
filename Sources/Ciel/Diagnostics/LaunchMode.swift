@@ -75,7 +75,7 @@ enum AppCheck: Equatable {
         case .smoke:
             SmokeCheck.run(
                 launcher: app.launcher, fieldEditor: app.fieldEditor, catalog: app.catalog,
-                hotKeys: app.hotKeys,
+                hotKeys: app.hotKeys, speech: app.speech,
                 menu: app.menu, showSettings: app.showSettings, windowShortcuts: app.windowShortcuts,
                 showGuide: app.showGuide)
         case .performance:

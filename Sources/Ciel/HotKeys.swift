@@ -54,19 +54,27 @@ struct Shortcut: Codable, Equatable, Sendable {
 enum HotKeyCommand: Hashable, Sendable {
     case launcher
     case window(WindowAction)
+    case dictation
 
-    static var allCases: [HotKeyCommand] { [.launcher] + WindowAction.allCases.map(Self.window) }
+    static var allCases: [HotKeyCommand] {
+        [.launcher] + WindowAction.allCases.map(Self.window) + [.dictation]
+    }
 
     var storageKey: String {
         switch self {
         case .launcher: "launcher"
         case .window(let action): action.id
+        case .dictation: "dictation"
         }
     }
 }
 
+enum HotKeyEvent: Sendable {
+    case pressed, released
+}
+
 @MainActor protocol HotKeyRegistrar {
-    func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup
+    func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
 }
 
 @MainActor final class HotKeys {
@@ -77,15 +85,18 @@ enum HotKeyCommand: Hashable, Sendable {
     private let defaults: UserDefaults
     private let registrar: any HotKeyRegistrar
     private let onPress: (HotKeyCommand) -> Void
+    private let onRelease: (HotKeyCommand) -> Void
     private let onChange: () -> Void
 
     init(
         defaults: UserDefaults = .standard, registrar: any HotKeyRegistrar,
-        onPress: @escaping (HotKeyCommand) -> Void, onChange: @escaping () -> Void
+        onPress: @escaping (HotKeyCommand) -> Void, onRelease: @escaping (HotKeyCommand) -> Void = { _ in },
+        onChange: @escaping () -> Void
     ) {
         self.defaults = defaults
         self.registrar = registrar
         self.onPress = onPress
+        self.onRelease = onRelease
         self.onChange = onChange
         if let data = defaults.data(forKey: "shortcuts"),
             let saved = try? JSONDecoder().decode([String: Shortcut].self, from: data)
@@ -122,27 +133,32 @@ enum HotKeyCommand: Hashable, Sendable {
     }
 
     private func register(_ command: HotKeyCommand, _ shortcut: Shortcut) throws {
-        registrations[command] = try registrar.register(shortcut) { [weak self] in self?.pressed(command) }
+        registrations[command] = try registrar.register(shortcut) { [weak self] event in
+            self?.handle(command, event)
+        }
     }
 
-    private func pressed(_ command: HotKeyCommand) {
+    private func handle(_ command: HotKeyCommand, _ event: HotKeyEvent) {
         if let recordingHandler, let shortcut = shortcuts[command.storageKey] {
-            recordingHandler(shortcut)
-        } else {
+            if event == .pressed { recordingHandler(shortcut) }
+        } else if event == .pressed {
             onPress(command)
+        } else {
+            onRelease(command)
         }
     }
 }
 
 @MainActor final class CarbonHotKeyRegistrar: HotKeyRegistrar {
     nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
-    private var handlers: [UInt32: @MainActor () -> Void] = [:]
+    private var handlers: [UInt32: @MainActor (HotKeyEvent) -> Void] = [:]
     private var nextID: UInt32 = 1
     private var eventHandler: Cleanup?
 
     init() {
-        var type = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        var types = [kEventHotKeyPressed, kEventHotKeyReleased].map {
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32($0))
+        }
         var handler: EventHandlerRef?
         InstallEventHandler(
             GetApplicationEventTarget(),
@@ -156,16 +172,19 @@ enum HotKeyCommand: Hashable, Sendable {
                     return OSStatus(eventNotHandledErr)
                 }
                 let owner = Unmanaged<CarbonHotKeyRegistrar>.fromOpaque(context).takeUnretainedValue()
+                let kind: HotKeyEvent =
+                    GetEventKind(event) == UInt32(kEventHotKeyReleased) ? .released : .pressed
                 // Carbon sends application-target events through the main event loop.
                 return MainActor.assumeIsolated {
-                    owner.handlers[identifier.id]?()
+                    owner.handlers[identifier.id]?(kind)
                     return noErr
                 }
-            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &handler)
+            }, ItemCount(types.count), &types, Unmanaged.passUnretained(self).toOpaque(), &handler)
         if let handler { eventHandler = Cleanup { RemoveEventHandler(handler) } }
     }
 
-    func register(_ shortcut: Shortcut, onPress: @escaping @MainActor () -> Void) throws -> Cleanup {
+    func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
+    {
         let id = nextID
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(
@@ -173,7 +192,7 @@ enum HotKeyCommand: Hashable, Sendable {
             GetApplicationEventTarget(), 0, &ref)
         guard status == noErr, let ref else { throw HotKeyError.unavailable }
         nextID += 1
-        handlers[id] = onPress
+        handlers[id] = handler
         return Cleanup { UnregisterEventHotKey(ref) }
     }
 }

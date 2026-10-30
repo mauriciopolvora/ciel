@@ -37,6 +37,7 @@ public enum CielApplication {
     let fieldEditor: MonochromeFieldEditor
     let catalog: AppCatalog
     let hotKeys: HotKeys
+    let speech: SpeechModelStore
     let menu: NSMenu?
     let showSettings: () -> SettingsController?
     let windowShortcuts: () -> WindowShortcutsController?

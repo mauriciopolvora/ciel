@@ -4,7 +4,7 @@ import CielCore
 @MainActor enum SmokeCheck {
     static func run(
         launcher: LauncherView, fieldEditor: MonochromeFieldEditor, catalog: AppCatalog, hotKeys: HotKeys,
-        menu: NSMenu?, showSettings: @escaping () -> SettingsController?,
+        speech: SpeechModelStore, menu: NSMenu?, showSettings: @escaping () -> SettingsController?,
         windowShortcuts: @escaping () -> WindowShortcutsController?,
         showGuide: @escaping () -> KeyboardGuideController?
     ) {
@@ -62,6 +62,7 @@ import CielCore
                 }
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
+            captureSpeechStates(preferences, speech: speech, output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
                 "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
@@ -76,6 +77,28 @@ import CielCore
             }
             NSApp.terminate(nil)
         }
+    }
+
+    /// Runs under the checks bundle id, so it changes only the checks defaults and never touches model files.
+    private static func captureSpeechStates(
+        _ settings: SettingsController, speech: SpeechModelStore, output: String
+    ) {
+        let preferences = Preferences()
+        let wasEnabled = preferences.speechEnabled
+        let original = speech.state
+        preferences.speechEnabled = true
+        for (name, state) in [
+            ("not-downloaded", ModelState.notDownloaded), ("downloading", .downloading(fraction: 0.37)),
+            ("ready", .ready), ("failed", .failed(ModelDownloadError.mismatch.localizedDescription)),
+        ] {
+            speech.showForCheck(state)
+            settings.refresh()
+            capture(settings.content, "settings-speech-" + name, output: output)
+        }
+        speech.showForCheck(original)
+        preferences.speechEnabled = wasEnabled
+        settings.refresh()
+        print("PASS speech settings states")
     }
 
     private static func settleIcons(in launcher: LauncherView) async {

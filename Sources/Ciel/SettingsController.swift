@@ -47,7 +47,10 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         view.frame = NSRect(x: x, y: y, width: width, height: 21)
         parent.addSubview(view)
     }
-    func addRecorder(_ command: HotKeyCommand, label: String, in parent: NSView, frame: NSRect) {
+    @discardableResult
+    func addRecorder(_ command: HotKeyCommand, label: String, in parent: NSView, frame: NSRect)
+        -> ShortcutRecorder
+    {
         let recorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: command), onRecord: { _ in })
         recorder.onBegin = { [weak self, weak recorder] in
             self?.hotKeys.recordingHandler = { [weak recorder] shortcut in recorder?.accept(shortcut) }
@@ -68,6 +71,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         }
         parent.addSubview(recorder)
         recorders[command] = recorder
+        return recorder
     }
     func showMessage(_ message: String) {
         errorLabel.stringValue = message
@@ -103,12 +107,19 @@ final class SettingsController: PreferencesController {
     private let login = MonochromeSwitch(frame: .zero)
     private let animations = MonochromeSwitch(frame: .zero)
     private let menuBarIcon = MonochromeSwitch(frame: .zero)
+    private let speechSwitch = MonochromeSwitch(frame: .zero)
+    private let modelStatus = Theme.label("", size: 12, color: Theme.secondary)
+    private let modelButton = NSButton()
+    private let speech: SpeechModelStore
+    private var dictationRecorder: ShortcutRecorder?
     var onGuide: (() -> Void)?
     var onAbout: (() -> Void)?
     var onMenuBarIconChange: (() -> Void)?
+    var onSpeechChange: (() -> Void)?
 
-    init(hotKeys: HotKeys) {
-        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 418), hotKeys: hotKeys)
+    init(hotKeys: HotKeys, speech: SpeechModelStore) {
+        self.speech = speech
+        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 602), hotKeys: hotKeys)
         label("Ciel", x: 28, y: 17, width: 260, size: 23, in: content)
         label(
             "App launcher and window controls", x: 28, y: 48, width: 400, size: 12, color: Theme.secondary,
@@ -150,15 +161,36 @@ final class SettingsController: PreferencesController {
         permissionButton.target = self
         permissionButton.action = #selector(requestPermission)
         access.addSubview(permissionButton)
+
+        let speechGroup = group(NSRect(x: 20, y: 384, width: 440, height: 168))
+        label("Speech to text", y: 14, in: speechGroup)
+        speechSwitch.frame = NSRect(x: 386, y: 11, width: 38, height: 28)
+        speechSwitch.target = self
+        speechSwitch.action = #selector(toggleSpeech)
+        speechSwitch.setAccessibilityLabel("Speech to text")
+        speechGroup.addSubview(speechSwitch)
+        label("Dictation shortcut", y: 62, in: speechGroup)
+        dictationRecorder = addRecorder(
+            .dictation, label: "Dictation shortcut", in: speechGroup,
+            frame: NSRect(x: 280, y: 56, width: 144, height: 32))
+        label("Speech model", y: 109, in: speechGroup)
+        modelStatus.frame = NSRect(x: 16, y: 132, width: 260, height: 20)
+        speechGroup.addSubview(modelStatus)
+        modelButton.bezelStyle = .rounded
+        modelButton.font = .systemFont(ofSize: 12)
+        modelButton.frame = NSRect(x: 288, y: 117, width: 136, height: 30)
+        modelButton.target = self
+        modelButton.action = #selector(modelAction)
+        speechGroup.addSubview(modelButton)
         let guide = NSButton(title: "Keyboard Guide…", target: self, action: #selector(openGuide))
         guide.bezelStyle = .inline
         guide.font = .systemFont(ofSize: 12)
-        guide.frame = NSRect(x: 24, y: 382, width: 140, height: 24)
+        guide.frame = NSRect(x: 24, y: 566, width: 140, height: 24)
         content.addSubview(guide)
         let about = NSButton(title: "About Ciel…", target: self, action: #selector(openAbout))
         about.bezelStyle = .inline
         about.font = .systemFont(ofSize: 12)
-        about.frame = NSRect(x: 352, y: 382, width: 104, height: 24)
+        about.frame = NSRect(x: 352, y: 566, width: 104, height: 24)
         content.addSubview(about)
         refresh()
     }
@@ -175,6 +207,36 @@ final class SettingsController: PreferencesController {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         animations.state = Preferences().animations ? .on : .off
         menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
+        let speechEnabled = Preferences().speechEnabled
+        speechSwitch.state = speechEnabled ? .on : .off
+        dictationRecorder?.isEnabled = speechEnabled && speech.state == .ready
+        switch speech.state {
+        case .notDownloaded:
+            showModel("Not downloaded", color: Theme.secondary, action: "Download")
+        case .downloading(let fraction):
+            showModel("Downloading \(Int(fraction * 100))%", color: Theme.secondary, action: "Cancel")
+        case .ready:
+            showModel("Ready", color: Theme.success, action: "Remove")
+        case .failed(let message):
+            showModel(message, color: Theme.error, action: "Download")
+        }
+    }
+    private func showModel(_ status: String, color: NSColor, action: String) {
+        modelStatus.stringValue = status
+        modelStatus.textColor = color
+        modelButton.title = action
+    }
+    @objc private func toggleSpeech() {
+        Preferences().speechEnabled = speechSwitch.state == .on
+        onSpeechChange?()
+        refresh()
+    }
+    @objc private func modelAction() {
+        switch speech.state {
+        case .notDownloaded, .failed: speech.download()
+        case .downloading: speech.cancel()
+        case .ready: speech.remove()
+        }
     }
     @objc private func requestPermission() { WindowController.requestPermission() }
     @objc private func toggleAnimations() { Preferences().animations = animations.state == .on }
