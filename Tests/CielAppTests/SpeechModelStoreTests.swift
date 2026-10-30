@@ -77,6 +77,10 @@ struct SpeechModelStoreTests {
             #expect(store.state == .ready)
             let saved = try Data(contentsOf: store.fileURL)
             #expect(saved == body)
+            let ranges = StubURLProtocol.requests(for: store.model.url).map {
+                $0.value(forHTTPHeaderField: "Range")
+            }
+            #expect(ranges == [nil, "bytes=1600-"])
         }
     }
 
@@ -187,10 +191,19 @@ final class StubURLProtocol: URLProtocol {
         client?.urlProtocol(self, didLoad: reply.body)
         switch reply.ending {
         case .finish: client?.urlProtocolDidFinishLoading(self)
-        case .drop: client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+        // A real connection drops after the bytes before it were delivered, so the failure waits for a
+        // later turn of the loading thread's run loop.
+        case .drop:
+            perform(
+                #selector(dropConnection), with: nil, afterDelay: 0.05,
+                inModes: [RunLoop.current.currentMode ?? .default])
         case .hang: break
         }
     }
 
-    override func stopLoading() {}
+    override func stopLoading() { NSObject.cancelPreviousPerformRequests(withTarget: self) }
+
+    @objc private func dropConnection() {
+        client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+    }
 }
