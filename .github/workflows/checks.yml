@@ -35,15 +35,15 @@ jobs:
             .build/smoke
           if-no-files-found: warn
           retention-days: 14
-      - name: Build universal app
+      - name: Build Apple Silicon app
         env:
-          CIEL_ARCH: universal
+          CIEL_ARCH: arm64
         run: bash scripts/build.sh
       - name: Verify architecture and signature
         run: |
-          lipo dist/Ciel.app/Contents/MacOS/Ciel -verify_arch arm64
-          lipo dist/Ciel.app/Contents/MacOS/Ciel -verify_arch x86_64
-          codesign --verify --strict dist/Ciel.app
+          test "$(lipo -archs dist/Ciel.app/Contents/MacOS/Ciel)" = arm64
+          test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
+          codesign --verify --strict --deep dist/Ciel.app
       - name: Archive development app
         run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

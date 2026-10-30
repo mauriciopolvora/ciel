@@ -8,7 +8,7 @@ if [[ "$SIGN_IDENTITY" != 'Developer ID Application:'* ]]; then
 fi
 xcrun --find notarytool >/dev/null
 xcrun --find stapler >/dev/null
-export CIEL_ARCH="${CIEL_ARCH:-universal}"
+export CIEL_ARCH="${CIEL_ARCH:-arm64}"
 bash scripts/build.sh
 app_path="$PWD/dist/Ciel.app"
 version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app_path/Contents/Info.plist")
@@ -19,7 +19,7 @@ ditto -c -k --sequesterRsrc --keepParent "$app_path" "$submission"
 xcrun notarytool submit "$submission" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$app_path"
 xcrun stapler validate "$app_path"
-codesign --verify --strict "$app_path"
+codesign --verify --strict --deep "$app_path"
 spctl --assess --type execute --verbose=2 "$app_path"
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
 shasum -a 256 "$archive" > "$archive.sha256"

@@ -5,7 +5,7 @@ if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--unit-only" ) ]]; then
     printf 'Usage: bash scripts/check.sh [--unit-only]\n' >&2; exit 1
 fi
 bash -n scripts/*.sh
-plutil -lint Resources/Info.plist
+plutil -lint Resources/Info.plist Resources/Ciel.entitlements
 swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
 bash scripts/lint-colors.sh
 bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
@@ -17,7 +17,7 @@ trap 'rm -rf "$check_dir"' EXIT
 copy_app() {
     ditto dist/Ciel.app "$1"
     /usr/libexec/PlistBuddy -c "Set CFBundleIdentifier $2" "$1/Contents/Info.plist"
-    codesign --force --sign - --options runtime "$1"
+    codesign --force --sign - --options runtime --preserve-metadata=entitlements "$1"
 }
 check_identifier="$(plutil -extract CFBundleIdentifier raw Resources/Info.plist).checks"
 copy_app "$check_dir/CielChecks.app" "$check_identifier"
