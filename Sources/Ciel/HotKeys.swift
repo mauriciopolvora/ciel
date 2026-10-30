@@ -138,13 +138,16 @@ enum HotKeyEvent: Sendable {
         }
     }
 
+    /// Releases always reach the app, so a hold that began before recording started still ends.
     private func handle(_ command: HotKeyCommand, _ event: HotKeyEvent) {
-        if let recordingHandler, let shortcut = shortcuts[command.storageKey] {
-            if event == .pressed { recordingHandler(shortcut) }
-        } else if event == .pressed {
-            onPress(command)
-        } else {
+        guard event == .pressed else {
             onRelease(command)
+            return
+        }
+        if let recordingHandler, let shortcut = shortcuts[command.storageKey] {
+            recordingHandler(shortcut)
+        } else {
+            onPress(command)
         }
     }
 }

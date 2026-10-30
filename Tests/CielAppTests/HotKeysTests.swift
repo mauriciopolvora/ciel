@@ -83,7 +83,7 @@ struct HotKeysTests {
         }
     }
 
-    @Test func aReleaseReachesOnlyTheReleaseHandler() throws {
+    @Test func aReleaseReachesTheReleaseHandlerEvenWhileRecording() throws {
         try withEmptyDefaults { defaults in
             let registrar = FakeHotKeyRegistrar()
             var pressed: [HotKeyCommand] = []
@@ -96,9 +96,11 @@ struct HotKeysTests {
             registrar.release(f13)
             #expect(pressed == [.dictation])
             #expect(released == [.dictation])
+            registrar.press(f13)
             hotKeys.recordingHandler = { _ in }
             registrar.release(f13)
-            #expect(released == [.dictation])
+            #expect(pressed == [.dictation, .dictation])
+            #expect(released == [.dictation, .dictation])
         }
     }
 
