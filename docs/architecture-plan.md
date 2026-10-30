@@ -45,7 +45,7 @@ The release benchmark runs each query case at 1,000 and 10,000 synthetic apps. T
 
 The local native report is `.build/performance/native-ui.json`. Its defaults cover 300 query changes and five idle seconds. It checks startup, query layout/display submission, idle CPU, and resident growth. `CIEL_NATIVE_CYCLES` and `CIEL_NATIVE_IDLE_SECONDS` extend the workload. `CIEL_NATIVE_MAX_P95_MS`, `CIEL_NATIVE_MAX_STARTUP_MS`, `CIEL_NATIVE_MAX_IDLE_CPU_PERCENT`, and `CIEL_NATIVE_MAX_GROWTH_MIB` set its limits.
 
-In Instruments, select Ciel and inspect the `Performance` signposts for `Search`, `LauncherUpdate`, `CatalogScan`, `WindowOperation`, and `NativeQueryDisplay`. Native checks require a desktop session. Hosted CI runs the full `scripts/check.sh` on a macOS runner, which provides one. That covers unit tests with compiler warnings treated as errors, release search budgets, and the UI, catalog, smoke, and performance checks. CI then builds a universal app. It saves the search report, the native check reports, and the development app as artifacts.
+In Instruments, select Ciel and inspect the `Performance` signposts for `Search`, `LauncherUpdate`, `CatalogScan`, `WindowOperation`, and `NativeQueryDisplay`. Native checks require a desktop session. Hosted CI runs the full `scripts/check.sh` on a macOS runner, which provides one. That covers unit tests with compiler warnings treated as errors, release search budgets, and the UI, catalog, smoke, and performance checks. CI then builds the Apple Silicon app. It saves the search report, the native check reports, and the development app as artifacts.
 
 ## Measurement limits
 
