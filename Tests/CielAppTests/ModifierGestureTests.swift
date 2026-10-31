@@ -46,6 +46,14 @@ struct ModifierGestureTests {
         #expect(gesture.flagsChanged(Self.alone[key]!) == .pressed)
     }
 
+    @Test(arguments: ModifierKey.allCases)
+    func theKeyPressedWhileAnotherKeyIsHeldNeverPresses(key: ModifierKey) {
+        var gesture = ModifierGesture(key: key)
+        #expect(gesture.flagsChanged(Self.alone[key]!, othersHeld: true) == nil)
+        #expect(gesture.flagsChanged(0x100) == nil)
+        #expect(gesture.flagsChanged(Self.alone[key]!) == .pressed)
+    }
+
     @Test func leftCommandIsNotRightCommand() {
         var gesture = ModifierGesture(key: .rightCommand)
         #expect(gesture.flagsChanged(Self.leftCommand) == nil)

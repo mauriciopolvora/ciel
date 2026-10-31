@@ -55,6 +55,39 @@ struct DictationTests {
         #expect(activities == [.listening, .idle])
     }
 
+    @Test func aChordWhileTappedKeepsListeningWithoutPasting() async throws {
+        let recorder = FakeRecorder()
+        var delivered: [String] = []
+        let dictation = Dictation(
+            recorder: recorder, tapLimit: .seconds(10), transcriber: { FakeTranscriber(text: "notes") },
+            deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") })
+        dictation.press()
+        dictation.release()
+        dictation.press()
+        dictation.cancel()
+        dictation.release()
+        #expect(recorder.isRecording)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(delivered.isEmpty)
+        dictation.press()
+        dictation.release()
+        try await waitUntil { delivered == ["notes"] }
+    }
+
+    @Test func aCancelWhileTappedStopsTheMicrophone() async throws {
+        let recorder = FakeRecorder()
+        var delivered: [String] = []
+        let dictation = Dictation(
+            recorder: recorder, tapLimit: .seconds(10), transcriber: { FakeTranscriber(text: "notes") },
+            deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") })
+        dictation.press()
+        dictation.release()
+        dictation.cancel()
+        #expect(!recorder.isRecording)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(delivered.isEmpty)
+    }
+
     @Test func activityFollowsListeningThenTranscribing() async throws {
         var activities: [Dictation.Activity] = []
         let dictation = Dictation(

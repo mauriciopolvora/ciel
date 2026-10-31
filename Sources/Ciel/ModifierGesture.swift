@@ -28,13 +28,13 @@ struct ModifierGesture: Sendable {
 
     init(key: ModifierKey) { self.key = key }
 
-    mutating func flagsChanged(_ flags: UInt) -> HotKeyEvent? {
+    mutating func flagsChanged(_ flags: UInt, othersHeld: Bool = false) -> HotKeyEvent? {
         let held = Self.heldKeys(flags)
         let isDown = held & key.flag != 0
         let isAlone = held == key.flag
         switch state {
         case .up:
-            if isAlone {
+            if isAlone, !othersHeld {
                 state = .down
                 return .pressed
             }

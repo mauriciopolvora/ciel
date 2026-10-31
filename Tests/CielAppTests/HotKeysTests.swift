@@ -118,6 +118,20 @@ struct HotKeysTests {
         }
     }
 
+    @Test(arguments: [Shortcut?.none, .modifier(.rightOption)])
+    func changingAShortcutCancelsItsGesture(to replacement: Shortcut?) throws {
+        try withEmptyDefaults { defaults in
+            var cancelled: [HotKeyCommand] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in },
+                onCancel: { cancelled.append($0) }, onChange: {})
+            try hotKeys.update(.dictation, to: .modifier(.rightCommand))
+            cancelled = []
+            try hotKeys.update(.dictation, to: replacement)
+            #expect(cancelled == [.dictation])
+        }
+    }
+
     @Test func whileRecordingASingleKeyIsLeftToTheRecorder() throws {
         try withEmptyDefaults { defaults in
             let registrar = FakeHotKeyRegistrar()

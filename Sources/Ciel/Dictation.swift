@@ -17,12 +17,13 @@ import os
         case idle
         case holding(since: ContinuousClock.Instant)
         case toggled
+        case stopping
         case transcribing
 
         var activity: Activity {
             switch self {
             case .idle: .idle
-            case .holding, .toggled: .listening
+            case .holding, .toggled, .stopping: .listening
             case .transcribing: .transcribing
             }
         }
@@ -61,24 +62,28 @@ import os
             } catch {
                 fail(error.localizedDescription)
             }
-        case .toggled: finish()
-        case .holding, .transcribing: break
+        case .toggled: phase = .stopping
+        case .holding, .stopping, .transcribing: break
         }
     }
 
     func release() {
-        guard case .holding(let since) = phase else { return }
-        if ContinuousClock.now - since < tapLimit {
-            phase = .toggled
-        } else {
-            finish()
+        switch phase {
+        case .holding(let since) where ContinuousClock.now - since < tapLimit: phase = .toggled
+        case .holding, .stopping: finish()
+        case .idle, .toggled, .transcribing: break
         }
     }
 
+    /// A cancel while stopping means the key joined another shortcut, so listening goes on.
     func cancel() {
-        guard case .holding = phase else { return }
-        _ = recorder.stop()
-        phase = .idle
+        switch phase {
+        case .stopping: phase = .toggled
+        case .holding, .toggled:
+            _ = recorder.stop()
+            phase = .idle
+        case .idle, .transcribing: break
+        }
     }
 
     private func finish() {

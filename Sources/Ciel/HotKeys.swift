@@ -143,6 +143,7 @@ enum HotKeyEvent: Sendable {
         }
         shortcuts[command.storageKey] = shortcut
         defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
+        onCancel(command)
         onChange()
     }
 
@@ -254,11 +255,21 @@ enum HotKeyEvent: Sendable {
     private func handle(_ event: NSEvent) {
         send(
             event.type == .flagsChanged
-                ? gesture.flagsChanged(event.modifierFlags.rawValue) : gesture.interrupt())
+                ? gesture.flagsChanged(event.modifierFlags.rawValue, othersHeld: Self.othersHeld())
+                : gesture.interrupt())
     }
 
     private func send(_ event: HotKeyEvent?) {
         if let event { handler(event) }
+    }
+
+    private static let modifierCodes = Set<CGKeyCode>(54...63)
+
+    private static func othersHeld() -> Bool {
+        NSEvent.pressedMouseButtons != 0
+            || (CGKeyCode(0)..<128).contains {
+                !modifierCodes.contains($0) && CGEventSource.keyState(.combinedSessionState, key: $0)
+            }
     }
 }
 
