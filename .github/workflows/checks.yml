@@ -44,6 +44,13 @@ jobs:
           test "$(lipo -archs dist/Ciel.app/Contents/MacOS/Ciel)" = arm64
           test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
           codesign --verify --strict --deep dist/Ciel.app
+      - name: Launch the built app
+        timeout-minutes: 1
+        run: |
+          dist/Ciel.app/Contents/MacOS/Ciel &
+          sleep 5
+          kill -0 $!
+          kill $!
       - name: Archive development app
         run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

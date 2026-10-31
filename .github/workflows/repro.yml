@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [macos-15, macos-26]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -19,44 +19,43 @@ jobs:
       - name: Environment
         run: |
           sw_vers
-          uname -a
           csrutil status || true
-          nvram boot-args 2>&1 || true
-          ls /Applications | grep -i xcode
       - name: Select Swift 6 toolchain
         run: |
           if [[ -d /Applications/Xcode_16.4.app ]]; then sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer; fi
-          swift --version
-      - name: Build ad-hoc
+      - name: Build ad-hoc with the fix
         env:
           CIEL_ARCH: arm64
         run: bash scripts/build.sh
-      - name: Signatures
+      - name: Launch fixed build
         run: |
-          codesign -dv dist/Ciel.app 2>&1
-          codesign -dv dist/Ciel.app/Contents/Frameworks/CTranscribe.framework 2>&1
-          otool -l dist/Ciel.app/Contents/MacOS/Ciel | grep -A2 LC_RPATH
-          otool -L dist/Ciel.app/Contents/MacOS/Ciel | grep -i transcribe
-      - name: Launch dist binary directly
-        run: |
-          dist/Ciel.app/Contents/MacOS/Ciel > launch.log 2>&1 &
+          codesign -dv dist/Ciel.app 2>&1 | grep -E 'flags=|Team'
+          codesign -dv dist/Ciel.app/Contents/Frameworks/CTranscribe.framework 2>&1 | grep -E 'flags=|Team'
+          start="$(date '+%Y-%m-%d %H:%M:%S')"
+          dist/Ciel.app/Contents/MacOS/Ciel > fixed.log 2>&1 &
           pid=$!
           sleep 6
-          if kill -0 "$pid" 2>/dev/null; then echo "ALIVE after 6s"; kill "$pid"; else wait "$pid" || echo "EXITED status $?"; fi
-          cat launch.log
-      - name: Launch dist app through LaunchServices
+          if kill -0 "$pid" 2>/dev/null; then echo "FIXED ALIVE"; kill "$pid"; else wait "$pid" || echo "FIXED EXITED $?"; fi
+          cat fixed.log
+          log show --start "$start" --style compact --predicate 'eventMessage CONTAINS "CTranscribe"' 2>/dev/null | grep -v 'log run' || true
+      - name: Old ad-hoc runtime signing fails the build
+        env:
+          CIEL_ARCH: arm64
         run: |
-          open -n dist/Ciel.app
-          sleep 6
-          pgrep -fl "dist/Ciel.app/Contents/MacOS/Ciel" && echo "ALIVE via open" || echo "NOT RUNNING via open"
-          pkill -f "dist/Ciel.app/Contents/MacOS/Ciel" || true
-          log show --last 1m --style compact --predicate 'eventMessage CONTAINS[c] "CTranscribe" OR eventMessage CONTAINS[c] "Team ID" OR process == "amfid"' 2>/dev/null | tail -40 || true
-      - name: Copy to Applications and launch
+          cp scripts/build.sh old-build.sh
+          sed -i '' 's/sign=(codesign --force --sign -)/sign=(codesign --force --sign - --options runtime)/' scripts/build.sh
+          git diff --stat
+          if bash scripts/build.sh; then echo "OLD BUILD PASSED"; else echo "OLD BUILD REJECTED $?"; fi
+          cp old-build.sh scripts/build.sh
+      - name: Launch old signing
         run: |
-          mkdir -p "$HOME/Applications"
-          ditto dist/Ciel.app "$HOME/Applications/Ciel.app"
-          "$HOME/Applications/Ciel.app/Contents/MacOS/Ciel" > installed.log 2>&1 &
+          fw=dist/Ciel.app/Contents/Frameworks/CTranscribe.framework
+          codesign --force --sign - --options runtime "$fw"
+          codesign --force --sign - --options runtime --entitlements Resources/Ciel.entitlements dist/Ciel.app
+          start="$(date '+%Y-%m-%d %H:%M:%S')"
+          dist/Ciel.app/Contents/MacOS/Ciel > old.log 2>&1 &
           pid=$!
           sleep 6
-          if kill -0 "$pid" 2>/dev/null; then echo "ALIVE after 6s"; kill "$pid"; else wait "$pid" || echo "EXITED status $?"; fi
-          cat installed.log
+          if kill -0 "$pid" 2>/dev/null; then echo "OLD ALIVE"; kill "$pid"; else wait "$pid" || echo "OLD EXITED $?"; fi
+          cat old.log
+          log show --start "$start" --style compact --predicate 'eventMessage CONTAINS "CTranscribe"' 2>/dev/null | grep -v 'log run' || true
