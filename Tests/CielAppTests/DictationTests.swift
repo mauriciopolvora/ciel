@@ -32,8 +32,8 @@ struct DictationTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(delivered.isEmpty)
         dictation.press()
-        #expect(!recorder.isRecording)
         dictation.release()
+        #expect(!recorder.isRecording)
         try await waitUntil { delivered == ["hello"] }
         #expect(recorder.starts == 1)
     }

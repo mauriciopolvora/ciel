@@ -112,6 +112,7 @@ struct HotKeysTests {
                 defaults: defaults, registrar: registrar, onPress: { _ in },
                 onCancel: { cancelled.append($0) }, onChange: {})
             try hotKeys.update(.dictation, to: .modifier(.rightCommand))
+            cancelled = []
             registrar.press(.modifier(.rightCommand))
             registrar.cancel(.modifier(.rightCommand))
             #expect(cancelled == [.dictation])
