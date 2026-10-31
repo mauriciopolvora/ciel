@@ -44,7 +44,7 @@ fi
 cp .build/AppIcon.icns "$staged_app/Contents/Resources/AppIcon.icns"
 if [[ "${SIGN_IDENTITY:--}" == "-" ]]; then
     printf 'Local ad-hoc signature. Public distribution requires Developer ID signing and notarization. Re-authorize window access after a local rebuild.\n' >&2
-    sign=(codesign --force --sign - --options runtime)
+    sign=(codesign --force --sign -)
 else
     sign=(codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp)
 fi
@@ -52,6 +52,22 @@ fi
 "${sign[@]}" "$framework"
 "${sign[@]}" --entitlements Resources/Ciel.entitlements "$staged_app"
 codesign --verify --strict --deep "$staged_app"
+# Under the hardened runtime, library validation loads the framework only when it shares the app's Team ID, and ad-hoc code has none.
+for code in "$staged_app" "$framework"; do
+    details="$(codesign -dv "$code" 2>&1)"
+    flags="$(sed -nE 's/.*flags=0x[0-9a-f]+\(([^)]*)\).*/,\1,/p' <<<"$details")"
+    team="$(sed -n 's/^TeamIdentifier=//p' <<<"$details")"
+    if [[ "$flags" == *,adhoc,* && "$flags" == *,runtime,* ]]; then
+        printf '%s is ad-hoc signed with hardened runtime, so the app cannot load its framework.\n' "$code" >&2; exit 1
+    elif [[ "$flags" != *,adhoc,* && "$flags" != *,runtime,* ]]; then
+        printf '%s is Developer ID signed without hardened runtime, so it cannot be notarized.\n' "$code" >&2; exit 1
+    elif [[ "$team" != "${app_team:=$team}" ]]; then
+        printf 'The app and its framework have different Team IDs.\n' >&2; exit 1
+    fi
+done
+if codesign -d --entitlements - "$staged_app" 2>/dev/null | grep -q disable-library-validation; then
+    printf 'The app must keep library validation.\n' >&2; exit 1
+fi
 rm -rf "$app_path"
 mv "$staged_app" "$app_path"
 printf 'Built %s\n' "$app_path"

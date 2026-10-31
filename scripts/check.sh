@@ -17,7 +17,7 @@ trap 'rm -rf "$check_dir"' EXIT
 copy_app() {
     ditto dist/Ciel.app "$1"
     /usr/libexec/PlistBuddy -c "Set CFBundleIdentifier $2" "$1/Contents/Info.plist"
-    codesign --force --sign - --options runtime --preserve-metadata=entitlements "$1"
+    codesign --force --sign - --preserve-metadata=entitlements,flags "$1"
 }
 check_identifier="$(plutil -extract CFBundleIdentifier raw Resources/Info.plist).checks"
 copy_app "$check_dir/CielChecks.app" "$check_identifier"

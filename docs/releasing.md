@@ -14,7 +14,7 @@ CIEL_ARCH=arm64 bash scripts/build.sh
 
 Ciel runs on Apple Silicon only, because speech to text uses transcribe.cpp with Metal. `CIEL_ARCH` accepts `native` or `arm64`, and the build stops if the app binary is not arm64.
 
-The build copies `CTranscribe.framework` into `Contents/Frameworks`, keeps only its arm64 slice, and removes its headers and module map. It adds the `@executable_path/../Frameworks` rpath to the app binary when SwiftPM did not. It signs the framework first, then the app with `Resources/Ciel.entitlements`, which grants microphone input under the hardened runtime. `codesign --verify --strict --deep` must pass.
+The build copies `CTranscribe.framework` into `Contents/Frameworks`, keeps only its arm64 slice, and removes its headers and module map. It adds the `@executable_path/../Frameworks` rpath to the app binary when SwiftPM did not. It signs the framework first, then the app with `Resources/Ciel.entitlements`, which grants microphone input under the hardened runtime. Developer ID builds use the hardened runtime. Ad-hoc builds do not, because library validation would reject a framework without a Team ID and the app would quit at launch. `codesign --verify --strict --deep` must pass, and the build stops if the app and framework signatures could not load together.
 
 ## Sign and notarize
 
