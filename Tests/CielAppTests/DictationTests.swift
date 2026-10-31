@@ -7,11 +7,11 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct DictationTests {
-    @Test func aHoldDeliversItsTranscript() async throws {
+    @Test func aHoldDeliversItsTranscriptOnRelease() async throws {
         let recorder = FakeRecorder()
         var delivered: [String] = []
         let dictation = Dictation(
-            recorder: recorder, minimumHold: .zero, transcriber: { FakeTranscriber(text: "hello there") },
+            recorder: recorder, tapLimit: .zero, transcriber: { FakeTranscriber(text: "hello there") },
             deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") })
         dictation.press()
         #expect(recorder.isRecording)
@@ -20,19 +20,50 @@ struct DictationTests {
         try await waitUntil { delivered == ["hello there"] }
     }
 
-    @Test func aTapShorterThanTheMinimumHoldIsIgnored() async throws {
+    @Test func aTapKeepsListeningUntilTheNextPress() async throws {
         let recorder = FakeRecorder()
         var delivered: [String] = []
         let dictation = Dictation(
-            recorder: recorder, minimumHold: .seconds(10), transcriber: { FakeTranscriber(text: "hello") },
+            recorder: recorder, tapLimit: .seconds(10), transcriber: { FakeTranscriber(text: "hello") },
             deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") })
         dictation.press()
+        dictation.release()
+        #expect(recorder.isRecording)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(delivered.isEmpty)
+        dictation.press()
+        #expect(!recorder.isRecording)
+        dictation.release()
+        try await waitUntil { delivered == ["hello"] }
+        #expect(recorder.starts == 1)
+    }
+
+    @Test func aCancelledHoldDropsTheRecording() async throws {
+        let recorder = FakeRecorder()
+        var delivered: [String] = []
+        var activities: [Dictation.Activity] = []
+        let dictation = Dictation(
+            recorder: recorder, tapLimit: .zero, transcriber: { FakeTranscriber(text: "copy") },
+            deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") },
+            onActivity: { activities.append($0) })
+        dictation.press()
+        dictation.cancel()
         dictation.release()
         #expect(!recorder.isRecording)
         try await Task.sleep(for: .milliseconds(50))
         #expect(delivered.isEmpty)
+        #expect(activities == [.listening, .idle])
+    }
+
+    @Test func activityFollowsListeningThenTranscribing() async throws {
+        var activities: [Dictation.Activity] = []
+        let dictation = Dictation(
+            recorder: FakeRecorder(), tapLimit: .zero, transcriber: { FakeTranscriber(text: "hi") },
+            deliver: { _ in }, fail: { _ in }, onActivity: { activities.append($0) })
         dictation.press()
-        #expect(recorder.isRecording)
+        dictation.release()
+        #expect(activities == [.listening, .transcribing])
+        try await waitUntil { activities == [.listening, .transcribing, .idle] }
     }
 
     @Test func anUnavailableModelReportsWithoutRecording() {

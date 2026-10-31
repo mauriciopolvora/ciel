@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import AppKit
 import Carbon
 import CielCore
@@ -9,48 +10,80 @@ import os
     func stop() -> AudioClip
 }
 
-/// Hold to talk: the shortcut press starts the microphone and its release transcribes and delivers the text.
 @MainActor final class Dictation {
+    enum Activity { case idle, listening, transcribing }
+
     private enum Phase {
         case idle
-        case listening(since: ContinuousClock.Instant)
+        case holding(since: ContinuousClock.Instant)
+        case toggled
         case transcribing
+
+        var activity: Activity {
+            switch self {
+            case .idle: .idle
+            case .holding, .toggled: .listening
+            case .transcribing: .transcribing
+            }
+        }
     }
 
-    private var phase = Phase.idle
+    private var phase = Phase.idle {
+        didSet { if phase.activity != oldValue.activity { onActivity(phase.activity) } }
+    }
     private let recorder: any AudioRecorder
-    private let minimumHold: Duration
+    private let tapLimit: Duration
     private let transcriber: () throws -> any Transcriber
     private let deliver: (String) -> Void
     private let fail: (String) -> Void
+    private let onActivity: (Activity) -> Void
 
     init(
-        recorder: any AudioRecorder, minimumHold: Duration = .milliseconds(250),
+        recorder: any AudioRecorder, tapLimit: Duration = .milliseconds(300),
         transcriber: @escaping () throws -> any Transcriber, deliver: @escaping (String) -> Void,
-        fail: @escaping (String) -> Void
+        fail: @escaping (String) -> Void, onActivity: @escaping (Activity) -> Void = { _ in }
     ) {
         self.recorder = recorder
-        self.minimumHold = minimumHold
+        self.tapLimit = tapLimit
         self.transcriber = transcriber
         self.deliver = deliver
         self.fail = fail
+        self.onActivity = onActivity
     }
 
     func press() {
-        guard case .idle = phase else { return }
-        do {
-            _ = try transcriber()
-            try recorder.start()
-            phase = .listening(since: .now)
-        } catch {
-            fail(error.localizedDescription)
+        switch phase {
+        case .idle:
+            do {
+                _ = try transcriber()
+                try recorder.start()
+                phase = .holding(since: .now)
+            } catch {
+                fail(error.localizedDescription)
+            }
+        case .toggled: finish()
+        case .holding, .transcribing: break
         }
     }
 
     func release() {
-        guard case .listening(let since) = phase else { return }
+        guard case .holding(let since) = phase else { return }
+        if ContinuousClock.now - since < tapLimit {
+            phase = .toggled
+        } else {
+            finish()
+        }
+    }
+
+    func cancel() {
+        guard case .holding = phase else { return }
+        _ = recorder.stop()
+        phase = .idle
+    }
+
+    private func finish() {
         let clip = recorder.stop()
-        guard ContinuousClock.now - since >= minimumHold, let engine = try? transcriber() else {
+        guard let engine = try? transcriber() else {
             phase = .idle
             return
         }
@@ -78,11 +111,13 @@ enum DictationError: LocalizedError {
     }
 }
 
-/// Captures the default input and hands back 16 kHz mono samples.
 @MainActor final class Microphone: AudioRecorder {
     private let engine = AVAudioEngine()
     private let samples = OSAllocatedUnfairLock<[Float]>(initialState: [])
+    private let onLevel: @MainActor @Sendable (Float) -> Void
     private var sampleRate: Double = 0
+
+    init(onLevel: @escaping @MainActor @Sendable (Float) -> Void = { _ in }) { self.onLevel = onLevel }
 
     func start() throws {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -98,10 +133,14 @@ enum DictationError: LocalizedError {
         sampleRate = format.sampleRate
         samples.withLock { $0.removeAll() }
         // The tap runs on an audio thread, so it must not inherit the main actor.
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) { @Sendable [samples] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 4096, format: format) {
+            @Sendable [samples, onLevel] buffer, _ in
             guard let channel = buffer.floatChannelData?[0] else { return }
+            var level: Float = 0
+            vDSP_rmsqv(channel, 1, &level, vDSP_Length(buffer.frameLength))
             let chunk = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
             samples.withLock { $0 += chunk }
+            Task { @MainActor [level] in onLevel(level) }
         }
         engine.prepare()
         do {
@@ -156,7 +195,7 @@ enum MicrophoneError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .asking: "Allow the microphone, then hold the shortcut again."
+        case .asking: "Allow the microphone, then press the shortcut again."
         case .denied: "Allow Ciel in System Settings → Privacy & Security → Microphone."
         case .unavailable: "No microphone is available."
         }

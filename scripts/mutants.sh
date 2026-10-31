@@ -36,6 +36,7 @@ mutate() {
         M3)
             swap Sources/Ciel/HotKeys.swift 's/let keyCode: UInt32/let code: UInt32/' &&
                 swap Sources/Ciel/HotKeys.swift 's/keyName\(keyCode\)/keyName(code)/' &&
+                swap Sources/Ciel/HotKeys.swift 's/rawValue: keyCode\)/rawValue: code)/' &&
                 swap Sources/Ciel/HotKeys.swift 's/Shortcut\(keyCode:/Shortcut(code:/g' &&
                 swap Sources/Ciel/HotKeys.swift 's/shortcut\.keyCode/shortcut.code/g'
             ;;

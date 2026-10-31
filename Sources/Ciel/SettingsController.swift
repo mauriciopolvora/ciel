@@ -112,6 +112,7 @@ final class SettingsController: PreferencesController {
     private let modelButton = NSButton()
     private let speech: SpeechModelStore
     private var dictationRecorder: ShortcutRecorder?
+    private var showsAccessMessage = false
     var onGuide: (() -> Void)?
     var onAbout: (() -> Void)?
     var onMenuBarIconChange: (() -> Void)?
@@ -173,6 +174,7 @@ final class SettingsController: PreferencesController {
         dictationRecorder = addRecorder(
             .dictation, label: "Dictation shortcut", in: speechGroup,
             frame: NSRect(x: 280, y: 56, width: 144, height: 32))
+        dictationRecorder?.acceptsModifierKey = true
         label("Speech model", y: 109, in: speechGroup)
         modelStatus.frame = NSRect(x: 16, y: 132, width: 260, height: 20)
         speechGroup.addSubview(modelStatus)
@@ -199,7 +201,13 @@ final class SettingsController: PreferencesController {
     @objc private func openAbout() { onAbout?() }
 
     override func refresh() {
+        hotKeys.retryUnregistered()
         super.refresh()
+        let waiting = hotKeys.shortcut(for: .dictation) != nil && !hotKeys.isLive(.dictation)
+        if waiting != showsAccessMessage {
+            showsAccessMessage = waiting
+            showMessage(waiting ? HotKeyError.needsAccess.localizedDescription : "")
+        }
         let trusted = WindowController.isTrusted
         permissionLabel.stringValue = trusted ? "Access enabled" : "Access required to move windows"
         permissionLabel.textColor = trusted ? Theme.success : Theme.secondary

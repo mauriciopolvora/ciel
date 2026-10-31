@@ -5,7 +5,9 @@ import CielCore
 struct Shortcut: Codable, Equatable, Sendable {
     let keyCode: UInt32
     let modifiers: UInt32
+    var modifierKey: ModifierKey? { modifiers == 0 ? ModifierKey(rawValue: keyCode) : nil }
     var display: String {
+        if let modifierKey { return modifierKey.display }
         var result = ""
         if modifiers & UInt32(controlKey) != 0 { result += "⌃" }
         if modifiers & UInt32(optionKey) != 0 { result += "⌥" }
@@ -14,6 +16,7 @@ struct Shortcut: Codable, Equatable, Sendable {
         return result + Self.keyName(keyCode)
     }
     static let launcher = Shortcut(keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey | optionKey))
+    static func modifier(_ key: ModifierKey) -> Shortcut { Shortcut(keyCode: key.rawValue, modifiers: 0) }
     static func from(_ event: NSEvent) -> Shortcut? {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags.contains(.command) || flags.contains(.control) || flags.contains(.option) else {
@@ -70,7 +73,7 @@ enum HotKeyCommand: Hashable, Sendable {
 }
 
 enum HotKeyEvent: Sendable {
-    case pressed, released
+    case pressed, released, cancelled
 }
 
 @MainActor protocol HotKeyRegistrar {
@@ -86,17 +89,19 @@ enum HotKeyEvent: Sendable {
     private let registrar: any HotKeyRegistrar
     private let onPress: (HotKeyCommand) -> Void
     private let onRelease: (HotKeyCommand) -> Void
+    private let onCancel: (HotKeyCommand) -> Void
     private let onChange: () -> Void
 
     init(
         defaults: UserDefaults = .standard, registrar: any HotKeyRegistrar,
         onPress: @escaping (HotKeyCommand) -> Void, onRelease: @escaping (HotKeyCommand) -> Void = { _ in },
-        onChange: @escaping () -> Void
+        onCancel: @escaping (HotKeyCommand) -> Void = { _ in }, onChange: @escaping () -> Void
     ) {
         self.defaults = defaults
         self.registrar = registrar
         self.onPress = onPress
         self.onRelease = onRelease
+        self.onCancel = onCancel
         self.onChange = onChange
         if let data = defaults.data(forKey: "shortcuts"),
             let saved = try? JSONDecoder().decode([String: Shortcut].self, from: data)
@@ -115,6 +120,15 @@ enum HotKeyEvent: Sendable {
     }
 
     func shortcut(for command: HotKeyCommand) -> Shortcut? { shortcuts[command.storageKey] }
+
+    func isLive(_ command: HotKeyCommand) -> Bool { registrations[command] != nil }
+
+    func retryUnregistered() {
+        for command in HotKeyCommand.allCases where registrations[command] == nil {
+            guard let shortcut = shortcuts[command.storageKey] else { continue }
+            try? register(command, shortcut)
+        }
+    }
 
     func update(_ command: HotKeyCommand, to shortcut: Shortcut?) throws {
         if let shortcut {
@@ -138,21 +152,20 @@ enum HotKeyEvent: Sendable {
         }
     }
 
-    /// Releases always reach the app, so a hold that began before recording started still ends.
     private func handle(_ command: HotKeyCommand, _ event: HotKeyEvent) {
-        guard event == .pressed else {
-            onRelease(command)
-            return
-        }
-        if let recordingHandler, let shortcut = shortcuts[command.storageKey] {
-            recordingHandler(shortcut)
-        } else {
-            onPress(command)
+        switch event {
+        case .released: onRelease(command)
+        case .cancelled: onCancel(command)
+        case .pressed:
+            guard let recordingHandler else { return onPress(command) }
+            if let shortcut = shortcuts[command.storageKey], shortcut.modifierKey == nil {
+                recordingHandler(shortcut)
+            }
         }
     }
 }
 
-@MainActor final class CarbonHotKeyRegistrar: HotKeyRegistrar {
+@MainActor final class SystemHotKeyRegistrar: HotKeyRegistrar {
     nonisolated static let signature: OSType = "CIEL".utf8.reduce(0) { $0 << 8 | OSType($1) }
     private var handlers: [UInt32: @MainActor (HotKeyEvent) -> Void] = [:]
     private var nextID: UInt32 = 1
@@ -171,10 +184,10 @@ enum HotKeyEvent: Sendable {
                 let status = GetEventParameter(
                     event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                     nil, MemoryLayout<EventHotKeyID>.size, nil, &identifier)
-                guard status == noErr, identifier.signature == CarbonHotKeyRegistrar.signature else {
+                guard status == noErr, identifier.signature == SystemHotKeyRegistrar.signature else {
                     return OSStatus(eventNotHandledErr)
                 }
-                let owner = Unmanaged<CarbonHotKeyRegistrar>.fromOpaque(context).takeUnretainedValue()
+                let owner = Unmanaged<SystemHotKeyRegistrar>.fromOpaque(context).takeUnretainedValue()
                 let kind: HotKeyEvent =
                     GetEventKind(event) == UInt32(kEventHotKeyReleased) ? .released : .pressed
                 // Carbon sends application-target events through the main event loop.
@@ -188,6 +201,11 @@ enum HotKeyEvent: Sendable {
 
     func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
     {
+        if let key = shortcut.modifierKey {
+            guard WindowController.isTrusted else { throw HotKeyError.needsAccess }
+            let monitor = ModifierKeyMonitor(key: key, handler: handler)
+            return Cleanup { MainActor.assumeIsolated { monitor.stop() } }
+        }
         let id = nextID
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(
@@ -200,13 +218,58 @@ enum HotKeyEvent: Sendable {
     }
 }
 
+/// Global NSEvent key monitors need Accessibility access, and unlike Carbon hot keys they never swallow the key.
+@MainActor private final class ModifierKeyMonitor {
+    private var gesture: ModifierGesture
+    private let handler: @MainActor (HotKeyEvent) -> Void
+    private var monitors: [Any] = []
+    private var sleep: Cleanup?
+
+    init(key: ModifierKey, handler: @escaping @MainActor (HotKeyEvent) -> Void) {
+        gesture = ModifierGesture(key: key)
+        self.handler = handler
+        let events: NSEvent.EventTypeMask = [
+            .flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown,
+        ]
+        monitors = [
+            NSEvent.addGlobalMonitorForEvents(matching: events) { [weak self] event in
+                MainActor.assumeIsolated { self?.handle(event) }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
+                MainActor.assumeIsolated { self?.handle(event) }
+                return event
+            },
+        ].compactMap { $0 }
+        sleep = NSWorkspace.shared.notificationCenter.observe(NSWorkspace.willSleepNotification) {
+            [weak self] in self?.send(self?.gesture.reset())
+        }
+    }
+
+    func stop() {
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
+        sleep = nil
+    }
+
+    private func handle(_ event: NSEvent) {
+        send(
+            event.type == .flagsChanged
+                ? gesture.flagsChanged(event.modifierFlags.rawValue) : gesture.interrupt())
+    }
+
+    private func send(_ event: HotKeyEvent?) {
+        if let event { handler(event) }
+    }
+}
+
 enum HotKeyError: LocalizedError {
-    case duplicate, unavailable, required
+    case duplicate, unavailable, required, needsAccess
     var errorDescription: String? {
         switch self {
         case .duplicate: return "This shortcut is already assigned in Ciel."
         case .unavailable: return "This shortcut is used by macOS or another app. Choose another."
         case .required: return "Choose a launcher shortcut."
+        case .needsAccess: return "A single key shortcut needs access. Choose Allow Access."
         }
     }
 }
@@ -216,7 +279,9 @@ final class ShortcutRecorder: NSButton {
     var onBegin: (() -> Void)?
     var onEnd: (() -> Void)?
     var shortcut: Shortcut? { didSet { updateTitle() } }
+    var acceptsModifierKey = false
     private(set) var recording = false
+    private var gestures = ModifierKey.allCases.map(ModifierGesture.init)
     override var acceptsFirstResponder: Bool { true }
     init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
         self.shortcut = shortcut
@@ -233,6 +298,7 @@ final class ShortcutRecorder: NSButton {
     private func updateTitle() { title = recording ? "Press shortcut…" : shortcut?.display ?? "Set shortcut" }
     @objc private func start() {
         window?.makeFirstResponder(self)
+        gestures = ModifierKey.allCases.map(ModifierGesture.init)
         recording = true
         updateTitle()
         onBegin?()
@@ -254,11 +320,20 @@ final class ShortcutRecorder: NSButton {
         keyDown(with: event)
         return true
     }
+    override func flagsChanged(with event: NSEvent) {
+        guard recording, acceptsModifierKey else { return super.flagsChanged(with: event) }
+        for index in gestures.indices {
+            if gestures[index].flagsChanged(event.modifierFlags.rawValue) == .released {
+                return accept(.modifier(gestures[index].key))
+            }
+        }
+    }
     override func keyDown(with event: NSEvent) {
         guard recording else {
             super.keyDown(with: event)
             return
         }
+        for index in gestures.indices { _ = gestures[index].interrupt() }
         if event.keyCode == 53 {
             recording = false
             onEnd?()

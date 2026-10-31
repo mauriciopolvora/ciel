@@ -86,13 +86,15 @@ struct SavedDataTests {
         withEmptyDefaults { defaults in
             defaults.set(
                 Data(
-                    #"{"launcher":{"keyCode":49,"modifiers":256},"window.maximize":{"keyCode":36,"modifiers":6144}}"#
+                    #"{"launcher":{"keyCode":49,"modifiers":256},"window.maximize":{"keyCode":36,"modifiers":6144},"dictation":{"keyCode":54,"modifiers":0}}"#
                         .utf8),
                 forKey: "shortcuts")
             let hotKeys = HotKeys(
                 defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
             #expect(hotKeys.shortcut(for: .launcher)?.display == "⌘Space")
             #expect(hotKeys.shortcut(for: .window(.maximize))?.display == "⌃⌥↩")
+            #expect(hotKeys.shortcut(for: .dictation) == .modifier(.rightCommand))
+            #expect(hotKeys.shortcut(for: .dictation)?.display == "Right ⌘")
         }
     }
 

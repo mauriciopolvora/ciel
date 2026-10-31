@@ -63,6 +63,7 @@ import CielCore
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
             captureSpeechStates(preferences, speech: speech, output: output)
+            capturePillStates(output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
                 "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
@@ -101,6 +102,17 @@ import CielCore
         print("PASS speech settings states")
     }
 
+    private static func capturePillStates(output: String) {
+        let pill = PillView()
+        pill.appearance = NSAppearance(named: .darkAqua)
+        pill.listen()
+        for level: Float in [0.02, 0.06, 0.12, 0.04, 0.09] { pill.level(level) }
+        captureLayer(of: pill, "pill-listening", output: output)
+        pill.transcribe()
+        captureLayer(of: pill, "pill-transcribing", output: output)
+        print("PASS dictation pill states")
+    }
+
     private static func settleIcons(in launcher: LauncherView) async {
         launcher.layoutSubtreeIfNeeded()
         let deadline = ProcessInfo.processInfo.systemUptime + 5
@@ -110,6 +122,24 @@ import CielCore
                 exit(1)
             }
             try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips.
+    private static func captureLayer(of view: NSView, _ name: String, output: String) {
+        guard let layer = view.layer,
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
+                pixelsHigh: Int(view.bounds.height * 2),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0, bitsPerPixel: 0),
+            let context = NSGraphicsContext(bitmapImageRep: bitmap)
+        else { return }
+        context.cgContext.scaleBy(x: 2, y: 2)
+        layer.render(in: context.cgContext)
+        if let png = bitmap.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
         }
     }
 

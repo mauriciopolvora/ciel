@@ -5,16 +5,18 @@ import CielCore
     private let catalog = AppCatalog()
     private let windows = WindowController()
     private let hud = StatusHUD()
+    private let pill = DictationPill()
     private let history = UsageHistory()
     private let speech = SpeechModelStore()
     private var transcriber: TranscribeCppTranscriber?
     private lazy var hotKeys = HotKeys(
-        registrar: CarbonHotKeyRegistrar(),
+        registrar: SystemHotKeyRegistrar(),
         onPress: { [weak self] command in self?.hotKeyPressed(command) },
         onRelease: { [weak self] command in if command == .dictation { self?.dictation.release() } },
+        onCancel: { [weak self] command in if command == .dictation { self?.dictation.cancel() } },
         onChange: { [weak self] in self?.updateToolTip() })
     private lazy var dictation = Dictation(
-        recorder: Microphone(),
+        recorder: Microphone(onLevel: { [weak self] level in self?.pill.level(level) }),
         transcriber: { [weak self] in
             guard let self else { throw DictationError.off }
             return try self.speechTranscriber()
@@ -22,7 +24,8 @@ import CielCore
         deliver: { [weak self] text in
             if !TextPaster.paste(text) { self?.hud.show("Copied. Allow window access in Settings to paste.") }
         },
-        fail: { [weak self] message in self?.hud.show(message, error: true) })
+        fail: { [weak self] message in self?.hud.show(message, error: true) },
+        onActivity: { [weak self] activity in self?.pill.show(activity) })
     private lazy var panel = LauncherPanel()
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?
@@ -54,15 +57,17 @@ import CielCore
             NSWorkspace.shared.notificationCenter.observe(name) { [weak self] in self?.catalog.refresh() }
         }
         guard pendingCheck == nil else { return }
-        if !hotKeys.registrationErrors.isEmpty {
+        let accessLost = Preferences().windowAccessLost(trusted: WindowController.isTrusted)
+        if !hotKeys.isLive(.launcher) {
             hud.show(
                 "Launcher shortcut unavailable. Open Ciel from Applications, then press Command–Comma to change it.",
                 error: true)
-        }
-        if Preferences().windowAccessLost(trusted: WindowController.isTrusted) {
+        } else if accessLost {
             hud.show(
                 "An update reset window access. Remove Ciel in Accessibility settings, then add it again.",
                 error: true)
+        } else if hotKeys.shortcut(for: .dictation) != nil, !hotKeys.isLive(.dictation) {
+            hud.show(HotKeyError.needsAccess.localizedDescription, error: true)
         }
         if !NSAppleEventManager.shared().launchedAsLoginItem { present() }
     }

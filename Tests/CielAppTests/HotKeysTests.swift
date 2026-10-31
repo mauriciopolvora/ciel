@@ -104,6 +104,53 @@ struct HotKeysTests {
         }
     }
 
+    @Test func aCancelReachesTheCancelHandler() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            var cancelled: [HotKeyCommand] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { _ in },
+                onCancel: { cancelled.append($0) }, onChange: {})
+            try hotKeys.update(.dictation, to: .modifier(.rightCommand))
+            registrar.press(.modifier(.rightCommand))
+            registrar.cancel(.modifier(.rightCommand))
+            #expect(cancelled == [.dictation])
+        }
+    }
+
+    @Test func whileRecordingASingleKeyIsLeftToTheRecorder() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            var pressed: [HotKeyCommand] = []
+            var recorded: [Shortcut] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { pressed.append($0) }, onChange: {})
+            try hotKeys.update(.dictation, to: .modifier(.rightOption))
+            hotKeys.recordingHandler = { recorded.append($0) }
+            registrar.press(.modifier(.rightOption))
+            #expect(recorded.isEmpty)
+            #expect(pressed.isEmpty)
+        }
+    }
+
+    @Test func aSavedShortcutGoesLiveOnceItCanRegister() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            var pressed: [HotKeyCommand] = []
+            try HotKeys(defaults: defaults, registrar: registrar, onPress: { _ in }, onChange: {})
+                .update(.dictation, to: .modifier(.function))
+            registrar.refused = [.modifier(.function)]
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { pressed.append($0) }, onChange: {})
+            #expect(!hotKeys.isLive(.dictation))
+            #expect(hotKeys.shortcut(for: .dictation) == .modifier(.function))
+            registrar.refused = []
+            hotKeys.retryUnregistered()
+            registrar.press(.modifier(.function))
+            #expect(pressed == [.dictation])
+        }
+    }
+
     @Test func dictationHasNoDefaultShortcut() {
         withEmptyDefaults { defaults in
             let hotKeys = HotKeys(
@@ -144,6 +191,8 @@ struct HotKeysTests {
     func press(_ shortcut: Shortcut) { send(.pressed, to: shortcut) }
 
     func release(_ shortcut: Shortcut) { send(.released, to: shortcut) }
+
+    func cancel(_ shortcut: Shortcut) { send(.cancelled, to: shortcut) }
 
     private func send(_ event: HotKeyEvent, to shortcut: Shortcut) {
         for registration in live.values where registration.shortcut == shortcut {
