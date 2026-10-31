@@ -20,7 +20,7 @@ struct DictationTests {
         try await waitUntil { delivered == ["hello there"] }
     }
 
-    @Test func aTapKeepsListeningUntilTheNextPress() async throws {
+    @Test func aTapKeepsListeningUntilItIsTappedAgain() async throws {
         let recorder = FakeRecorder()
         var delivered: [String] = []
         let dictation = Dictation(
