@@ -17,6 +17,6 @@ import Testing
 
     @Test func anEmptyClipIsEmptyText() async throws {
         let transcriber = TranscribeCppTranscriber(modelURL: missing)
-        #expect(try await transcriber.transcribe(AudioClip(samples: [])) == Transcript(text: ""))
+        #expect(try await transcriber.transcribe(AudioClip(samples: [])) == Transcript(words: []))
     }
 }

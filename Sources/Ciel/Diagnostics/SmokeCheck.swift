@@ -108,6 +108,11 @@ import CielCore
         pill.listen()
         for level: Float in [0.02, 0.06, 0.12, 0.04, 0.09] { pill.level(level) }
         captureLayer(of: pill, "pill-listening", output: output)
+        pill.text(
+            committed: "Send the quarterly report to Maria and ask her to", tentative: "check the numbers")
+        pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
+        pill.layoutSubtreeIfNeeded()
+        captureLayer(of: pill, "pill-speaking", output: output)
         pill.transcribe()
         captureLayer(of: pill, "pill-transcribing", output: output)
         print("PASS dictation pill states")

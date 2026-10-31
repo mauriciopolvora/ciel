@@ -10,8 +10,10 @@ actor TranscribeCppTranscriber: Transcriber {
 
     init(modelURL: URL) { self.modelURL = modelURL }
 
+    func prepare() throws { _ = try loadedSession() }
+
     func transcribe(_ clip: AudioClip) throws -> Transcript {
-        guard !clip.samples.isEmpty else { return Transcript(text: "") }
+        guard !clip.samples.isEmpty else { return Transcript(words: []) }
         let session = try loadedSession()
         let status = clip.samples.withUnsafeBufferPointer {
             transcribe_run(session, $0.baseAddress, Int32($0.count), nil)
@@ -21,9 +23,23 @@ actor TranscribeCppTranscriber: Transcriber {
             [TRANSCRIBE_OK, TRANSCRIBE_ERR_OUTPUT_TRUNCATED, TRANSCRIBE_ERR_OUTPUT_REPETITION].contains(
                 status)
         else { throw TranscriptionError(status) }
-        let text = transcribe_full_text(session).map { String(cString: $0) } ?? ""
-        return Transcript(text: text.trimmingCharacters(in: .whitespacesAndNewlines))
+        let words = (0..<transcribe_n_words(session)).compactMap { index -> SpokenWord? in
+            var word = transcribe_word()
+            transcribe_word_init(&word)
+            guard transcribe_get_word(session, index, &word) == TRANSCRIBE_OK, let text = word.text else {
+                return nil
+            }
+            let spoken = String(cString: text).trimmingCharacters(in: .whitespacesAndNewlines)
+            return spoken.isEmpty
+                ? nil
+                : SpokenWord(
+                    text: spoken, start: Int(word.t0_ms) * Self.samplesPerMillisecond,
+                    end: Int(word.t1_ms) * Self.samplesPerMillisecond)
+        }
+        return Transcript(words: words)
     }
+
+    private static let samplesPerMillisecond = 16
 
     private func loadedSession() throws -> OpaquePointer {
         if let session { return session }

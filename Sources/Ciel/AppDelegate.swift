@@ -25,7 +25,10 @@ import CielCore
             if !TextPaster.paste(text) { self?.hud.show("Copied. Allow window access in Settings to paste.") }
         },
         fail: { [weak self] message in self?.hud.show(message, error: true) },
-        onActivity: { [weak self] activity in self?.pill.show(activity) })
+        onActivity: { [weak self] activity in self?.pill.show(activity) },
+        onText: { [weak self] committed, tentative in
+            self?.pill.text(committed: committed, tentative: tentative)
+        })
     private lazy var panel = LauncherPanel()
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?

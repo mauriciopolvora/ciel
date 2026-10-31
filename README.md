@@ -76,7 +76,7 @@ If macOS shows access enabled but Ciel reports no access after a local rebuild, 
 
 ## Speech to text
 
-Ciel turns speech into text on your Mac with the Parakeet Ultra model. Turn on **Settings → Speech to text**, choose **Download** next to Speech model, and set a dictation shortcut. Hold the shortcut, speak, and release, or tap it once to start and again to stop. A small pill at the bottom of the screen shows the level while Ciel listens. Ciel pastes the text into the front app. Without window access, it copies the text to the clipboard instead. macOS asks for microphone access the first time you dictate.
+Ciel turns speech into text on your Mac with the Parakeet Ultra model. Turn on **Settings → Speech to text**, choose **Download** next to Speech model, and set a dictation shortcut. Hold the shortcut, speak, and release, or tap it once to start and again to stop. A small pill at the bottom of the screen shows the level and the words Ciel hears while it listens. Ciel transcribes as you speak, so the text pastes into the front app soon after you stop. Without window access, it copies the text to the clipboard instead. macOS asks for microphone access the first time you dictate.
 
 The dictation shortcut can be a single key: right Command, right Option or fn. Press it alone while recording the shortcut. A single key needs window access, and it never starts dictation as part of another shortcut, such as right Command and C. To use fn, set **System Settings → Keyboard → Press 🌐 key to** to **Do Nothing**.
 
