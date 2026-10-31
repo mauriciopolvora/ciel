@@ -1,0 +1,62 @@
+name: Repro ad-hoc launch
+on:
+  push:
+    branches: [dev/ciel-adhoc-runtime]
+permissions:
+  contents: read
+jobs:
+  repro:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Environment
+        run: |
+          sw_vers
+          uname -a
+          csrutil status || true
+          nvram boot-args 2>&1 || true
+          ls /Applications | grep -i xcode
+      - name: Select Swift 6 toolchain
+        run: |
+          if [[ -d /Applications/Xcode_16.4.app ]]; then sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer; fi
+          swift --version
+      - name: Build ad-hoc
+        env:
+          CIEL_ARCH: arm64
+        run: bash scripts/build.sh
+      - name: Signatures
+        run: |
+          codesign -dv dist/Ciel.app 2>&1
+          codesign -dv dist/Ciel.app/Contents/Frameworks/CTranscribe.framework 2>&1
+          otool -l dist/Ciel.app/Contents/MacOS/Ciel | grep -A2 LC_RPATH
+          otool -L dist/Ciel.app/Contents/MacOS/Ciel | grep -i transcribe
+      - name: Launch dist binary directly
+        run: |
+          dist/Ciel.app/Contents/MacOS/Ciel > launch.log 2>&1 &
+          pid=$!
+          sleep 6
+          if kill -0 "$pid" 2>/dev/null; then echo "ALIVE after 6s"; kill "$pid"; else wait "$pid" || echo "EXITED status $?"; fi
+          cat launch.log
+      - name: Launch dist app through LaunchServices
+        run: |
+          open -n dist/Ciel.app
+          sleep 6
+          pgrep -fl "dist/Ciel.app/Contents/MacOS/Ciel" && echo "ALIVE via open" || echo "NOT RUNNING via open"
+          pkill -f "dist/Ciel.app/Contents/MacOS/Ciel" || true
+          log show --last 1m --style compact --predicate 'eventMessage CONTAINS[c] "CTranscribe" OR eventMessage CONTAINS[c] "Team ID" OR process == "amfid"' 2>/dev/null | tail -40 || true
+      - name: Copy to Applications and launch
+        run: |
+          mkdir -p "$HOME/Applications"
+          ditto dist/Ciel.app "$HOME/Applications/Ciel.app"
+          "$HOME/Applications/Ciel.app/Contents/MacOS/Ciel" > installed.log 2>&1 &
+          pid=$!
+          sleep 6
+          if kill -0 "$pid" 2>/dev/null; then echo "ALIVE after 6s"; kill "$pid"; else wait "$pid" || echo "EXITED status $?"; fi
+          cat installed.log
