@@ -1,0 +1,68 @@
+name: Time speech to text
+on:
+  pull_request:
+    paths:
+      - Sources/CielCore/LiveTranscript.swift
+      - Sources/CielCore/Speech.swift
+      - Sources/Ciel/Dictation.swift
+      - Sources/Ciel/TranscribeCppTranscriber.swift
+      - Tests/CielAppTests/SpeechBenchTests.swift
+      - Package.swift
+      - .github/workflows/speech.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bench:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CIEL_SPEECH_MODEL: ${{ github.workspace }}/.build/speech/parakeet-ultra-Q5_K_M.gguf
+      CIEL_SPEECH_FIXTURES: ${{ github.workspace }}/.build/speech/fixtures
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build/speech/parakeet-ultra-Q5_K_M.gguf
+          key: parakeet-ultra-Q5_K_M-f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997
+      - name: Download the speech model
+        run: |
+          model="$CIEL_SPEECH_MODEL"
+          if [ ! -f "$model" ]; then
+            mkdir -p "$(dirname "$model")"
+            curl -fsSL --retry 3 -o "$model" https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q5_K_M.gguf
+          fi
+          echo "f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997  $model" | shasum -a 256 -c
+      - name: Speak the fixtures
+        run: |
+          mkdir -p "$CIEL_SPEECH_FIXTURES"
+          cd "$CIEL_SPEECH_FIXTURES"
+          echo "Can you send me the file before lunch?" > 3.txt
+          echo "I looked at the draft this morning and the numbers look right, but the second chart needs a clearer title before we share it with the team." > 10.txt
+          echo "Thanks for the update on the launch. I read through the plan last night and I think the timeline works, as long as the design review happens on Tuesday. Could you ask Maria to check the pricing page before Thursday, and let the support team know about the new billing flow? I will write the announcement tomorrow morning and send it to you for a final look before we publish it on Friday." > 30.txt
+          echo "Here is where the project stands after this week. The new search page shipped on Monday and early numbers look good, with people finding what they need in fewer steps than before. We still have two open bugs. The first is a crash when someone pastes a very long link into the search box, and Sam has a fix ready for review. The second is slower and harder to pin down. Some people on older laptops see the results list stutter while they scroll, and we think it comes from the new thumbnails loading all at once. Next week I would like to finish the thumbnail work, write the help article for the new filters, and start planning the mobile version. If anyone has time on Wednesday afternoon, I would love a second pair of eyes on the filter copy before it goes out. Thanks again to everyone who stayed late to get the launch over the line." > 60.txt
+          for clip in 3 10 30 60; do
+            say -r 170 -f "$clip.txt" -o "$clip.wav" --data-format=LEF32@16000
+            afinfo "$clip.wav" | grep -E "duration|Data format"
+          done
+      - name: Time release to paste
+        run: |
+          set -o pipefail
+          bash scripts/test.sh --filter SpeechBenchTests 2>&1 | tee .build/speech/bench.log
+      - name: Summarize
+        if: always()
+        run: grep "SPEECH BENCH" .build/speech/bench.log >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: Ciel-speech-bench
+          path: |
+            .build/performance/speech-bench.json
+            .build/speech/bench.log
+            .build/speech/fixtures
+          if-no-files-found: warn
+          retention-days: 14

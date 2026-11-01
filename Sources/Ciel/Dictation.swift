@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import AppKit
 import Carbon
 import CielCore
@@ -6,58 +7,148 @@ import os
 
 @MainActor protocol AudioRecorder {
     func start() throws
+    func recorded(from start: Int) -> AudioClip
     func stop() -> AudioClip
 }
 
-/// Hold to talk: the shortcut press starts the microphone and its release transcribes and delivers the text.
 @MainActor final class Dictation {
+    enum Activity { case idle, listening, transcribing }
+
     private enum Phase {
         case idle
-        case listening(since: ContinuousClock.Instant)
+        case pressed(since: ContinuousClock.Instant)
+        case holding(since: ContinuousClock.Instant)
+        case toggled
+        case stopping
         case transcribing
+
+        var activity: Activity {
+            switch self {
+            case .idle, .pressed: .idle
+            case .holding, .toggled, .stopping: .listening
+            case .transcribing: .transcribing
+            }
+        }
     }
 
-    private var phase = Phase.idle
+    private var phase = Phase.idle {
+        didSet { if phase.activity != oldValue.activity { onActivity(phase.activity) } }
+    }
+    private var transcript = LiveTranscript()
+    private var live: Task<Void, Never>?
     private let recorder: any AudioRecorder
-    private let minimumHold: Duration
+    private let tapLimit: Duration
+    private let interval: Duration
     private let transcriber: () throws -> any Transcriber
     private let deliver: (String) -> Void
     private let fail: (String) -> Void
+    private let onActivity: (Activity) -> Void
+    private let onText: (_ committed: String, _ tentative: String) -> Void
 
     init(
-        recorder: any AudioRecorder, minimumHold: Duration = .milliseconds(250),
-        transcriber: @escaping () throws -> any Transcriber, deliver: @escaping (String) -> Void,
-        fail: @escaping (String) -> Void
+        recorder: any AudioRecorder, tapLimit: Duration = .milliseconds(300),
+        interval: Duration = .milliseconds(500), transcriber: @escaping () throws -> any Transcriber,
+        deliver: @escaping (String) -> Void, fail: @escaping (String) -> Void,
+        onActivity: @escaping (Activity) -> Void = { _ in },
+        onText: @escaping (_ committed: String, _ tentative: String) -> Void = { _, _ in }
     ) {
         self.recorder = recorder
-        self.minimumHold = minimumHold
+        self.tapLimit = tapLimit
+        self.interval = interval
         self.transcriber = transcriber
         self.deliver = deliver
         self.fail = fail
+        self.onActivity = onActivity
+        self.onText = onText
     }
 
     func press() {
-        guard case .idle = phase else { return }
-        do {
-            _ = try transcriber()
-            try recorder.start()
-            phase = .listening(since: .now)
-        } catch {
-            fail(error.localizedDescription)
+        switch phase {
+        case .idle:
+            do {
+                let engine = try transcriber()
+                try recorder.start()
+                let since = ContinuousClock.now
+                phase = .pressed(since: since)
+                listen(engine)
+                showHold(since: since)
+            } catch {
+                fail(error.localizedDescription)
+            }
+        case .toggled: phase = .stopping
+        case .pressed, .holding, .stopping, .transcribing: break
         }
     }
 
     func release() {
-        guard case .listening(let since) = phase else { return }
+        switch phase {
+        case .pressed(let since) where ContinuousClock.now - since < tapLimit,
+            .holding(let since) where ContinuousClock.now - since < tapLimit:
+            phase = .toggled
+        case .pressed, .holding, .stopping: finish()
+        case .idle, .toggled, .transcribing: break
+        }
+    }
+
+    /// A cancel while stopping means the key joined another shortcut, so listening goes on.
+    func cancel() {
+        switch phase {
+        case .stopping: phase = .toggled
+        case .pressed, .holding, .toggled:
+            _ = recorder.stop()
+            live?.cancel()
+            phase = .idle
+        case .idle, .transcribing: break
+        }
+    }
+
+    /// The key may be the start of a chord such as right Command + C, so a hold shows only once it outlasts the grace.
+    private func showHold(since: ContinuousClock.Instant) {
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.grace)
+            guard let self, case .pressed(since) = self.phase else { return }
+            self.phase = .holding(since: since)
+        }
+    }
+
+    /// Transcribes the newest audio while listening, so release only waits for the last few seconds. A slow engine
+    /// rests as long as each pass took, so the release seldom waits behind a pass.
+    private func listen(_ engine: any Transcriber) {
+        transcript = LiveTranscript()
+        live = Task { [weak self, interval] in
+            try? await engine.prepare()
+            var pause = interval
+            while !Task.isCancelled {
+                try? await Task.sleep(for: pause)
+                guard let self, !Task.isCancelled else { return }
+                let started = ContinuousClock.now
+                await self.refresh(engine)
+                pause = max(interval, .now - started)
+            }
+        }
+    }
+
+    private func refresh(_ engine: any Transcriber) async {
+        let clip = recorder.recorded(from: transcript.start)
+        guard clip.samples.count >= Self.shortestPass, let words = try? await engine.transcribe(clip).words,
+            !Task.isCancelled
+        else { return }
+        transcript.update(words, heard: clip.samples)
+        onText(transcript.committedText, transcript.tentativeText)
+    }
+
+    private func finish() {
         let clip = recorder.stop()
-        guard ContinuousClock.now - since >= minimumHold, let engine = try? transcriber() else {
+        live?.cancel()
+        guard let engine = try? transcriber() else {
             phase = .idle
             return
         }
         phase = .transcribing
+        let tail = AudioClip(samples: Array(clip.samples.dropFirst(transcript.start)))
         Task {
             do {
-                let text = try await engine.transcribe(clip).text
+                let text = transcript.finish(try await engine.transcribe(tail).words)
                 if !text.isEmpty { deliver(text) }
             } catch {
                 fail(error.localizedDescription)
@@ -65,6 +156,9 @@ import os
             phase = .idle
         }
     }
+
+    private static let shortestPass = 8_000
+    private static let grace = Duration.milliseconds(150)
 }
 
 enum DictationError: LocalizedError {
@@ -78,11 +172,12 @@ enum DictationError: LocalizedError {
     }
 }
 
-/// Captures the default input and hands back 16 kHz mono samples.
 @MainActor final class Microphone: AudioRecorder {
     private let engine = AVAudioEngine()
     private let samples = OSAllocatedUnfairLock<[Float]>(initialState: [])
-    private var sampleRate: Double = 0
+    private let onLevel: @MainActor @Sendable (Float) -> Void
+
+    init(onLevel: @escaping @MainActor @Sendable (Float) -> Void = { _ in }) { self.onLevel = onLevel }
 
     func start() throws {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -94,14 +189,19 @@ enum DictationError: LocalizedError {
         }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0 else { throw MicrophoneError.unavailable }
-        sampleRate = format.sampleRate
+        guard format.sampleRate > 0, let resampler = Resampler(from: format.sampleRate) else {
+            throw MicrophoneError.unavailable
+        }
         samples.withLock { $0.removeAll() }
         // The tap runs on an audio thread, so it must not inherit the main actor.
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) { @Sendable [samples] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 4096, format: format) {
+            @Sendable [samples, onLevel, resampler] buffer, _ in
             guard let channel = buffer.floatChannelData?[0] else { return }
-            let chunk = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
+            var level: Float = 0
+            vDSP_rmsqv(channel, 1, &level, vDSP_Length(buffer.frameLength))
+            let chunk = resampler.convert(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
             samples.withLock { $0 += chunk }
+            Task { @MainActor [level] in onLevel(level) }
         }
         engine.prepare()
         do {
@@ -112,42 +212,66 @@ enum DictationError: LocalizedError {
         }
     }
 
+    func recorded(from start: Int) -> AudioClip {
+        AudioClip(samples: samples.withLock { Array($0.dropFirst(start)) })
+    }
+
     func stop() -> AudioClip {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        let recorded = samples.withLock { buffer in
-            defer { buffer = [] }
-            return buffer
+        return AudioClip(
+            samples: samples.withLock { buffer in
+                defer { buffer = [] }
+                return buffer
+            })
+    }
+}
+
+/// One converter serves every buffer so its filter state carries across buffer boundaries.
+struct Resampler: Sendable {
+    private let converter: OSAllocatedUnfairLock<AVAudioConverter>?
+    private let ratio: Double
+
+    init?(from rate: Double) {
+        ratio = 16_000 / rate
+        guard rate != 16_000 else {
+            converter = nil
+            return
         }
-        return AudioClip(samples: Self.resample(recorded, from: sampleRate))
+        guard let source = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1),
+            let target = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1),
+            let converter = AVAudioConverter(from: source, to: target)
+        else { return nil }
+        self.converter = OSAllocatedUnfairLock(uncheckedState: converter)
     }
 
-    nonisolated static func resample(_ samples: [Float], from rate: Double) -> [Float] {
-        guard rate != 16_000 else { return samples }
-        guard !samples.isEmpty, rate > 0,
-            let source = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1),
-            let target = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1),
-            let converter = AVAudioConverter(from: source, to: target),
-            let input = AVAudioPCMBuffer(pcmFormat: source, frameCapacity: AVAudioFrameCount(samples.count)),
-            let inputChannel = input.floatChannelData?[0],
-            let output = AVAudioPCMBuffer(
-                pcmFormat: target,
-                frameCapacity: AVAudioFrameCount(Double(samples.count) * 16_000 / rate) + 1024)
-        else { return [] }
-        input.frameLength = input.frameCapacity
-        inputChannel.update(from: samples, count: samples.count)
-        let pending = OSAllocatedUnfairLock<AVAudioPCMBuffer?>(uncheckedState: input)
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, inputStatus in
-            let next = pending.withLockUnchecked { buffer in
-                defer { buffer = nil }
-                return buffer
+    func convert(_ samples: UnsafeBufferPointer<Float>) -> [Float] {
+        guard let converter else { return Array(samples) }
+        return converter.withLockUnchecked { converter in
+            guard
+                let input = AVAudioPCMBuffer(
+                    pcmFormat: converter.inputFormat, frameCapacity: AVAudioFrameCount(samples.count)),
+                let inputChannel = input.floatChannelData?[0],
+                let output = AVAudioPCMBuffer(
+                    pcmFormat: converter.outputFormat,
+                    frameCapacity: AVAudioFrameCount(Double(samples.count) * ratio) + 64)
+            else { return [] }
+            input.frameLength = input.frameCapacity
+            _ = UnsafeMutableBufferPointer(start: inputChannel, count: samples.count).update(
+                fromContentsOf: samples)
+            let pending = OSAllocatedUnfairLock<AVAudioPCMBuffer?>(uncheckedState: input)
+            var error: NSError?
+            let status = converter.convert(to: output, error: &error) { _, inputStatus in
+                let next = pending.withLockUnchecked { buffer in
+                    defer { buffer = nil }
+                    return buffer
+                }
+                inputStatus.pointee = next == nil ? .noDataNow : .haveData
+                return next
             }
-            inputStatus.pointee = next == nil ? .endOfStream : .haveData
-            return next
+            guard status != .error, let channel = output.floatChannelData?[0] else { return [] }
+            return Array(UnsafeBufferPointer(start: channel, count: Int(output.frameLength)))
         }
-        guard status != .error, let channel = output.floatChannelData?[0] else { return [] }
-        return Array(UnsafeBufferPointer(start: channel, count: Int(output.frameLength)))
     }
 }
 
@@ -156,7 +280,7 @@ enum MicrophoneError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .asking: "Allow the microphone, then hold the shortcut again."
+        case .asking: "Allow the microphone, then press the shortcut again."
         case .denied: "Allow Ciel in System Settings → Privacy & Security → Microphone."
         case .unavailable: "No microphone is available."
         }

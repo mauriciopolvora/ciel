@@ -8,13 +8,20 @@ public struct AudioClip: Sendable {
 }
 
 public struct Transcript: Sendable, Equatable {
-    public let text: String
+    public let words: [SpokenWord]
 
-    public init(text: String) { self.text = text }
+    public init(words: [SpokenWord]) { self.words = words }
+
+    public var text: String { words.map(\.text).joined(separator: " ") }
 }
 
 public protocol Transcriber: Sendable {
+    func prepare() async throws
     func transcribe(_ clip: AudioClip) async throws -> Transcript
+}
+
+extension Transcriber {
+    public func prepare() async throws {}
 }
 
 public struct SpeechModel: Sendable, Equatable {

@@ -71,9 +71,10 @@ final class MonochromeSwitch: NSButton {
     }
 }
 
-final class SurfaceView: FlippedView {
+class SurfaceView: FlippedView {
     var isGroup = false
     var isFloating = false
+    var isCapsule = false
     private var observer: Cleanup?
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -93,7 +94,8 @@ final class SurfaceView: FlippedView {
     }
     func refreshSurface() {
         layer?.backgroundColor = Theme.cg(isGroup ? Theme.group : Theme.surface, in: self)
-        layer?.cornerRadius = isFloating ? Theme.statusRadius : isGroup ? Theme.groupRadius : 0
+        layer?.cornerRadius =
+            isCapsule ? bounds.height / 2 : isFloating ? Theme.statusRadius : isGroup ? Theme.groupRadius : 0
         layer?.borderWidth = isGroup || isFloating ? 1 : 0
         layer?.borderColor = Theme.cg(
             Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.35), in: self)

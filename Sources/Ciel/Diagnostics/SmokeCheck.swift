@@ -63,6 +63,7 @@ import CielCore
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
             captureSpeechStates(preferences, speech: speech, output: output)
+            capturePillStates(output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
                 "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
@@ -101,6 +102,33 @@ import CielCore
         print("PASS speech settings states")
     }
 
+    private static func capturePillStates(output: String) {
+        let pill = PillView()
+        pill.appearance = NSAppearance(named: .darkAqua)
+        pill.listen()
+        for level: Float in [0.02, 0.06, 0.12, 0.04, 0.09] { pill.level(level) }
+        captureLayer(of: pill, "pill-listening", output: output)
+        pill.text(
+            committed: "Send the quarterly report to Maria and ask her to", tentative: "check the numbers")
+        pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
+        pill.layoutSubtreeIfNeeded()
+        let speaking = captureLayer(of: pill, "pill-speaking", output: output)
+        let bright = speaking.map { bitmap in
+            let points = stride(from: 160, to: bitmap.pixelsWide, by: 2).flatMap { x in
+                (0..<bitmap.pixelsHigh).map { (x, $0) }
+            }
+            let lit = points.filter { (bitmap.colorAt(x: $0.0, y: $0.1)?.brightnessComponent ?? 0) > 0.5 }
+            return Double(lit.count) / Double(max(points.count, 1))
+        }
+        guard let bright, bright > 0, bright < 0.25 else {
+            print("FAIL dictation pill words are missing or on a light box")
+            exit(1)
+        }
+        pill.transcribe()
+        captureLayer(of: pill, "pill-transcribing", output: output)
+        print("PASS dictation pill states")
+    }
+
     private static func settleIcons(in launcher: LauncherView) async {
         launcher.layoutSubtreeIfNeeded()
         let deadline = ProcessInfo.processInfo.systemUptime + 5
@@ -111,6 +139,47 @@ import CielCore
             }
             try? await Task.sleep(for: .milliseconds(10))
         }
+    }
+
+    /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips, then draws the
+    /// subviews over it.
+    @discardableResult
+    private static func captureLayer(of view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
+        guard let layer = view.layer,
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
+                pixelsHigh: Int(view.bounds.height * 2),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0, bitsPerPixel: 0),
+            let context = NSGraphicsContext(bitmapImageRep: bitmap)
+        else { return nil }
+        context.cgContext.scaleBy(x: 2, y: 2)
+        layer.render(in: context.cgContext)
+        NSGraphicsContext.current = context
+        for subview in view.subviews where !subview.isHidden {
+            guard
+                let image = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(subview.bounds.width * 2),
+                    pixelsHigh: Int(subview.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
+                    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0,
+                    bitsPerPixel: 0)
+            else { continue }
+            image.size = subview.bounds.size
+            subview.cacheDisplay(in: subview.bounds, to: image)
+            let frame = subview.frame
+            image.draw(
+                in: NSRect(
+                    x: frame.minX, y: view.isFlipped ? view.bounds.height - frame.maxY : frame.minY,
+                    width: frame.width, height: frame.height), from: .zero, operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: false, hints: nil)
+        }
+        NSGraphicsContext.current = nil
+        if let png = bitmap.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
+        }
+        return bitmap
     }
 
     private static func capture(_ view: NSView, _ name: String, output: String) {

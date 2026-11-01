@@ -45,7 +45,7 @@ Save positions by display UUID. Keep the input’s top edge as the anchor. Store
 
 Opening, closing, search, selection, category switching, and panel resizing are immediate. Do not animate keyboard actions. Empty Return and Command-number actions do nothing. Tab and Shift–Tab keep their category behavior without adding visible content to an empty launcher.
 
-Pointer hover uses a 120 ms opacity transition and the curve `(0.23, 1, 0.32, 1)`. Status messages use short opacity fades. Reduce Motion and the app animation switch disable these effects. Increase Contrast strengthens boundaries. All surfaces already satisfy Reduce Transparency by being opaque.
+Pointer hover uses a 120 ms opacity transition and the curve `(0.23, 1, 0.32, 1)`. Status messages use short opacity fades. The dictation pill is a black capsule at the bottom center of the screen with the pointer. Its bars follow the voice while Ciel listens and pulse while it transcribes. Once words arrive it widens once to fit one line of them, the settled words in text gray and the guesses after them in secondary gray, with the oldest words cut off at the start. Reduce Motion and the app animation switch disable these effects. Increase Contrast strengthens boundaries. All surfaces already satisfy Reduce Transparency by being opaque.
 
 Use native text editing, scrolling, focus behavior, and accessibility labels. The input retains its spoken search label even though it has no visible placeholder. Full result names remain available to accessibility and tooltips.
 

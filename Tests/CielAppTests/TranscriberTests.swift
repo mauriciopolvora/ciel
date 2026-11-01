@@ -15,8 +15,13 @@ import Testing
         }
     }
 
+    @Test func preparingTheTranscriberItselfLoadsTheModel() async {
+        let transcriber = TranscribeCppTranscriber(modelURL: missing)
+        await #expect(throws: TranscriptionError.self) { try await transcriber.prepare() }
+    }
+
     @Test func anEmptyClipIsEmptyText() async throws {
         let transcriber = TranscribeCppTranscriber(modelURL: missing)
-        #expect(try await transcriber.transcribe(AudioClip(samples: [])) == Transcript(text: ""))
+        #expect(try await transcriber.transcribe(AudioClip(samples: [])) == Transcript(words: []))
     }
 }
