@@ -36,6 +36,25 @@ import Testing
         #expect(state.applying(event) == state)
     }
 
+    @Test(arguments: [
+        (ModelState.notDownloaded, "Not downloaded", ModelStatus.Action.download),
+        (.downloading(fraction: 0.37), "Downloading 37%", .cancel), (.ready, "Ready", .remove),
+        (.failed("Offline"), "Offline", .download),
+    ])
+    func eachModelStateShowsItsStatusAndTheActionThatLeavesIt(
+        state: ModelState, text: String, action: ModelStatus.Action
+    ) {
+        #expect(state.status.text == text)
+        #expect(state.status.action == action)
+    }
+
+    @Test func onlyAFailedDownloadReadsAsAnError() {
+        #expect(ModelState.failed("Offline").status.tone == .error)
+        for state in [ModelState.notDownloaded, .downloading(fraction: 0.5), .ready] {
+            #expect(state.status.tone != .error)
+        }
+    }
+
     @Test func parakeetUltraIsPinned() {
         let model = SpeechModel.parakeetUltra
         #expect(model.url.absoluteString.contains("/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/"))

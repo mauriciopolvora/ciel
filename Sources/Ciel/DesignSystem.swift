@@ -24,6 +24,7 @@ import QuartzCore
             || !Preferences().animations
     }
     static var increaseContrast: Bool { NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
+    static var hairline: NSColor { border.withAlphaComponent(increaseContrast ? 1 : 0.35) }
 
     static func cg(_ color: NSColor, in view: NSView) -> CGColor {
         var result: CGColor!
@@ -50,6 +51,8 @@ final class MonochromeSwitch: NSButton {
         focusRingType = .none
     }
     required init?(coder: NSCoder) { fatalError() }
+    override var intrinsicContentSize: NSSize { NSSize(width: 38, height: 28) }
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsets(top: 4, left: 1, bottom: 4, right: 1) }
     override func draw(_ dirtyRect: NSRect) {
         let track = bounds.insetBy(dx: 1, dy: 4)
         let outline = NSBezierPath(roundedRect: track, xRadius: 10, yRadius: 10)
@@ -97,7 +100,10 @@ class SurfaceView: FlippedView {
         layer?.cornerRadius =
             isCapsule ? bounds.height / 2 : isFloating ? Theme.statusRadius : isGroup ? Theme.groupRadius : 0
         layer?.borderWidth = isGroup || isFloating ? 1 : 0
-        layer?.borderColor = Theme.cg(
-            Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.35), in: self)
+        layer?.borderColor = Theme.cg(Theme.hairline, in: self)
     }
+}
+
+final class Divider: SurfaceView {
+    override func refreshSurface() { layer?.backgroundColor = Theme.cg(Theme.hairline, in: self) }
 }

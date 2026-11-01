@@ -40,7 +40,7 @@ final class AboutController: NSWindowController {
         label(
             "Version \(version) (\(build))", y: 140, height: 20,
             color: Theme.secondary, centered: true)
-        label("App launcher and window controls for macOS.", y: 188, height: 38)
+        label("App launcher, window controls and dictation for macOS.", y: 188, height: 38)
         label(
             "Made by Mauricio Polvora.\nOriginal generated cloud artwork, inspired by Monet.\nSearch uses FuzzyMatch 1.4.0 (Apache 2.0).\nSpeech uses Parakeet Ultra by Moondream (CC BY 4.0) and transcribe.cpp 0.4.1 (MIT).",
             y: 244, height: 114, color: Theme.secondary)

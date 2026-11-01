@@ -47,10 +47,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         view.frame = NSRect(x: x, y: y, width: width, height: 21)
         parent.addSubview(view)
     }
-    @discardableResult
-    func addRecorder(_ command: HotKeyCommand, label: String, in parent: NSView, frame: NSRect)
-        -> ShortcutRecorder
-    {
+    func recorder(_ command: HotKeyCommand, label: String) -> ShortcutRecorder {
         let recorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: command), onRecord: { _ in })
         recorder.onBegin = { [weak self, weak recorder] in
             self?.hotKeys.recordingHandler = { [weak recorder] shortcut in recorder?.accept(shortcut) }
@@ -64,12 +61,10 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
                 self.showMessage("")
             } catch { self.showMessage(error.localizedDescription) }
         }
-        recorder.frame = frame
         recorder.setAccessibilityLabel(label)
         if command == .launcher {
             recorder.toolTip = "Click to change the launcher shortcut. Press Escape to cancel."
         }
-        parent.addSubview(recorder)
         recorders[command] = recorder
         return recorder
     }
@@ -102,14 +97,15 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
 }
 
 final class SettingsController: PreferencesController {
-    private let permissionLabel = Theme.label("", size: 12, color: Theme.secondary)
-    private let permissionButton = NSButton()
+    private static let controlWidth: CGFloat = 120
+    private let permissionLabel = SettingsController.status()
+    private let permissionButton = NSButton(title: "Allow Access…", target: nil, action: nil)
     private let login = MonochromeSwitch(frame: .zero)
     private let animations = MonochromeSwitch(frame: .zero)
     private let menuBarIcon = MonochromeSwitch(frame: .zero)
     private let speechSwitch = MonochromeSwitch(frame: .zero)
-    private let modelStatus = Theme.label("", size: 12, color: Theme.secondary)
-    private let modelButton = NSButton()
+    private let modelStatus = SettingsController.status()
+    private let modelButton = NSButton(title: "", target: nil, action: nil)
     private let speech: SpeechModelStore
     private var dictationRecorder: ShortcutRecorder?
     private var showsAccessMessage = false
@@ -120,85 +116,106 @@ final class SettingsController: PreferencesController {
 
     init(hotKeys: HotKeys, speech: SpeechModelStore) {
         self.speech = speech
-        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 602), hotKeys: hotKeys)
-        label("Ciel", x: 28, y: 17, width: 260, size: 23, in: content)
-        label(
-            "App launcher and window controls", x: 28, y: 48, width: 400, size: 12, color: Theme.secondary,
-            in: content)
-        let general = group(NSRect(x: 20, y: 88, width: 440, height: 192))
-        label("Launcher shortcut", y: 14, in: general)
-        addRecorder(
-            .launcher, label: "Launcher shortcut", in: general,
-            frame: NSRect(x: 280, y: 8, width: 144, height: 32))
-        label("Launch at login", y: 62, in: general)
-        login.frame = NSRect(x: 386, y: 59, width: 38, height: 28)
-        login.target = self
-        login.action = #selector(toggleLogin)
-        login.setAccessibilityLabel("Launch at login")
-        general.addSubview(login)
-        label("Animations", y: 110, in: general)
-        animations.frame = NSRect(x: 386, y: 107, width: 38, height: 28)
-        animations.target = self
-        animations.action = #selector(toggleAnimations)
-        animations.setAccessibilityLabel("Animations")
-        general.addSubview(animations)
-
-        label("Show menu bar icon", y: 158, in: general)
-        menuBarIcon.frame = NSRect(x: 386, y: 155, width: 38, height: 28)
-        menuBarIcon.target = self
-        menuBarIcon.action = #selector(toggleMenuBarIcon)
-        menuBarIcon.setAccessibilityLabel("Show menu bar icon")
+        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 608), hotKeys: hotKeys)
+        let title = Theme.label("Ciel", size: 23)
+        title.frame = NSRect(x: 36, y: 20, width: 408, height: 28)
+        let subtitle = Theme.label(
+            "App launcher, window controls and dictation", size: 12, color: Theme.secondary)
+        subtitle.frame = NSRect(x: 36, y: 50, width: 408, height: 16)
+        content.addSubview(title)
+        content.addSubview(subtitle)
+        for (toggle, name, action) in [
+            (login, "Launch at login", #selector(toggleLogin)),
+            (animations, "Animations", #selector(toggleAnimations)),
+            (menuBarIcon, "Show menu bar icon", #selector(toggleMenuBarIcon)),
+            (speechSwitch, "Speech to text", #selector(toggleSpeech)),
+        ] {
+            toggle.target = self
+            toggle.action = action
+            toggle.setAccessibilityLabel(name)
+        }
         menuBarIcon.toolTip = "You can still open Settings from the launcher with Command–Comma."
-        general.addSubview(menuBarIcon)
-
-        let access = group(NSRect(x: 20, y: 296, width: 440, height: 72))
-        label("Window management", y: 13, in: access)
-        permissionLabel.frame = NSRect(x: 16, y: 36, width: 260, height: 20)
-        access.addSubview(permissionLabel)
-        permissionButton.title = "Allow Access…"
-        permissionButton.bezelStyle = .rounded
-        permissionButton.font = .systemFont(ofSize: 12)
-        permissionButton.frame = NSRect(x: 288, y: 21, width: 136, height: 30)
-        permissionButton.target = self
-        permissionButton.action = #selector(requestPermission)
-        access.addSubview(permissionButton)
-
-        let speechGroup = group(NSRect(x: 20, y: 384, width: 440, height: 168))
-        label("Speech to text", y: 14, in: speechGroup)
-        speechSwitch.frame = NSRect(x: 386, y: 11, width: 38, height: 28)
-        speechSwitch.target = self
-        speechSwitch.action = #selector(toggleSpeech)
-        speechSwitch.setAccessibilityLabel("Speech to text")
-        speechGroup.addSubview(speechSwitch)
-        label("Dictation shortcut", y: 62, in: speechGroup)
-        dictationRecorder = addRecorder(
-            .dictation, label: "Dictation shortcut", in: speechGroup,
-            frame: NSRect(x: 280, y: 56, width: 144, height: 32))
-        dictationRecorder?.acceptsModifierKey = true
-        label("Speech model", y: 109, in: speechGroup)
-        modelStatus.frame = NSRect(x: 16, y: 132, width: 260, height: 20)
-        speechGroup.addSubview(modelStatus)
-        modelButton.bezelStyle = .rounded
-        modelButton.font = .systemFont(ofSize: 12)
-        modelButton.frame = NSRect(x: 288, y: 117, width: 136, height: 30)
-        modelButton.target = self
-        modelButton.action = #selector(modelAction)
-        speechGroup.addSubview(modelButton)
+        for (button, action) in [
+            (permissionButton, #selector(requestPermission)), (modelButton, #selector(modelAction)),
+        ] {
+            button.bezelStyle = .rounded
+            button.font = .systemFont(ofSize: 12)
+            button.target = self
+            button.action = action
+        }
+        let launcher = recorder(.launcher, label: "Launcher shortcut")
+        let dictation = recorder(.dictation, label: "Dictation shortcut")
+        dictation.acceptsModifierKey = true
+        dictationRecorder = dictation
+        for control in [launcher, dictation, permissionButton, modelButton] {
+            control.widthAnchor.constraint(equalToConstant: Self.controlWidth).isActive = true
+        }
+        var y = section(
+            "General", at: 86,
+            rows: [
+                ("Launcher shortcut", [launcher]), ("Launch at login", [login]), ("Animations", [animations]),
+                ("Show menu bar icon", [menuBarIcon]),
+            ])
+        y = section("Permissions", at: y, rows: [("Accessibility", [permissionLabel, permissionButton])])
+        y = section(
+            "Dictation", at: y,
+            rows: [
+                ("Speech to text", [speechSwitch]), ("Shortcut", [dictation]),
+                ("Speech model", [modelStatus, modelButton]),
+            ])
         let guide = NSButton(title: "Keyboard Guide…", target: self, action: #selector(openGuide))
-        guide.bezelStyle = .inline
-        guide.font = .systemFont(ofSize: 12)
-        guide.frame = NSRect(x: 24, y: 566, width: 140, height: 24)
-        content.addSubview(guide)
         let about = NSButton(title: "About Ciel…", target: self, action: #selector(openAbout))
-        about.bezelStyle = .inline
-        about.font = .systemFont(ofSize: 12)
-        about.frame = NSRect(x: 352, y: 566, width: 104, height: 24)
-        content.addSubview(about)
+        for button in [guide, about] {
+            button.bezelStyle = .rounded
+            button.font = .systemFont(ofSize: 12)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(button)
+            button.topAnchor.constraint(equalTo: content.topAnchor, constant: y).isActive = true
+        }
+        NSLayoutConstraint.activate([
+            guide.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
+            about.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
+        ])
         refresh()
     }
     required init?(coder: NSCoder) { fatalError() }
     @objc private func openGuide() { onGuide?() }
     @objc private func openAbout() { onAbout?() }
+
+    private static func status() -> NSTextField {
+        let label = Theme.label("", size: 12, color: Theme.secondary)
+        label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        label.alignment = .right
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
+    }
+
+    private func section(_ title: String, at y: CGFloat, rows: [(String, [NSView])]) -> CGFloat {
+        let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
+        header.frame = NSRect(x: 36, y: y, width: 408, height: 17)
+        content.addSubview(header)
+        let box = group(NSRect(x: 20, y: y + 23, width: 440, height: CGFloat(rows.count) * Theme.rowHeight))
+        for (index, (name, controls)) in rows.enumerated() {
+            let top = CGFloat(index) * Theme.rowHeight
+            if index > 0 { box.addSubview(Divider(frame: NSRect(x: 16, y: top, width: 408, height: 1))) }
+            let label = Theme.label(name, size: 14)
+            let stack = NSStackView(views: controls)
+            stack.spacing = 8
+            stack.setHuggingPriority(.defaultHigh, for: .horizontal)
+            for view in [label, stack] {
+                view.translatesAutoresizingMaskIntoConstraints = false
+                box.addSubview(view)
+                view.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + Theme.rowHeight / 2)
+                    .isActive = true
+            }
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 16),
+                stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -16),
+                stack.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12),
+            ])
+        }
+        return box.frame.maxY + 20
+    }
 
     override func refresh() {
         hotKeys.retryUnregistered()
@@ -209,7 +226,7 @@ final class SettingsController: PreferencesController {
             showMessage(waiting ? HotKeyError.needsAccess.localizedDescription : "")
         }
         let trusted = WindowController.isTrusted
-        permissionLabel.stringValue = trusted ? "Access enabled" : "Access required to move windows"
+        permissionLabel.stringValue = trusted ? "Allowed" : "Not allowed"
         permissionLabel.textColor = trusted ? Theme.success : Theme.secondary
         permissionButton.isHidden = trusted
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
@@ -218,21 +235,16 @@ final class SettingsController: PreferencesController {
         let speechEnabled = Preferences().speechEnabled
         speechSwitch.state = speechEnabled ? .on : .off
         dictationRecorder?.isEnabled = speechEnabled && speech.state == .ready
-        switch speech.state {
-        case .notDownloaded:
-            showModel("Not downloaded", color: Theme.secondary, action: "Download")
-        case .downloading(let fraction):
-            showModel("Downloading \(Int(fraction * 100))%", color: Theme.secondary, action: "Cancel")
-        case .ready:
-            showModel("Ready", color: Theme.success, action: "Remove")
-        case .failed(let message):
-            showModel(message, color: Theme.error, action: "Download")
-        }
-    }
-    private func showModel(_ status: String, color: NSColor, action: String) {
-        modelStatus.stringValue = status
-        modelStatus.textColor = color
-        modelButton.title = action
+        let status = speech.state.status
+        modelStatus.stringValue = status.text
+        modelStatus.toolTip = status.text
+        modelStatus.textColor =
+            switch status.tone {
+            case .quiet: Theme.secondary
+            case .ready: Theme.success
+            case .error: Theme.error
+            }
+        modelButton.title = status.action.rawValue
     }
     @objc private func toggleSpeech() {
         Preferences().speechEnabled = speechSwitch.state == .on
@@ -240,10 +252,10 @@ final class SettingsController: PreferencesController {
         refresh()
     }
     @objc private func modelAction() {
-        switch speech.state {
-        case .notDownloaded, .failed: speech.download()
-        case .downloading: speech.cancel()
-        case .ready: speech.remove()
+        switch speech.state.status.action {
+        case .download: speech.download()
+        case .cancel: speech.cancel()
+        case .remove: speech.remove()
         }
     }
     @objc private func requestPermission() { WindowController.requestPermission() }
@@ -283,9 +295,9 @@ final class WindowShortcutsController: PreferencesController {
         for (index, action) in WindowAction.allCases.enumerated() {
             let y = CGFloat(index) * 44
             label(action.title, x: 8, y: y + 12, width: 250, size: 13, in: list)
-            addRecorder(
-                .window(action), label: action.title + " shortcut", in: list,
-                frame: NSRect(x: 270, y: y + 6, width: 148, height: 32))
+            let recorder = self.recorder(.window(action), label: action.title + " shortcut")
+            recorder.frame = NSRect(x: 270, y: y + 6, width: 148, height: 32)
+            list.addSubview(recorder)
         }
         scroll.documentView = list
         content.addSubview(scroll)

@@ -73,3 +73,28 @@ public enum ModelState: Sendable, Equatable {
         }
     }
 }
+
+public struct ModelStatus: Sendable, Equatable {
+    public enum Tone: Sendable { case quiet, ready, error }
+    public enum Action: String, Sendable {
+        case download = "Download"
+        case cancel = "Cancel"
+        case remove = "Remove"
+    }
+
+    public let text: String
+    public let tone: Tone
+    public let action: Action
+}
+
+extension ModelState {
+    public var status: ModelStatus {
+        switch self {
+        case .notDownloaded: ModelStatus(text: "Not downloaded", tone: .quiet, action: .download)
+        case .downloading(let fraction):
+            ModelStatus(text: "Downloading \(Int(fraction * 100))%", tone: .quiet, action: .cancel)
+        case .ready: ModelStatus(text: "Ready", tone: .ready, action: .remove)
+        case .failed(let message): ModelStatus(text: message, tone: .error, action: .download)
+        }
+    }
+}

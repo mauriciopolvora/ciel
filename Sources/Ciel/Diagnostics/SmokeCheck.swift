@@ -182,13 +182,19 @@ import CielCore
         return bitmap
     }
 
+    /// Renders at 2x, since CI displays run at 1x and the docs screenshots come from these captures.
     private static func capture(_ view: NSView, _ name: String, output: String) {
         view.layoutSubtreeIfNeeded()
-        if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-            view.cacheDisplay(in: view.bounds, to: bitmap)
-            if let png = bitmap.representation(using: .png, properties: [:]) {
-                try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
-            }
+        guard
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
+                pixelsHigh: Int(view.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+        else { return }
+        bitmap.size = view.bounds.size
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        if let png = bitmap.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
         }
     }
 }
