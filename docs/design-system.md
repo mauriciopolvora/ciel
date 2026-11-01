@@ -11,7 +11,7 @@ Ciel opens as one empty black input box. There is no visible text or symbol unti
 | Surface | 0.035 | Black launcher and settings background |
 | Group | 0.075 | Settings groups and switch tracks |
 | Selection | 0.14 | Selected result and selected input text |
-| Border | 0.30 | Quiet surface boundaries |
+| Border | 0.30 | Quiet surface boundaries. `Theme.hairline` draws it at 35% for group outlines and row dividers, or fully under Increase Contrast |
 | Secondary | 0.62 | Descriptions and key hints |
 | Accent | 0.92 | Actions and shortcut labels |
 | Text | 0.94 | Search input and result names |
@@ -30,6 +30,15 @@ These colors have equal red, green, and blue values. App icons retain their sour
 - Panel radius: 16 points. Group radius: 10 points. Row radius: 8 points.
 - Use the macOS system font. Input: 21 points. Results: 15 points. Setting labels: 14 points. Descriptions: 12 points.
 - Settings use a text header and neutral controls. Keep the cloud artwork outside the daily interface.
+
+## Settings
+
+- One leading line at 36 points holds the title, subtitle, section headers and row labels.
+- Sections: General, Permissions and Dictation. Each has a 13-point semibold header in secondary gray above its group.
+- Rows are 44 points, separated by hairline dividers inset 16 points.
+- Every control ends on one trailing edge, 16 points inside the group, measured by alignment rects. Shortcut recorders and action buttons are 120 points wide.
+- A status sits in the same row as its action, right before the button, in 12-point tabular digits. Ready and allowed use text white, waiting states use secondary gray, and a failure uses system red with its message.
+- Footer buttons are standard push buttons aligned to the group edges.
 
 ## Placement
 
@@ -66,6 +75,9 @@ Applied [Emil Kowalski’s design engineering skill](https://github.com/emilkowa
 | Menu bar icon always visible | Saved Show menu bar icon switch | Let the user hide the icon and restore it through launcher Settings |
 | Wait after each window resize and move | Send the frame updates together and verify the final frame | Remove Ciel's visible pause between resize and move |
 | Native accent-colored switches | Neutral switches with native button behavior | Remove blue from preference controls |
+| Three unlabeled Settings cards | General, Permissions and Dictation sections with headers and row dividers | Show what each group is for at a glance |
+| Status under the label, button centered beside both lines | Status and its action on one line, on a shared trailing edge | Read the state and the fix together |
+| Gray inline footer buttons | Standard push buttons | Stop the footer from looking disabled |
 
 ## Validation
 
