@@ -141,7 +141,8 @@ import CielCore
         }
     }
 
-    /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips.
+    /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips, then draws the
+    /// subviews over it.
     @discardableResult
     private static func captureLayer(of view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
         guard let layer = view.layer,
@@ -154,8 +155,18 @@ import CielCore
             let context = NSGraphicsContext(bitmapImageRep: bitmap)
         else { return nil }
         context.cgContext.scaleBy(x: 2, y: 2)
-        for case let text as CATextLayer in layer.sublayers ?? [] { text.display() }
         layer.render(in: context.cgContext)
+        NSGraphicsContext.current = context
+        for subview in view.subviews where !subview.isHidden {
+            guard let image = subview.bitmapImageRepForCachingDisplay(in: subview.bounds) else { continue }
+            subview.cacheDisplay(in: subview.bounds, to: image)
+            let frame = subview.frame
+            image.draw(
+                in: NSRect(
+                    x: frame.minX, y: view.isFlipped ? view.bounds.height - frame.maxY : frame.minY,
+                    width: frame.width, height: frame.height))
+        }
+        NSGraphicsContext.current = nil
         if let png = bitmap.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
         }

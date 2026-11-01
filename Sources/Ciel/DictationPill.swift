@@ -103,7 +103,7 @@ final class PillView: SurfaceView {
     private static let loudDecibels: CGFloat = -10
     private static let decay: CGFloat = 0.6
     private let bars = (0..<9).map { _ in CALayer() }
-    private let words = CATextLayer()
+    private let words = Theme.label("", size: 13)
     private var history = [CGFloat](repeating: 0, count: 5)
 
     init() {
@@ -115,23 +115,17 @@ final class PillView: SurfaceView {
             bar.cornerRadius = Self.barWidth / 2
             layer?.addSublayer(bar)
         }
-        words.truncationMode = .start
-        words.contentsScale = 2
-        layer?.addSublayer(words)
+        words.lineBreakMode = .byTruncatingHead
+        addSubview(words)
         placeBars(animated: false)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    var fittingWidth: CGFloat { words.string == nil ? Self.size.width : Self.speakingWidth }
+    var fittingWidth: CGFloat { words.stringValue.isEmpty ? Self.size.width : Self.speakingWidth }
 
     override func layout() {
         super.layout()
         placeBars(animated: false)
-    }
-
-    override func viewDidChangeBackingProperties() {
-        super.viewDidChangeBackingProperties()
-        words.contentsScale = window?.backingScaleFactor ?? 2
     }
 
     override func refreshSurface() {
@@ -141,24 +135,20 @@ final class PillView: SurfaceView {
 
     func listen() {
         stop()
-        words.string = nil
+        words.stringValue = ""
         history = history.map { _ in 0 }
         placeBars(animated: false)
     }
 
     func text(committed: String, tentative: String) {
         let font = NSFont.systemFont(ofSize: 13)
-        let color = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
         let line = NSMutableAttributedString(
-            string: committed, attributes: [.font: font, color: Theme.cg(Theme.text, in: self)])
+            string: committed, attributes: [.font: font, .foregroundColor: Theme.text])
         line.append(
             NSAttributedString(
                 string: committed.isEmpty || tentative.isEmpty ? tentative : " " + tentative,
-                attributes: [.font: font, color: Theme.cg(Theme.secondary, in: self)]))
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        words.string = line.length == 0 ? nil : line
-        CATransaction.commit()
+                attributes: [.font: font, .foregroundColor: Theme.secondary]))
+        words.attributedStringValue = line
         needsLayout = true
     }
 
@@ -205,7 +195,7 @@ final class PillView: SurfaceView {
         CATransaction.setAnimationDuration(0.1)
         let gap = Self.barWidth
         let barsWidth = CGFloat(bars.count) * (Self.barWidth + gap) - gap
-        let left = words.string == nil ? (bounds.width - barsWidth) / 2 : Self.inset
+        let left = words.stringValue.isEmpty ? (bounds.width - barsWidth) / 2 : Self.inset
         let center = bars.count / 2
         for (index, bar) in bars.enumerated() {
             let distance = abs(index - center)
