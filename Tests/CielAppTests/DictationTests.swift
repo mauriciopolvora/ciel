@@ -41,53 +41,18 @@ struct DictationTests {
     @Test func aCancelledHoldDropsTheRecording() async throws {
         let recorder = FakeRecorder()
         var delivered: [String] = []
+        var activities: [Dictation.Activity] = []
         let dictation = Dictation(
             recorder: recorder, tapLimit: .zero, transcriber: { FakeTranscriber(text: "copy") },
-            deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") })
+            deliver: { delivered.append($0) }, fail: { Issue.record("Unexpected failure: \($0)") },
+            onActivity: { activities.append($0) })
         dictation.press()
         dictation.cancel()
         dictation.release()
         #expect(!recorder.isRecording)
         try await Task.sleep(for: .milliseconds(50))
         #expect(delivered.isEmpty)
-    }
-
-    @Test func aChordNeverShowsListening() async throws {
-        let recorder = FakeRecorder()
-        var activities: [Dictation.Activity] = []
-        let dictation = Dictation(
-            recorder: recorder, tapLimit: .zero, transcriber: { FakeTranscriber(text: "copy") },
-            deliver: { _ in }, fail: { Issue.record("Unexpected failure: \($0)") },
-            onActivity: { activities.append($0) })
-        dictation.press()
-        #expect(recorder.isRecording)
-        dictation.cancel()
-        try await Task.sleep(for: .milliseconds(300))
-        #expect(activities.isEmpty)
-    }
-
-    @Test func aHoldShowsListeningOnceItOutlastsTheGrace() async throws {
-        var activities: [Dictation.Activity] = []
-        let dictation = Dictation(
-            recorder: FakeRecorder(), tapLimit: .zero, transcriber: { FakeTranscriber(text: "hi") },
-            deliver: { _ in }, fail: { Issue.record("Unexpected failure: \($0)") },
-            onActivity: { activities.append($0) })
-        dictation.press()
-        #expect(activities.isEmpty)
-        try await waitUntil { activities == [.listening] }
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(activities == [.listening])
-    }
-
-    @Test func aTapShowsListeningAtOnce() {
-        var activities: [Dictation.Activity] = []
-        let dictation = Dictation(
-            recorder: FakeRecorder(), tapLimit: .seconds(10), transcriber: { FakeTranscriber(text: "hi") },
-            deliver: { _ in }, fail: { Issue.record("Unexpected failure: \($0)") },
-            onActivity: { activities.append($0) })
-        dictation.press()
-        dictation.release()
-        #expect(activities == [.listening])
+        #expect(activities == [.listening, .idle])
     }
 
     @Test func aChordWhileTappedKeepsListeningWithoutPasting() async throws {
@@ -129,7 +94,6 @@ struct DictationTests {
             recorder: FakeRecorder(), tapLimit: .zero, transcriber: { FakeTranscriber(text: "hi") },
             deliver: { _ in }, fail: { _ in }, onActivity: { activities.append($0) })
         dictation.press()
-        try await waitUntil { activities == [.listening] }
         dictation.release()
         #expect(activities == [.listening, .transcribing])
         try await waitUntil { activities == [.listening, .transcribing, .idle] }

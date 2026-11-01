@@ -51,6 +51,7 @@ import CielCore
         panel.onSettings = { [weak self] in self?.showSettings() }
         catalog.onUpdate = { [weak self] update in self?.catalogUpdated(update) }
         speech.onChange = { [weak self] in self?.speechChanged() }
+        speechChanged()
         reloadEntries()
         catalog.refresh()
         observers = [
@@ -127,9 +128,16 @@ import CielCore
         return loaded
     }
 
-    /// Dropping the transcriber frees the loaded model.
+    /// Loads the model as soon as speech is ready, so the first dictation never waits for it. Dropping the
+    /// transcriber frees the model.
     private func speechChanged() {
-        if !Preferences().speechEnabled || speech.state != .ready { transcriber = nil }
+        if Preferences().speechEnabled, speech.state == .ready {
+            if transcriber == nil, let loading = try? speechTranscriber() {
+                Task { try? await loading.prepare() }
+            }
+        } else {
+            transcriber = nil
+        }
         settings?.refresh()
     }
 
