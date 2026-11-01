@@ -112,6 +112,12 @@ import CielCore
             committed: "Send the quarterly report to Maria and ask her to", tentative: "check the numbers")
         pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
         pill.layoutSubtreeIfNeeded()
+        for text in pill.layer?.sublayers?.compactMap({ $0 as? CATextLayer }) ?? [] {
+            print(
+                "DIAG pill bounds \(pill.bounds) text frame \(text.frame) contents \(text.contents != nil)"
+                    + " hidden \(text.isHidden) opacity \(text.opacity) string \(type(of: text.string))"
+                    + " flipped \(pill.layer?.isGeometryFlipped ?? false) scale \(text.contentsScale)")
+        }
         let speaking = captureLayer(of: pill, "pill-speaking", output: output)
         let shown = speaking.map { bitmap in
             stride(from: 160, to: bitmap.pixelsWide, by: 2).contains { x in
