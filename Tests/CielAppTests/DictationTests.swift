@@ -208,7 +208,6 @@ private struct FakeTranscriber: Transcriber {
     func transcribe(_ clip: AudioClip) async throws -> Transcript { Transcript(words: words(text)) }
 }
 
-/// Hears something different on every pass until the final one, which hears the whole recording.
 private actor DraftingTranscriber: Transcriber {
     let final: Int
     private var passes = 0

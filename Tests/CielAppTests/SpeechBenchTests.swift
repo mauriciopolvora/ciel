@@ -6,8 +6,6 @@ import Testing
 
 @testable import CielApp
 
-/// Times release to paste with the real model, once for the old whole-clip pass and once for live passes.
-/// Runs only when `CIEL_SPEECH_MODEL` and `CIEL_SPEECH_FIXTURES` are set, as the speech workflow does.
 @Suite(.enabled(if: SpeechBench.model != nil), .timeLimit(.minutes(10)))
 @MainActor
 struct SpeechBenchTests {
@@ -62,7 +60,6 @@ enum SpeechBench {
         URL.init(fileURLWithPath:))
     @MainActor static let pasteboard = NSPasteboard(name: NSPasteboard.Name("ciel-speech-bench"))
 
-    /// Holds the key for the length of the clip while the audio arrives in real time, then times release to paste.
     @MainActor static func dictate(_ samples: [Float], with engine: any Transcriber) async throws -> (
         String, Duration
     ) {
@@ -102,7 +99,6 @@ enum SpeechBench {
         return Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
     }
 
-    /// Word error rate against the script, ignoring case and punctuation.
     static func errorRate(_ text: String, _ reference: String) -> Double {
         let words = normalized(text)
         let expected = normalized(reference)
@@ -125,7 +121,6 @@ enum SpeechBench {
     }
 }
 
-/// Hands out audio as fast as a microphone would.
 @MainActor private final class RealTimeRecorder: AudioRecorder {
     private let samples: [Float]
     private var started = ContinuousClock.now

@@ -147,7 +147,6 @@ import Testing
         }
     }
 
-    /// Words of varied length with a longer pause after every seventh word.
     private static func script(seconds: Int) -> [SpokenWord] {
         var words: [SpokenWord] = []
         var at = second / 5
@@ -159,7 +158,6 @@ import Testing
         return words
     }
 
-    /// Loud while a word is spoken and nearly silent between words.
     private static func audio(_ script: [SpokenWord], seconds: Int) -> [Float] {
         var audio = [Float](repeating: 0.001, count: seconds * second)
         for word in script {
@@ -169,8 +167,7 @@ import Testing
         return audio
     }
 
-    /// What a pass over `start..<end` hears: the words inside it, timed from `start`, each running
-    /// on to the next word the way the model times them.
+    /// Each word runs on to the next one, the way the model times them.
     private static func heard(_ script: [SpokenWord], from start: Int, to end: Int) -> [SpokenWord] {
         let inside = script.filter { $0.start >= start && $0.end <= end }
         return zip(inside, inside.dropFirst().map(\.start) + [inside.last?.end ?? end]).map { word, next in

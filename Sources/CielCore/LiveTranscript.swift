@@ -1,11 +1,12 @@
 /// Builds a transcript while someone is still speaking, from repeated passes over the newest audio.
 ///
-/// A word is committed once two passes in a row agree on it and it ends at least `settle` before
-/// the newest audio. The rest stays tentative. When the audio a pass must cover grows past
-/// `window`, the next pass starts in the latest pause among the committed words, so every pass and
-/// the final one stay short however long the speech runs. A pause is found in the audio, not the
-/// word times, because the model hears little or nothing in a pass that starts inside speech. A
-/// pass that hears nothing changes nothing, except that it undoes the cut just before it.
+/// A word commits once two passes in a row agree on it and it ends at least `settle` before the
+/// newest audio. The rest stays tentative. Once a pass covers more than `window`, the next one
+/// starts in the latest pause among the committed words, so every pass and the final one stay
+/// short however long the speech runs. A pause is 300 ms at least 20 dB quieter than the pass.
+/// It comes from the audio, not the word times, because the model hears little or nothing in a
+/// pass that starts inside speech. A pass that hears nothing changes nothing, except that it
+/// undoes the cut just before it.
 public struct LiveTranscript: Sendable, Equatable {
     public private(set) var committed: [SpokenWord] = []
     public private(set) var tentative: [SpokenWord] = []
@@ -64,11 +65,10 @@ public struct LiveTranscript: Sendable, Equatable {
         return fresh
     }
 
-    /// Moves `start` to the middle of the latest pause, a stretch much quieter than the pass, that the committed words cover.
     private mutating func cut(_ audio: [Float]) {
         guard let last = committed.last, last.end > start else { return }
         let energy = audio.reduce(into: [0.0]) { $0.append($0.last! + Double($1 * $1)) }
-        let quiet = energy.last! / Double(audio.count) / 100
+        let quiet = energy.last! / Double(audio.count) * Self.pauseLevel
         let pause = stride(from: last.end - start - Self.pause, through: 0, by: -Self.hop).first {
             (energy[$0 + Self.pause] - energy[$0]) / Double(Self.pause) <= quiet
         }
@@ -80,9 +80,10 @@ public struct LiveTranscript: Sendable, Equatable {
     private static let repeatGap = 4_800
     private static let pause = 4_800
     private static let hop = 160
+    private static let pauseLevel = 0.01
 }
 
-/// A word and where it was spoken, in samples at 16 kHz.
+/// `start` and `end` are sample offsets at 16 kHz.
 public struct SpokenWord: Sendable, Equatable {
     public let text: String
     public let start: Int

@@ -146,7 +146,6 @@ final class PillView: SurfaceView {
         placeBars(animated: false)
     }
 
-    /// Shows the newest words, the settled ones brighter than the guesses after them.
     func text(committed: String, tentative: String) {
         let font = NSFont.systemFont(ofSize: 13)
         let line = NSMutableAttributedString(

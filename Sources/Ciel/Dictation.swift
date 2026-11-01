@@ -208,7 +208,7 @@ enum DictationError: LocalizedError {
     }
 }
 
-/// Converts microphone audio to 16 kHz buffer by buffer, keeping the filter state across buffers.
+/// One converter serves every buffer so its filter state carries across buffer boundaries.
 struct Resampler: Sendable {
     private let converter: OSAllocatedUnfairLock<AVAudioConverter>?
     private let ratio: Double
