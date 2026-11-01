@@ -16,6 +16,7 @@ import os
 
     private enum Phase {
         case idle
+        case pressed(since: ContinuousClock.Instant)
         case holding(since: ContinuousClock.Instant)
         case toggled
         case stopping
@@ -23,7 +24,7 @@ import os
 
         var activity: Activity {
             switch self {
-            case .idle: .idle
+            case .idle, .pressed: .idle
             case .holding, .toggled, .stopping: .listening
             case .transcribing: .transcribing
             }
@@ -67,20 +68,24 @@ import os
             do {
                 let engine = try transcriber()
                 try recorder.start()
-                phase = .holding(since: .now)
+                let since = ContinuousClock.now
+                phase = .pressed(since: since)
                 listen(engine)
+                showHold(since: since)
             } catch {
                 fail(error.localizedDescription)
             }
         case .toggled: phase = .stopping
-        case .holding, .stopping, .transcribing: break
+        case .pressed, .holding, .stopping, .transcribing: break
         }
     }
 
     func release() {
         switch phase {
-        case .holding(let since) where ContinuousClock.now - since < tapLimit: phase = .toggled
-        case .holding, .stopping: finish()
+        case .pressed(let since) where ContinuousClock.now - since < tapLimit,
+            .holding(let since) where ContinuousClock.now - since < tapLimit:
+            phase = .toggled
+        case .pressed, .holding, .stopping: finish()
         case .idle, .toggled, .transcribing: break
         }
     }
@@ -89,7 +94,7 @@ import os
     func cancel() {
         switch phase {
         case .stopping: phase = .toggled
-        case .holding, .toggled:
+        case .pressed, .holding, .toggled:
             _ = recorder.stop()
             live?.cancel()
             phase = .idle
@@ -97,8 +102,17 @@ import os
         }
     }
 
+    /// The key may be the start of a chord such as right Command + C, so a hold shows only once it outlasts the grace.
+    private func showHold(since: ContinuousClock.Instant) {
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.grace)
+            guard let self, case .pressed(since) = self.phase else { return }
+            self.phase = .holding(since: since)
+        }
+    }
+
     /// Transcribes the newest audio while listening, so release only waits for the last few seconds. A slow engine
-    /// rests as long as each pass took, so the release seldom waits behind a pass it cannot stop.
+    /// rests as long as each pass took, so the release seldom waits behind a pass.
     private func listen(_ engine: any Transcriber) {
         transcript = LiveTranscript()
         live = Task { [weak self, interval] in
@@ -144,6 +158,7 @@ import os
     }
 
     private static let shortestPass = 8_000
+    private static let grace = Duration.milliseconds(150)
 }
 
 enum DictationError: LocalizedError {
