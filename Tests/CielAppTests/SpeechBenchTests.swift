@@ -16,7 +16,7 @@ struct SpeechBenchTests {
         let load = try await SpeechBench.time { try await engine.prepare() }
         var lines = ["load \(SpeechBench.ms(load)) ms"]
         var report: [[String: Any]] = []
-        for seconds in [3, 10, 30] {
+        for seconds in [3, 10, 30, 60] {
             let samples = try SpeechBench.read(fixtures.appending(path: "\(seconds).wav"))
             let reference = try String(
                 contentsOf: fixtures.appending(path: "\(seconds).txt"), encoding: .utf8)
