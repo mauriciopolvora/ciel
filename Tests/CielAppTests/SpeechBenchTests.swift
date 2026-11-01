@@ -12,7 +12,7 @@ struct SpeechBenchTests {
     @Test func releaseToPaste() async throws {
         let model = try #require(SpeechBench.model)
         let fixtures = try #require(SpeechBench.fixtures)
-        let engine = TranscribeCppTranscriber(modelURL: model)
+        let engine: any Transcriber = TranscribeCppTranscriber(modelURL: model)
         let load = try await SpeechBench.time { try await engine.prepare() }
         var lines = ["load \(SpeechBench.ms(load)) ms"]
         var report: [[String: Any]] = []

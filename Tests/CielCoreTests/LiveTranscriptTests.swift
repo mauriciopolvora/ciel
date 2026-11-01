@@ -51,10 +51,46 @@ import Testing
         let words = Self.speech("a b c")
         transcript.update(words, heard: Self.quiet(3 * Self.second))
         transcript.update(words, heard: Self.quiet(4 * Self.second))
-        #expect(transcript.committedText == "a b c")
         let drifted = SpokenWord(text: "c", start: words[2].start + 4_000, end: words[2].end + 4_000)
-        let next = Self.speech("d e", from: drifted.end + 1_600)
-        #expect(transcript.finish([drifted] + next) == "a b c d e")
+        transcript.update(
+            Array(words.prefix(2)) + [drifted] + Self.speech("d e", from: drifted.end + 1_600),
+            heard: Self.quiet(5 * Self.second))
+        #expect(transcript.committedText == "a b c")
+        #expect(transcript.tentativeText == "d e")
+    }
+
+    @Test func aWordSaidTwiceInARowIsKeptTwice() {
+        var transcript = LiveTranscript()
+        transcript.update(Self.speech("the words"), heard: Self.quiet(3 * Self.second))
+        transcript.update(Self.speech("the words"), heard: Self.quiet(4 * Self.second))
+        transcript.update(Self.speech("the words the words"), heard: Self.quiet(5 * Self.second))
+        #expect(transcript.committedText == "the words")
+        #expect(transcript.tentativeText == "the words")
+    }
+
+    @Test func aWordHeardLateIsKeptEvenWhenItStartsBeforeTheLastCommittedWordEnds() {
+        var transcript = LiveTranscript()
+        let stretched = [
+            SpokenWord(text: "send", start: 0, end: 6_400),
+            SpokenWord(text: "the", start: 8_000, end: 16_000),
+        ]
+        transcript.update(stretched, heard: Self.quiet(3 * Self.second))
+        transcript.update(stretched, heard: Self.quiet(3 * Self.second))
+        transcript.update(
+            [
+                stretched[0], SpokenWord(text: "the", start: 8_000, end: 12_800),
+                SpokenWord(text: "report", start: 12_800, end: 17_600),
+            ], heard: Self.quiet(4 * Self.second))
+        #expect(transcript.committedText == "send the")
+        #expect(transcript.tentativeText == "report")
+    }
+
+    @Test func theLastPassReplacesTheWordsItHeardAgain() {
+        var transcript = LiveTranscript()
+        transcript.update(Self.speech("turn left"), heard: Self.quiet(2 * Self.second))
+        transcript.update(Self.speech("turn left"), heard: Self.quiet(3 * Self.second))
+        #expect(transcript.committedText == "turn left")
+        #expect(transcript.finish(Self.speech("turn right")) == "turn right")
     }
 
     @Test(arguments: [10, 45, 120])

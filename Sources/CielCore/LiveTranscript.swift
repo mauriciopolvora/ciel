@@ -45,9 +45,14 @@ public struct LiveTranscript: Sendable, Equatable {
         if end - start > window { cut(audio) }
     }
 
-    /// Takes the words of the last pass, over the rest of the audio from `start`, and returns the whole transcript.
+    /// Takes the words of the last pass, over the rest of the audio from `start`, and returns the whole
+    /// transcript, with the last pass in place of every word it heard again.
     public mutating func finish(_ words: [SpokenWord]) -> String {
-        committed += words.isEmpty ? tentative : unseen(words)
+        if words.isEmpty {
+            committed += tentative
+        } else {
+            committed = committed.filter { $0.start < start } + words.map { $0.shifted(by: start) }
+        }
         tentative = []
         return committedText
     }
@@ -55,6 +60,12 @@ public struct LiveTranscript: Sendable, Equatable {
     private func unseen(_ words: [SpokenWord]) -> [SpokenWord] {
         var fresh = words.map { $0.shifted(by: start) }
         guard let last = committed.last else { return fresh }
+        let distance = { (word: SpokenWord) in abs(word.start - last.start) }
+        if let again = fresh.indices.filter({ fresh[$0].key == last.key && distance(fresh[$0]) <= Self.drift }
+        )
+        .min(by: { distance(fresh[$0]) < distance(fresh[$1]) }) {
+            return Array(fresh[(again + 1)...])
+        }
         fresh.removeFirst(fresh.prefix { $0.start + $0.end <= 2 * last.end }.count)
         if let first = fresh.first, first.start < last.end + Self.repeatGap {
             let repeated = (1...min(3, committed.count, fresh.count)).last {
@@ -77,6 +88,7 @@ public struct LiveTranscript: Sendable, Equatable {
         start += pause + Self.pause / 2
     }
 
+    private static let drift = 4_800
     private static let repeatGap = 4_800
     private static let pause = 4_800
     private static let hop = 160
