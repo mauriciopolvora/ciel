@@ -1,18 +1,31 @@
 import CTranscribe
 import CielCore
 import Foundation
+import os
 
 /// The only code that touches transcribe.cpp. An actor, because a session runs one transcription at a time.
 actor TranscribeCppTranscriber: Transcriber {
     private let modelURL: URL
     private var session: OpaquePointer?
     private var release: Cleanup?
+    private let abort = AbortFlag()
 
     init(modelURL: URL) { self.modelURL = modelURL }
 
     func prepare() throws { _ = try loadedSession() }
 
-    func transcribe(_ clip: AudioClip) throws -> Transcript {
+    func transcribe(_ clip: AudioClip) async throws -> Transcript {
+        abort.requested.withLock { $0 = false }
+        // Calling an isolated method keeps the run on the actor, so a queued pass cannot start mid-run and clear the flag.
+        return try await withTaskCancellationHandler {
+            try run(clip)
+        } onCancel: { [abort] in
+            abort.requested.withLock { $0 = true }
+        }
+    }
+
+    private func run(_ clip: AudioClip) throws -> Transcript {
+        try Task.checkCancellation()
         guard !clip.samples.isEmpty else { return Transcript(words: []) }
         let session = try loadedSession()
         let status = clip.samples.withUnsafeBufferPointer {
@@ -48,8 +61,19 @@ actor TranscribeCppTranscriber: Transcriber {
         guard status == TRANSCRIBE_OK, let opened else { throw TranscriptionError(status) }
         session = opened
         release = Cleanup { transcribe_session_free(opened) }
+        transcribe_set_abort_callback(opened, abortRequested, Unmanaged.passUnretained(abort).toOpaque())
         return opened
     }
+}
+
+/// transcribe.cpp polls this from its run thread, so cancelling the calling task stops the run at its next decode step
+/// and the pass queued behind it starts sooner.
+private final class AbortFlag: Sendable {
+    let requested = OSAllocatedUnfairLock(initialState: false)
+}
+
+private func abortRequested(_ flag: UnsafeMutableRawPointer?) -> Bool {
+    Unmanaged<AbortFlag>.fromOpaque(flag!).takeUnretainedValue().requested.withLock { $0 }
 }
 
 struct TranscriptionError: LocalizedError, Equatable {
