@@ -113,15 +113,15 @@ import CielCore
         pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
         pill.layoutSubtreeIfNeeded()
         let speaking = captureLayer(of: pill, "pill-speaking", output: output)
-        let shown = speaking.map { bitmap in
-            stride(from: 160, to: bitmap.pixelsWide, by: 2).contains { x in
-                (0..<bitmap.pixelsHigh).contains {
-                    (bitmap.colorAt(x: x, y: $0)?.brightnessComponent ?? 0) > 0.5
-                }
+        let bright = speaking.map { bitmap in
+            let points = stride(from: 160, to: bitmap.pixelsWide, by: 2).flatMap { x in
+                (0..<bitmap.pixelsHigh).map { (x, $0) }
             }
+            let lit = points.filter { (bitmap.colorAt(x: $0.0, y: $0.1)?.brightnessComponent ?? 0) > 0.5 }
+            return Double(lit.count) / Double(max(points.count, 1))
         }
-        guard shown == true else {
-            print("FAIL dictation pill shows no words")
+        guard let bright, bright > 0, bright < 0.25 else {
+            print("FAIL dictation pill words are missing or on a light box")
             exit(1)
         }
         pill.transcribe()
@@ -158,7 +158,14 @@ import CielCore
         layer.render(in: context.cgContext)
         NSGraphicsContext.current = context
         for subview in view.subviews where !subview.isHidden {
-            guard let image = subview.bitmapImageRepForCachingDisplay(in: subview.bounds) else { continue }
+            guard
+                let image = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(subview.bounds.width * 2),
+                    pixelsHigh: Int(subview.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
+                    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0,
+                    bitsPerPixel: 0)
+            else { continue }
+            image.size = subview.bounds.size
             subview.cacheDisplay(in: subview.bounds, to: image)
             let frame = subview.frame
             image.draw(

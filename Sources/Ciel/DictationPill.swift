@@ -115,7 +115,6 @@ final class PillView: SurfaceView {
             bar.cornerRadius = Self.barWidth / 2
             layer?.addSublayer(bar)
         }
-        words.lineBreakMode = .byTruncatingHead
         addSubview(words)
         placeBars(animated: false)
     }
@@ -141,13 +140,16 @@ final class PillView: SurfaceView {
     }
 
     func text(committed: String, tentative: String) {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingHead
         let font = NSFont.systemFont(ofSize: 13)
         let line = NSMutableAttributedString(
-            string: committed, attributes: [.font: font, .foregroundColor: Theme.text])
+            string: committed,
+            attributes: [.font: font, .foregroundColor: Theme.text, .paragraphStyle: style])
         line.append(
             NSAttributedString(
                 string: committed.isEmpty || tentative.isEmpty ? tentative : " " + tentative,
-                attributes: [.font: font, .foregroundColor: Theme.secondary]))
+                attributes: [.font: font, .foregroundColor: Theme.secondary, .paragraphStyle: style]))
         words.attributedStringValue = line
         needsLayout = true
     }
