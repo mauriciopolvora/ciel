@@ -180,6 +180,108 @@ if (shapes) {
   }
 }
 
+/* Dictation, with the same bar math as PillView in DictationPill.swift */
+
+const talk = document.querySelector("[data-talk]");
+if (talk) initTalk(talk);
+
+function initTalk(stage) {
+  const pill = stage.querySelector("[data-pill]");
+  const bars = [...pill.querySelectorAll(".pill-bars i")];
+  const committed = stage.querySelector("[data-committed]");
+  const tentative = stage.querySelector("[data-tentative]");
+  const line = pill.querySelector(".pill-words");
+  const note = stage.querySelector("[data-note]");
+  const key = stage.querySelector("[data-talk-key]");
+  const weights = [1, 0.85, 0.7, 0.55, 0.4];
+  const lines = [
+    "Move the design review to Thursday at ten.",
+    "Ask Ana for the notes from yesterday's call.",
+    "Pick up coffee and oat milk on the way home.",
+  ].map((line) => line.split(" "));
+  let history = [0, 0, 0, 0, 0];
+
+  const placeBars = () =>
+    bars.forEach((bar, index) => {
+      const distance = Math.abs(index - 4);
+      bar.style.height = `${3 + 13 * history[distance] * weights[distance]}px`;
+    });
+
+  const level = (target) => {
+    const eased = target > history[0] ? target : history[0] * 0.6 + target * 0.4;
+    history = [eased, ...history.slice(0, -1)];
+    placeBars();
+  };
+
+  const fitLine = () => line.classList.toggle("overflow", line.firstElementChild.offsetWidth > line.clientWidth);
+  pill.addEventListener("transitionend", (event) => event.propertyName === "width" && fitLine());
+
+  const showWords = (words, count) => {
+    const settled = words.slice(0, Math.max(0, count - 2)).join(" ");
+    const guess = words.slice(Math.max(0, count - 2), count).join(" ");
+    committed.textContent = settled;
+    tentative.textContent = settled && guess ? " " + guess : guess;
+    pill.classList.toggle("speaking", count > 0);
+    fitLine();
+  };
+
+  if (reduceMotion) {
+    note.textContent = lines[0].join(" ");
+    key.classList.add("down");
+    history = [0.8, 0.55, 0.7, 0.4, 0.5];
+    placeBars();
+    showWords(lines[1], 6);
+    pill.classList.add("on");
+    return;
+  }
+
+  let visible = false;
+  new IntersectionObserver(([entry]) => (visible = entry.isIntersecting)).observe(stage);
+  const wait = async (ms) => {
+    await sleep(ms);
+    while (!visible || document.hidden) await sleep(250);
+  };
+
+  const dictate = async (words) => {
+    key.classList.add("down");
+    await wait(150);
+    history = history.map(() => 0);
+    placeBars();
+    pill.classList.add("on");
+    let shown = 0;
+    for (let tick = 1; ; tick++) {
+      if (tick > 6 && tick % 5 === 0) {
+        if (shown === words.length) break;
+        shown = Math.min(words.length, shown + 2);
+        showWords(words, shown);
+      }
+      level(shown < words.length ? 0.35 + Math.random() * 0.6 : 0.05);
+      await wait(100);
+    }
+    key.classList.remove("down");
+    history = history.map(() => 0);
+    placeBars();
+    pill.classList.add("busy");
+    await wait(450);
+    note.textContent += (note.textContent ? "\n" : "") + words.join(" ");
+    pill.classList.remove("on");
+    await wait(150);
+    pill.classList.remove("busy");
+    showWords(words, 0);
+  };
+
+  (async () => {
+    for (;;) {
+      note.textContent = "";
+      for (const words of lines) {
+        await wait(1400);
+        await dictate(words);
+      }
+      await wait(3000);
+    }
+  })();
+}
+
 /* Search: prefixes, abbreviations, typing errors, accents, and words in any order */
 
 const fold = (text) =>
