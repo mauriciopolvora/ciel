@@ -171,7 +171,9 @@ import CielCore
             image.draw(
                 in: NSRect(
                     x: frame.minX, y: view.isFlipped ? view.bounds.height - frame.maxY : frame.minY,
-                    width: frame.width, height: frame.height))
+                    width: frame.width, height: frame.height), from: .zero, operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: false, hints: nil)
         }
         NSGraphicsContext.current = nil
         if let png = bitmap.representation(using: .png, properties: [:]) {
