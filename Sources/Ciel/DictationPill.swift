@@ -148,12 +148,13 @@ final class PillView: SurfaceView {
 
     func text(committed: String, tentative: String) {
         let font = NSFont.systemFont(ofSize: 13)
+        let color = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
         let line = NSMutableAttributedString(
-            string: committed, attributes: [.font: font, .foregroundColor: Theme.text])
+            string: committed, attributes: [.font: font, color: Theme.cg(Theme.text, in: self)])
         line.append(
             NSAttributedString(
                 string: committed.isEmpty || tentative.isEmpty ? tentative : " " + tentative,
-                attributes: [.font: font, .foregroundColor: Theme.secondary]))
+                attributes: [.font: font, color: Theme.cg(Theme.secondary, in: self)]))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         words.string = line.length == 0 ? nil : line

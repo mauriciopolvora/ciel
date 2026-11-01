@@ -112,7 +112,18 @@ import CielCore
             committed: "Send the quarterly report to Maria and ask her to", tentative: "check the numbers")
         pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
         pill.layoutSubtreeIfNeeded()
-        captureLayer(of: pill, "pill-speaking", output: output)
+        let speaking = captureLayer(of: pill, "pill-speaking", output: output)
+        let shown = speaking.map { bitmap in
+            stride(from: 160, to: bitmap.pixelsWide, by: 2).contains { x in
+                (0..<bitmap.pixelsHigh).contains {
+                    (bitmap.colorAt(x: x, y: $0)?.brightnessComponent ?? 0) > 0.5
+                }
+            }
+        }
+        guard shown == true else {
+            print("FAIL dictation pill shows no words")
+            exit(1)
+        }
         pill.transcribe()
         captureLayer(of: pill, "pill-transcribing", output: output)
         print("PASS dictation pill states")
@@ -131,7 +142,8 @@ import CielCore
     }
 
     /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips.
-    private static func captureLayer(of view: NSView, _ name: String, output: String) {
+    @discardableResult
+    private static func captureLayer(of view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
         guard let layer = view.layer,
             let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
@@ -140,12 +152,13 @@ import CielCore
                 colorSpaceName: .deviceRGB,
                 bytesPerRow: 0, bitsPerPixel: 0),
             let context = NSGraphicsContext(bitmapImageRep: bitmap)
-        else { return }
+        else { return nil }
         context.cgContext.scaleBy(x: 2, y: 2)
         layer.render(in: context.cgContext)
         if let png = bitmap.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
         }
+        return bitmap
     }
 
     private static func capture(_ view: NSView, _ name: String, output: String) {
