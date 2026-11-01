@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ciel · A fast macOS launcher with nothing extra</title>
-  <meta name="description" content="Ciel is a free, open source macOS launcher without the bloat. It opens apps and moves windows, in milliseconds, with no account, store, plugins, or tracking.">
+  <title>Ciel · A fast Mac launcher with on-device dictation</title>
+  <meta name="description" content="Ciel is a free, open source Mac launcher without the bloat. It opens apps, moves windows, and types what you say, with speech to text that runs on your Mac. No account, store, plugins, or tracking.">
   <link rel="canonical" href="https://cielmac.app/">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Ciel">
-  <meta property="og:title" content="Ciel · Apps and windows. Nothing else.">
-  <meta property="og:description" content="A free, open source macOS launcher without the bloat. It opens apps and moves windows, fast, and nothing leaves your Mac.">
+  <meta property="og:title" content="Ciel · Apps, windows, and your voice. Nothing else.">
+  <meta property="og:description" content="A free, open source Mac launcher without the bloat. It opens apps, moves windows, and types what you say, and nothing leaves your Mac.">
   <meta property="og:url" content="https://cielmac.app/">
   <meta property="og:image" content="https://cielmac.app/assets/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -29,6 +29,7 @@
     "@type": "SoftwareApplication",
     "name": "Ciel",
     "operatingSystem": "macOS 14 or later",
+    "processorRequirements": "Apple silicon",
     "applicationCategory": "UtilitiesApplication",
     "softwareVersion": "0.4.2",
     "license": "https://opensource.org/license/mit",
@@ -52,13 +53,14 @@
       </a>
       <ul class="nav-links">
         <li><a href="#features">Features</a></li>
+        <li><a href="#dictation">Dictation</a></li>
         <li><a href="#how">How it works</a></li>
         <li><a href="#faq">FAQ</a></li>
       </ul>
       <a class="nav-icon" href="https://github.com/mauriciopolvora/ciel" aria-label="Source on GitHub">
         <svg aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>
       </a>
-      <a class="btn btn-sm" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>Download</a>
+      <a class="btn btn-sm" href="https://github.com/mauriciopolvora/ciel#build-and-install">Build from source</a>
       <button class="burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
         <span></span><span></span>
       </button>
@@ -68,23 +70,24 @@
   <div class="menu" id="menu" hidden>
     <ul>
       <li><a href="#features">Features</a></li>
+      <li><a href="#dictation">Dictation</a></li>
       <li><a href="#how">How it works</a></li>
       <li><a href="#faq">FAQ</a></li>
       <li><a href="https://github.com/mauriciopolvora/ciel">Source on GitHub</a></li>
-      <li><a href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>Download for macOS</a></li>
+      <li><a href="https://github.com/mauriciopolvora/ciel#build-and-install">Build from source</a></li>
     </ul>
   </div>
 
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
-      <h1 id="hero-title" class="hero-title reveal">Apps and windows.<br> Nothing else.</h1>
-      <p class="hero-sub reveal">Ciel is a macOS launcher without the bloat. No account, store, plugins, or AI. <span class="nowrap">Press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>Space</kbd>,</span> type a few letters, and press Return.</p>
+      <h1 id="hero-title" class="hero-title reveal">Apps, windows, and your voice.<br> Nothing else.</h1>
+      <p class="hero-sub reveal">Ciel opens apps, moves windows, and types what you say. No account, store, plugins, or cloud. <span class="nowrap">Press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>Space</kbd>,</span> type a few letters, and press Return.</p>
       <div class="hero-cta reveal">
-        <a class="btn" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>
-          <svg aria-hidden="true"><use href="assets/icons.svg#apple-logo"/></svg>
-          Download for macOS
+        <a class="btn" href="https://github.com/mauriciopolvora/ciel#build-and-install">
+          <svg aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>
+          Build from source
         </a>
-        <p class="proof">Free and MIT licensed · macOS 14 or later</p>
+        <p class="proof">Free and MIT licensed · Apple silicon · macOS 14 or later</p>
       </div>
 
       <div class="stage reveal" id="demo">
@@ -130,11 +133,11 @@
     </section>
 
     <section class="tagline" aria-label="What Ciel does">
-      <p class="tagline-text" data-words>Launchers kept adding stores, accounts, and AI. Ciel opens apps and moves windows, and does both as fast as it can.</p>
+      <p class="tagline-text" data-words>Launchers kept adding stores, accounts, and cloud AI. Ciel opens apps, moves windows, and types what you say, all on your Mac.</p>
     </section>
 
     <section class="features" id="features" aria-labelledby="features-title">
-      <h2 id="features-title" class="section-title reveal">Two jobs, done fast</h2>
+      <h2 id="features-title" class="section-title reveal">Apps and windows, done fast</h2>
       <div class="grid">
         <article class="card card-wide reveal">
           <div class="card-copy">
@@ -166,7 +169,7 @@
         <article class="card reveal">
           <div class="card-art" aria-hidden="true"><svg><use href="assets/icons.svg#feather"/></svg></div>
           <h3>Nothing you did not ask for</h3>
-          <p>No store, plugins, account, or AI. One process with no idle timer, and the app list refreshes only when apps change.</p>
+          <p>No store, plugins, account, or cloud. One process with no idle timer, and the app list refreshes only when apps change.</p>
         </article>
 
         <article class="card reveal">
@@ -175,6 +178,42 @@
           <p>Drag the launcher and it snaps to guides at each quarter of the screen. Every display keeps its own spot.</p>
         </article>
       </div>
+    </section>
+
+    <section class="dictation" id="dictation" aria-labelledby="dictation-title">
+      <h2 id="dictation-title" class="section-title reveal">Dictation that stays on your Mac</h2>
+      <div class="talk reveal" data-talk role="img" aria-label="Holding Right Command opens a small pill at the bottom of the screen that shows the words as they are spoken. On release, the text pastes into Notes.">
+        <img class="stage-sky" src="assets/cloud-desktop.webp" width="1254" height="784" alt="">
+        <div class="win note" aria-hidden="true">
+          <div class="win-bar">
+            <i></i><i></i><i></i>
+            <span class="win-title"><svg><use href="assets/icons.svg#note-pencil"/></svg><span>Notes</span></span>
+          </div>
+          <div class="note-body" data-note></div>
+        </div>
+        <div class="pill" data-pill aria-hidden="true">
+          <span class="pill-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="pill-words"><span><span data-committed></span><span class="tentative" data-tentative></span></span></span>
+        </div>
+        <kbd class="talk-key" data-talk-key aria-hidden="true">Right ⌘</kbd>
+      </div>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><kbd class="wide">Right ⌘</kbd></div>
+          <h3>Hold one key and talk</h3>
+          <p>Set Right ⌘, Right ⌥, or fn as the dictation shortcut. Hold it while you speak, or tap it to start and tap again to stop.</p>
+        </li>
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><span class="pill pill-still"><span class="pill-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></div>
+          <h3>Let go and it pastes</h3>
+          <p>A small pill shows the words as you say them. Ciel transcribes while you talk, so the text pastes into the front app soon after you stop.</p>
+        </li>
+        <li class="step reveal">
+          <div class="keys" aria-hidden="true"><span class="keys-tile"><svg><use href="assets/icons.svg#lock-key"/></svg></span></div>
+          <h3>Audio never leaves your Mac</h3>
+          <p>The Parakeet Ultra model runs on your Mac with Metal. Audio stays in memory and is never saved or sent.</p>
+        </li>
+      </ol>
     </section>
 
     <section class="how" id="how" aria-labelledby="how-title">
@@ -211,11 +250,15 @@
         </details>
         <details class="reveal">
           <summary>Which Macs does it run on?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>Ciel needs an Apple silicon Mac with macOS 14 Sonoma or later.</p>
+          <p>Ciel needs an Apple silicon Mac with macOS 14 Sonoma or later. The speech engine is built for Apple silicon only, so Ciel does not run on Intel Macs.</p>
         </details>
         <details class="reveal">
           <summary>Why does Ciel ask for Accessibility access?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>Only window commands need it, because macOS requires that permission to move and resize other apps' windows. App search works without it. Choose Allow Access in Ciel Settings, then turn Ciel on in Privacy and Security.</p>
+          <p>macOS requires it to move and resize other apps' windows. Dictation also uses it to paste and to listen for a single key shortcut. Without it, dictated text goes to the clipboard. App search works without it. Choose Allow Access in Ciel Settings, then turn Ciel on in Privacy and Security.</p>
+        </details>
+        <details class="reveal">
+          <summary>Does dictation send my voice anywhere?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>No. Speech to text is off until you turn it on in Settings and choose Download next to Speech model. Ciel downloads the 550 MB Parakeet Ultra model once, checks its size and SHA-256, and runs it on your Mac. Audio stays in memory while you dictate and is never saved or sent. macOS asks for microphone access the first time.</p>
         </details>
         <details class="reveal">
           <summary>Does Ciel collect any data?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
@@ -239,11 +282,11 @@
         </details>
         <details class="reveal">
           <summary>How do I uninstall it?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>Quit Ciel from its menu bar icon and drag it from Applications to the Trash. To remove its saved settings too, run <code>defaults delete app.mauriciopolvora.ciel</code> in Terminal.</p>
+          <p>To delete the speech model, choose Remove next to Speech model in Settings. Then quit Ciel from its menu bar icon and drag it from Applications to the Trash. To remove its saved settings too, run <code>defaults delete app.mauriciopolvora.ciel</code> in Terminal.</p>
         </details>
         <details class="reveal">
-          <summary>Can I build it myself?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
-          <p>Yes. Clone the repository and run <code>bash scripts/build.sh</code> with a Swift 6 toolchain. Apple's Command Line Tools are enough. The <a href="https://github.com/mauriciopolvora/ciel#build-and-install">README</a> covers installing and signing.</p>
+          <summary>Is there a download?<svg aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></summary>
+          <p>Not yet. A signed and notarized download comes once Ciel has an Apple Developer ID. Until then, clone the repository and run <code>bash scripts/build.sh</code> and <code>bash scripts/install.sh</code> with a Swift 6 toolchain. Apple's Command Line Tools are enough. The <a href="https://github.com/mauriciopolvora/ciel#build-and-install">README</a> has the steps.</p>
         </details>
       </div>
     </section>
@@ -252,11 +295,11 @@
       <img class="final-icon reveal" src="assets/icon-256.png" width="128" height="128" alt="Ciel app icon, a painted ivory cloud on a blue sky">
       <h2 id="final-title" class="section-title reveal">Try it on the next app you open</h2>
       <div class="hero-cta reveal">
-        <a class="btn" href="https://github.com/mauriciopolvora/ciel/releases/latest" data-download>
-          <svg aria-hidden="true"><use href="assets/icons.svg#apple-logo"/></svg>
-          Download for macOS
+        <a class="btn" href="https://github.com/mauriciopolvora/ciel#build-and-install">
+          <svg aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>
+          Build from source
         </a>
-        <p class="proof">Free, no account, and gone the moment you drag it to the Trash.</p>
+        <p class="proof">A signed download is coming. Until then, two scripts build and install it.</p>
       </div>
     </section>
   </main>

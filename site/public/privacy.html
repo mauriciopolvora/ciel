@@ -26,9 +26,9 @@
   <main id="main" class="doc">
     <h1 class="section-title">Privacy</h1>
     <h2>The app</h2>
-    <p>Ciel runs entirely on your Mac. It has no account, server, or analytics. Its only network request is the speech model download, which starts only when you choose Download in Settings.</p>
+    <p>Ciel runs entirely on your Mac. It has no account, server, or analytics. Its only network request is the speech model download from Hugging Face, which starts only when you choose Download in Settings.</p>
     <p>Ciel stores your preferences, shortcuts, and launch history in the <code>app.mauriciopolvora.ciel</code> defaults domain. It caches the list of installed apps at <code>~/Library/Caches/app.mauriciopolvora.ciel/apps.json</code>. Nothing in either place is sent anywhere.</p>
-    <p>Speech to text uses the microphone only while you hold the dictation shortcut. The audio stays in memory on your Mac and is never saved or sent anywhere.</p>
+    <p>Speech to text is off until you turn it on. It uses the microphone only while you dictate, from the moment you press the dictation shortcut until you stop. The Parakeet Ultra model turns the audio into text on your Mac. The audio stays in memory and is never saved or sent anywhere. To paste the text, Ciel puts it on the clipboard for a moment, then puts back what was there before. Without window access, the text stays on the clipboard for you to paste.</p>
     <p>Window commands use macOS Accessibility access to move and resize windows you choose. Ciel reads window positions and sizes for that purpose only.</p>
     <h2>This site</h2>
     <p>This site sets no cookies, loads no third party scripts or fonts, and runs no analytics. The hosting provider may keep standard request logs, such as IP addresses, for security and reliability.</p>
