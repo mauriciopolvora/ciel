@@ -154,6 +154,7 @@ import CielCore
             let context = NSGraphicsContext(bitmapImageRep: bitmap)
         else { return nil }
         context.cgContext.scaleBy(x: 2, y: 2)
+        for sublayer in layer.sublayers ?? [] { sublayer.displayIfNeeded() }
         layer.render(in: context.cgContext)
         if let png = bitmap.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
