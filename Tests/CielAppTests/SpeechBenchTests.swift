@@ -82,7 +82,7 @@ enum SpeechBench {
         return (pasted!.0, pasted!.1 - released)
     }
 
-    static func time(_ work: () async throws -> Void) async throws -> Duration {
+    @MainActor static func time(_ work: () async throws -> Void) async throws -> Duration {
         let start = ContinuousClock.now
         try await work()
         return ContinuousClock.now - start

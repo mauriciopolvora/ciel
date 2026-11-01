@@ -111,12 +111,11 @@ import os
     }
 
     private func refresh(_ engine: any Transcriber) async {
-        let start = transcript.start
-        let clip = recorder.recorded(from: start)
+        let clip = recorder.recorded(from: transcript.start)
         guard clip.samples.count >= Self.shortestPass, let words = try? await engine.transcribe(clip).words,
             !Task.isCancelled
         else { return }
-        transcript.update(words, end: start + clip.samples.count)
+        transcript.update(words, heard: clip.samples)
         onText(transcript.committedText, transcript.tentativeText)
     }
 

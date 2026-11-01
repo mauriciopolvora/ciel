@@ -2,13 +2,16 @@
 ///
 /// A word is committed once two passes in a row agree on it and it ends at least `settle` before
 /// the newest audio. The rest stays tentative. When the audio a pass must cover grows past
-/// `window`, the next pass starts at the widest pause among the committed words, so every pass and
-/// the final one stay short however long the speech runs.
+/// `window`, the next pass starts in the latest pause among the committed words, so every pass and
+/// the final one stay short however long the speech runs. A pause is found in the audio, not the
+/// word times, because the model hears little or nothing in a pass that starts inside speech. A
+/// pass that hears nothing changes nothing, except that it undoes the cut just before it.
 public struct LiveTranscript: Sendable, Equatable {
     public private(set) var committed: [SpokenWord] = []
     public private(set) var tentative: [SpokenWord] = []
     /// The first sample the next pass needs.
     public private(set) var start = 0
+    private var uncut: Int?
     private let settle: Int
     private let window: Int
 
@@ -20,8 +23,15 @@ public struct LiveTranscript: Sendable, Equatable {
     public var committedText: String { Transcript(words: committed).text }
     public var tentativeText: String { Transcript(words: tentative).text }
 
-    /// Takes a pass over `start..<end`, whose word times count from `start`.
-    public mutating func update(_ words: [SpokenWord], end: Int) {
+    /// Takes the words a pass heard in `audio`, recorded from `start`.
+    public mutating func update(_ words: [SpokenWord], heard audio: [Float]) {
+        guard !words.isEmpty else {
+            start = uncut ?? start
+            uncut = nil
+            return
+        }
+        uncut = nil
+        let end = start + audio.count
         let fresh = unseen(words)
         let agreed = zip(fresh, tentative).prefix { $0.key == $1.key && $0.end <= end - settle }.count
         committed += fresh.prefix(agreed)
@@ -31,12 +41,12 @@ public struct LiveTranscript: Sendable, Equatable {
             committed += tentative.prefix(settled)
             tentative.removeFirst(settled)
         }
-        if end - start > window { cut(before: tentative.first?.start ?? end) }
+        if end - start > window { cut(audio) }
     }
 
-    /// Takes the last pass over `start` to the end of the audio and returns the whole transcript.
+    /// Takes the words of the last pass, over the rest of the audio from `start`, and returns the whole transcript.
     public mutating func finish(_ words: [SpokenWord]) -> String {
-        committed += unseen(words)
+        committed += words.isEmpty ? tentative : unseen(words)
         tentative = []
         return committedText
     }
@@ -54,15 +64,22 @@ public struct LiveTranscript: Sendable, Equatable {
         return fresh
     }
 
-    private mutating func cut(before limit: Int) {
-        let words = committed.filter { $0.start >= start }
-        let pauses = zip([start] + words.map(\.end), words.map(\.start) + [limit])
-        if let (end, next) = pauses.max(by: { $0.1 - $0.0 < $1.1 - $1.0 }) {
-            start = end + max(next - end, 0) / 2
+    /// Moves `start` to the middle of the latest pause, a stretch much quieter than the pass, that the committed words cover.
+    private mutating func cut(_ audio: [Float]) {
+        guard let last = committed.last, last.end > start else { return }
+        let energy = audio.reduce(into: [0.0]) { $0.append($0.last! + Double($1 * $1)) }
+        let quiet = energy.last! / Double(audio.count) / 100
+        let pause = stride(from: last.end - start - Self.pause, through: 0, by: -Self.hop).first {
+            (energy[$0 + Self.pause] - energy[$0]) / Double(Self.pause) <= quiet
         }
+        guard let pause else { return }
+        uncut = start
+        start += pause + Self.pause / 2
     }
 
     private static let repeatGap = 4_800
+    private static let pause = 4_800
+    private static let hop = 160
 }
 
 /// A word and where it was spoken, in samples at 16 kHz.
