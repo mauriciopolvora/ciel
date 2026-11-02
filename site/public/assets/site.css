@@ -580,6 +580,10 @@ main > section {
   height: 14px;
 }
 
+.win-body[hidden] {
+  display: none;
+}
+
 .win-body {
   display: grid;
   align-content: start;
@@ -845,6 +849,7 @@ main > .tagline {
 
 .tagline-text .w {
   color: rgba(240, 240, 240, 0.28);
+  white-space: nowrap;
   transition: color var(--slow) var(--ease);
 }
 
@@ -1133,7 +1138,7 @@ main > .tagline {
 .pill.speaking {
   justify-content: flex-start;
   width: 360px;
-  padding: 0 var(--s-200) 0 14px;
+  padding: 0 15px 0 13px;
 }
 
 .pill-bars {
@@ -1217,6 +1222,18 @@ main > .tagline {
   border-color: var(--border);
   background: var(--selection);
   translate: 0 1px;
+}
+
+.card-art .pill {
+  position: static;
+  opacity: 1;
+  transform: none;
+}
+
+.card-art .pill.speaking {
+  justify-self: stretch;
+  width: auto;
+  margin: 0 var(--s-200);
 }
 
 .pill-still {
@@ -1474,9 +1491,9 @@ main > .final {
 
   .win {
     left: 6%;
-    top: 46%;
+    top: 34%;
     width: 88%;
-    height: 48%;
+    height: 38%;
   }
 
   .shapes {
@@ -1498,6 +1515,14 @@ main > .final {
     left: 50%;
     bottom: 72px;
     transform: translateX(-50%);
+  }
+
+  .results {
+    max-height: calc(4 * 44px + 3 * 4px + 2 * 8px);
+  }
+
+  .launcher:not(.closed):has(.results:not([hidden])) ~ .talk-key {
+    opacity: 0;
   }
 
   .mini-results li {

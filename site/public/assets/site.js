@@ -182,23 +182,18 @@ if (shapes) {
 
 /* Dictation, with the same bar math as PillView in DictationPill.swift */
 
-const talk = document.querySelector("[data-talk]");
-if (talk) initTalk(talk);
+const DICTATED = [
+  "Move the design review to Thursday at ten.",
+  "Ask Ana for the notes from yesterday's call.",
+  "Pick up coffee and oat milk on the way home.",
+].map((line) => line.split(" "));
 
-function initTalk(stage) {
-  const pill = stage.querySelector("[data-pill]");
+function pillPlayer(pill) {
   const bars = [...pill.querySelectorAll(".pill-bars i")];
-  const committed = stage.querySelector("[data-committed]");
-  const tentative = stage.querySelector("[data-tentative]");
+  const committed = pill.querySelector("[data-committed]");
+  const tentative = pill.querySelector("[data-tentative]");
   const line = pill.querySelector(".pill-words");
-  const note = stage.querySelector("[data-note]");
-  const key = stage.querySelector("[data-talk-key]");
   const weights = [1, 0.85, 0.7, 0.55, 0.4];
-  const lines = [
-    "Move the design review to Thursday at ten.",
-    "Ask Ana for the notes from yesterday's call.",
-    "Pick up coffee and oat milk on the way home.",
-  ].map((line) => line.split(" "));
   let history = [0, 0, 0, 0, 0];
 
   const placeBars = () =>
@@ -225,24 +220,21 @@ function initTalk(stage) {
     fitLine();
   };
 
-  if (reduceMotion) {
-    note.textContent = lines[0].join(" ");
-    key.classList.add("down");
+  const still = (words) => {
     history = [0.8, 0.55, 0.7, 0.4, 0.5];
     placeBars();
-    showWords(lines[1], 6);
+    showWords(words, 6);
     pill.classList.add("on");
-    return;
-  }
-
-  let visible = false;
-  new IntersectionObserver(([entry]) => (visible = entry.isIntersecting)).observe(stage);
-  const wait = async (ms) => {
-    await sleep(ms);
-    while (!visible || document.hidden) await sleep(250);
   };
 
-  const dictate = async (words) => {
+  const reset = () => {
+    pill.classList.remove("on", "busy");
+    history = history.map(() => 0);
+    placeBars();
+    showWords([], 0);
+  };
+
+  const dictate = async (words, { wait, key, paste }) => {
     key.classList.add("down");
     await wait(150);
     history = history.map(() => 0);
@@ -263,19 +255,49 @@ function initTalk(stage) {
     placeBars();
     pill.classList.add("busy");
     await wait(450);
-    note.textContent += (note.textContent ? "\n" : "") + words.join(" ");
+    paste(words.join(" "));
     pill.classList.remove("on");
     await wait(150);
     pill.classList.remove("busy");
     showWords(words, 0);
   };
 
+  return { still, reset, dictate };
+}
+
+const append = (note, text) => (note.textContent += (note.textContent ? "\n" : "") + text);
+
+document.querySelectorAll("[data-pill-still]").forEach((pill) => pillPlayer(pill).still(DICTATED[1]));
+
+const talk = document.querySelector("[data-talk]");
+if (talk) initTalk(talk);
+
+function initTalk(stage) {
+  const voice = pillPlayer(stage.querySelector("[data-pill]"));
+  const note = stage.querySelector("[data-note]");
+  const key = stage.querySelector("[data-talk-key]");
+
+  if (reduceMotion) {
+    note.textContent = DICTATED[0].join(" ");
+    key.classList.add("down");
+    voice.still(DICTATED[1]);
+    return;
+  }
+
+  let visible = false;
+  new IntersectionObserver(([entry]) => (visible = entry.isIntersecting)).observe(stage);
+  const wait = async (ms) => {
+    await sleep(ms);
+    while (!visible || document.hidden) await sleep(250);
+  };
+  const paste = (text) => append(note, text);
+
   (async () => {
     for (;;) {
       note.textContent = "";
-      for (const words of lines) {
+      for (const words of DICTATED) {
         await wait(1400);
-        await dictate(words);
+        await voice.dictate(words, { wait, key, paste });
       }
       await wait(3000);
     }
@@ -342,6 +364,10 @@ function initDemo(stage) {
   const hud = stage.querySelector("[data-hud]");
   const appNames = stage.querySelectorAll("[data-app-name]");
   const appIcon = stage.querySelector("[data-app-icon]");
+  const skeleton = stage.querySelector("[data-skeleton]");
+  const note = stage.querySelector("[data-note]");
+  const key = stage.querySelector("[data-talk-key]");
+  const voice = pillPlayer(stage.querySelector("[data-pill]"));
   const categories = ["All", "Apps", "Windows"];
   const entries = [...APPS, ...WINDOW_COMMANDS];
 
@@ -449,6 +475,8 @@ function initDemo(stage) {
     win.classList.add("pop");
     appNames.forEach((name) => (name.textContent = title));
     appIcon.setAttribute("href", `assets/icons.svg#${icon}`);
+    note.hidden = title !== "Notes";
+    skeleton.hidden = !note.hidden;
   };
 
   const close = (refocus) => {
@@ -479,8 +507,11 @@ function initDemo(stage) {
   };
 
   const takeOver = () => {
+    voice.reset();
+    key.classList.remove("down");
     if (!autoplay) return;
     autoplay = false;
+    launcher.classList.remove("closed");
     input.value = "";
     selected = 0;
     render();
@@ -545,32 +576,53 @@ function initDemo(stage) {
   });
 
   render();
-  if (autoplay) play();
+  if (reduceMotion) {
+    append(note, DICTATED[0].join(" "));
+    key.classList.add("down");
+    voice.still(DICTATED[1]);
+  } else play();
 
   async function play() {
     let visible = false;
     new IntersectionObserver(([entry]) => (visible = entry.isIntersecting)).observe(stage);
+    const stopped = new Error("stopped");
     const wait = async (ms) => {
       await sleep(ms);
       while (autoplay && (!visible || document.hidden)) await sleep(250);
+      if (!autoplay) throw stopped;
     };
-    const script = ["safrai", "left", "vsc", "almost", "calclator", "top right", "music", "center th"];
-    await wait(1600);
-    for (let turn = 0; autoplay; turn = (turn + 1) % script.length) {
-      for (const letter of script[turn]) {
-        if (!autoplay) return;
-        input.value += letter;
-        selected = 0;
-        render();
-        await wait(90 + Math.random() * 70);
+    const paste = (text) => append(note, text);
+    const say = async (words) => {
+      launcher.classList.add("closed");
+      await wait(400);
+      await voice.dictate(words, { wait, key, paste });
+      await wait(600);
+      launcher.classList.remove("closed");
+    };
+    const script = ["say", "left", "safrai", "almost", "notes", "say", "top right", "vsc", "center th", "calclator", "notes"];
+    try {
+      await wait(1200);
+      for (let turn = 0, said = 0; ; turn = (turn + 1) % script.length) {
+        if (turn === 0) note.textContent = "";
+        if (script[turn] === "say") {
+          await say(DICTATED[said++ % DICTATED.length]);
+          await wait(1400);
+          continue;
+        }
+        for (const letter of script[turn]) {
+          input.value += letter;
+          selected = 0;
+          render();
+          await wait(90 + Math.random() * 70);
+        }
+        await wait(1100);
+        list.children[selected]?.classList.add("pressed");
+        await wait(140);
+        run(selected, false);
+        await wait(2200);
       }
-      await wait(1100);
-      if (!autoplay) return;
-      list.children[selected]?.classList.add("pressed");
-      await wait(140);
-      if (!autoplay) return;
-      run(selected, false);
-      await wait(2200);
+    } catch (error) {
+      if (error !== stopped) throw error;
     }
   }
 }
