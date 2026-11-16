@@ -147,6 +147,38 @@ struct DictationTests {
         #expect(failures == [DictationError.notReady.localizedDescription])
     }
 
+    @Test(arguments: [
+        (false, ModelState.ready, "Turn on Speech to text in Settings."),
+        (false, .downloading(fraction: 0.37), "Turn on Speech to text in Settings."),
+        (true, .notDownloaded, "Download the speech model in Settings."),
+        (true, .failed("Download corrupted"), "Download the speech model in Settings."),
+        (true, .downloading(fraction: 0.37), "The speech model is still downloading (37%)."),
+    ])
+    func aPressBeforeTheModelIsReadySaysWhy(speechEnabled: Bool, model: ModelState, message: String) {
+        let blocked = DictationError.blocking(speechEnabled: speechEnabled, model: model)
+        #expect(blocked?.localizedDescription == message)
+    }
+
+    @Test func aPressWorksAsSoonAsTheDownloadEnds() {
+        let recorder = FakeRecorder()
+        var model = ModelState.downloading(fraction: 0.37)
+        var failures: [String] = []
+        let dictation = Dictation(
+            recorder: recorder,
+            transcriber: {
+                if let blocked = DictationError.blocking(speechEnabled: true, model: model) { throw blocked }
+                return FakeTranscriber(text: "")
+            }, deliver: { _ in }, fail: { failures.append($0) })
+        dictation.press()
+        #expect(failures == ["The speech model is still downloading (37%)."])
+        #expect(!recorder.isRecording)
+        model = model.applying(.verified)
+        #expect(DictationError.blocking(speechEnabled: true, model: model) == nil)
+        dictation.press()
+        #expect(recorder.isRecording)
+        #expect(failures.count == 1)
+    }
+
     @Test func aRepeatedPressWhileListeningIsIgnored() {
         let recorder = FakeRecorder()
         let dictation = Dictation(

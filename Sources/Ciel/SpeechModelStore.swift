@@ -1,6 +1,9 @@
 import CielCore
 import CryptoKit
 import Foundation
+import os
+
+private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "Speech")
 
 /// Owns the speech model file. Download is the only network request in the app.
 @MainActor final class SpeechModelStore {
@@ -34,14 +37,16 @@ import Foundation
     var partialURL: URL { ModelDownload.partialURL(for: fileURL) }
 
     func download() {
-        let started = state.applying(.start)
-        guard started != state else { return }
-        state = started
+        guard state.applying(.start) != state else { return }
+        apply(.start)
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiated, reason: "Downloading the speech model")
         let (chunks, continuation) = AsyncThrowingStream.makeStream(of: ModelDownload.Chunk.self)
         let session = URLSession(
             configuration: configuration, delegate: ModelDownload.Delegate(continuation), delegateQueue: nil)
         let previous = work
         work = Task { [model, fileURL] in
+            defer { ProcessInfo.processInfo.endActivity(activity) }
             await previous?.value
             do {
                 try await ModelDownload.fetch(model, to: fileURL, session: session, chunks: chunks) {
@@ -59,12 +64,12 @@ import Foundation
     func cancel() {
         guard case .downloading = state else { return }
         work?.cancel()
-        state = state.applying(.cancelled)
+        apply(.cancelled)
     }
 
     func remove() {
         work?.cancel()
-        state = state.applying(.removed)
+        apply(.removed)
         let previous = work
         work = Task { [fileURL, partialURL] in
             await previous?.value
@@ -84,7 +89,23 @@ import Foundation
     /// Lets the smoke check render every state without a network or a model file.
     func showForCheck(_ state: ModelState) { self.state = state }
 
-    private func apply(_ event: ModelState.Event) { state = state.applying(event) }
+    private func apply(_ event: ModelState.Event) {
+        let previous = state
+        state = state.applying(event)
+        guard state != previous else { return }
+        switch event {
+        case .start: logger.log("Speech model download started")
+        case .progress(let fraction):
+            guard case .downloading(let before) = previous, Int(before * 10) != Int(fraction * 10) else {
+                return
+            }
+            logger.log("Speech model downloading \(Int(fraction * 100), privacy: .public)%")
+        case .verified: logger.log("Speech model ready")
+        case .failed(let message): logger.error("Speech model download failed: \(message, privacy: .public)")
+        case .cancelled: logger.log("Speech model download cancelled")
+        case .removed: logger.log("Speech model removed")
+        }
+    }
 }
 
 enum ModelDownload {

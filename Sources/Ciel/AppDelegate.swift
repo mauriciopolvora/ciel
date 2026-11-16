@@ -61,6 +61,16 @@ import CielCore
         ].map { name in
             NSWorkspace.shared.notificationCenter.observe(name) { [weak self] in self?.catalog.refresh() }
         }
+        let activation = [
+            NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
+        ]
+        observers += activation.map { name in
+            NotificationCenter.default.observe(name) { [weak self] in self?.hotKeys.retryUnregistered() }
+        }
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(accessibilityChanged),
+            name: Notification.Name("com.apple.accessibility.api"),
+            object: nil, suspensionBehavior: .deliverImmediately)
         guard pendingCheck == nil else { return }
         let accessLost = Preferences().windowAccessLost(trusted: WindowController.isTrusted)
         if !hotKeys.isLive(.launcher) {
@@ -135,8 +145,11 @@ import CielCore
     }
 
     private func speechTranscriber() throws -> TranscribeCppTranscriber {
-        guard Preferences().speechEnabled else { throw DictationError.off }
-        guard speech.state == .ready else { throw DictationError.notReady }
+        if let blocked = DictationError.blocking(
+            speechEnabled: Preferences().speechEnabled, model: speech.state)
+        {
+            throw blocked
+        }
         if let transcriber { return transcriber }
         let loaded = TranscribeCppTranscriber(modelURL: speech.fileURL)
         transcriber = loaded
@@ -153,7 +166,16 @@ import CielCore
         } else {
             transcriber = nil
         }
+        hotKeys.retryUnregistered()
         settings?.refresh()
+    }
+
+    /// `AXIsProcessTrusted` turns true a moment after this notification.
+    @objc private func accessibilityChanged() {
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            hotKeys.retryUnregistered()
+        }
     }
 
     private func catalogUpdated(_ update: CatalogUpdate) {

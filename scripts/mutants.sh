@@ -30,6 +30,8 @@ mutants=(
     "M24|Save a launcher shortcut that Spotlight still holds"
     "M25|Read a Spotlight shortcut missing from the saved list as off"
     "M26|Save a launcher shortcut from Settings that Spotlight still holds"
+    "M27|Report a downloading speech model as not downloaded"
+    "M28|Drop the default dictation key while it waits for access"
 )
 
 mutate() {
@@ -95,6 +97,14 @@ mutate() {
         M26)
             swap Sources/Ciel/SettingsController.swift \
                 's/\n\s+launcher\.onRecord = \{ \[weak self\] shortcut in self\?\.spotlightGuide\.choose\(shortcut\) \}//'
+            ;;
+        M27)
+            swap Sources/Ciel/Dictation.swift \
+                's/case \.downloading\(let fraction\): return \.downloading\(percent: Int\(fraction \* 100\)\)/case .downloading: return .notReady/'
+            ;;
+        M28)
+            swap Sources/Ciel/HotKeys.swift \
+                's/do \{ try register\(command, shortcut\) \} catch HotKeyError\.needsAccess \{\}/try register(command, shortcut)/'
             ;;
     esac
 }

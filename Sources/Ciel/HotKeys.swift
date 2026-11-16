@@ -1,6 +1,9 @@
 import AppKit
 import Carbon
 import CielCore
+import os
+
+private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "HotKeys")
 
 struct Shortcut: Codable, Equatable, Sendable {
     let keyCode: UInt32
@@ -126,8 +129,17 @@ enum HotKeyEvent: Sendable {
     func retryUnregistered() {
         for command in HotKeyCommand.allCases where registrations[command] == nil {
             guard let shortcut = shortcuts[command.storageKey] else { continue }
+            logger.log("Retrying \(command.storageKey, privacy: .public)")
             try? register(command, shortcut)
         }
+    }
+
+    func assignIfUnset(_ command: HotKeyCommand, to shortcut: Shortcut) throws {
+        guard shortcuts[command.storageKey] == nil, !shortcuts.values.contains(shortcut) else { return }
+        do { try register(command, shortcut) } catch HotKeyError.needsAccess {}
+        shortcuts[command.storageKey] = shortcut
+        try save()
+        onChange()
     }
 
     func update(_ command: HotKeyCommand, to shortcut: Shortcut?) throws {
@@ -142,18 +154,32 @@ enum HotKeyEvent: Sendable {
             registrations[command] = nil
         }
         shortcuts[command.storageKey] = shortcut
-        defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
+        try save()
         onCancel(command)
         onChange()
     }
 
+    private func save() throws {
+        defaults.set(try JSONEncoder().encode(shortcuts), forKey: "shortcuts")
+    }
+
     private func register(_ command: HotKeyCommand, _ shortcut: Shortcut) throws {
-        registrations[command] = try registrar.register(shortcut) { [weak self] event in
-            self?.handle(command, event)
+        do {
+            registrations[command] = try registrar.register(shortcut) { [weak self] event in
+                self?.handle(command, event)
+            }
+            logger.log(
+                "Registered \(command.storageKey, privacy: .public) as \(shortcut.display, privacy: .public)")
+        } catch {
+            logger.error(
+                "Could not register \(command.storageKey, privacy: .public) as \(shortcut.display, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
         }
     }
 
     private func handle(_ command: HotKeyCommand, _ event: HotKeyEvent) {
+        logger.log("\(command.storageKey, privacy: .public) \(String(describing: event), privacy: .public)")
         switch event {
         case .released: onRelease(command)
         case .cancelled: onCancel(command)
