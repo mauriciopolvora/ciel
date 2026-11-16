@@ -30,8 +30,8 @@ extension SettingsController {
     /// B: the launcher shortcut as large key caps on top, then a flat list with no boxes.
     func buildKeycaps() -> CGFloat {
         tracked("Launcher shortcut", at: 24)
-        place(launcherRecorder(style: KeycapRecorder.self), x: 36, top: 46)
-        place(spotlightGuide.caption(), x: 36, top: 96)
+        place(launcherRecorder(style: KeycapRecorder.self), x: 36, top: 48)
+        place(spotlightGuide.caption(), x: 36, top: 98)
         content.addSubview(Divider(frame: NSRect(x: 36, y: 128, width: 408, height: 1)))
         var y = flatSection(
             "General", at: 145,
@@ -82,8 +82,7 @@ extension SettingsController {
         _ title: String, at y: CGFloat, rows: [(String, [NSView])], caption: (row: Int, view: NSView)? = nil
     ) -> CGFloat {
         let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
-        header.frame = NSRect(x: 36, y: y, width: 408, height: 17)
-        content.addSubview(header)
+        place(header, x: 36, top: y)
         return self.rows(rows, at: y + 23, caption: caption).frame.maxY + 20
     }
 
@@ -95,8 +94,7 @@ extension SettingsController {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: Theme.secondary,
                 .kern: 0.8,
             ])
-        header.frame = NSRect(x: 36, y: y, width: 408, height: 14)
-        content.addSubview(header)
+        place(header, x: 36, top: y)
     }
 
     private func flatSection(_ title: String, at y: CGFloat, rows: [(String, [NSView])]) -> CGFloat {
@@ -109,14 +107,16 @@ extension SettingsController {
         return y + 22 + CGFloat(rows.count) * 36 + 14
     }
 
-    private func column(_ name: String, _ controls: [NSView], at y: inout CGFloat, height: CGFloat = 30) {
+    private func column(_ name: String, _ controls: [NSView], at y: inout CGFloat, height: CGFloat = 36) {
         let center = y + height / 2
         if !name.isEmpty {
             let label = Theme.label(name, size: 13, color: Theme.secondary)
             label.alignment = .right
             place(label, right: 172, centerY: center)
         }
-        place(stack(controls), x: 188, centerY: center)
+        let line = stack(controls)
+        line.alignment = .firstBaseline
+        place(line, x: 188, centerY: center)
         y += height
     }
 

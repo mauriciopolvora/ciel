@@ -98,6 +98,7 @@ final class TextButton: NSButton {
                 attributes: [.font: NSFont.systemFont(ofSize: size), .foregroundColor: color])
         }
     }
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2) }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
@@ -126,6 +127,7 @@ final class KeycapRecorder: ShortcutRecorder {
         let widths = widths()
         return NSSize(width: widths.reduce(0, +) + Self.gap * CGFloat(widths.count - 1), height: Self.height)
     }
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsets() }
     override var focusRingMaskBounds: NSRect { bounds }
     override func drawFocusRingMask() {
         NSBezierPath(roundedRect: bounds, xRadius: Theme.rowRadius, yRadius: Theme.rowRadius).fill()

@@ -18,6 +18,9 @@ import AppKit
             setViews([status, link], in: .leading)
         }
         required init?(coder: NSCoder) { fatalError() }
+        override var firstBaselineOffsetFromTop: CGFloat {
+            (arrangedSubviews.first { !$0.isHidden } ?? status).firstBaselineOffsetFromTop
+        }
     }
 
     var held: Shortcut?
