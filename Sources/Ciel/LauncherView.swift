@@ -24,33 +24,35 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     private let emptyDetail = Theme.label(
         "Try another name, or switch to All.", size: 12, color: Theme.secondary)
     private let divider = FlippedView()
-    private let tint = LauncherDragSurface()
+    private let surface = LauncherDragSurface()
     private var displayObserver: Cleanup?
+    private var designObserver: Cleanup?
     private var showKeys = false
     private var applyingSelection = false
+    private(set) var style: LauncherStyle
+
+    static var systemIsDark: Bool {
+        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+    }
 
     override init(frame frameRect: NSRect) {
+        style = LauncherStyle.make(DesignPreview().launcher, systemDark: Self.systemIsDark)
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.cornerRadius = Theme.panelRadius
         layer?.masksToBounds = true
         layer?.borderWidth = 1
-        appearance = NSAppearance(named: .darkAqua)
-        tint.wantsLayer = true
-        addSubview(tint)
+        surface.wantsLayer = true
+        addSubview(surface)
         divider.wantsLayer = true
         addSubview(divider)
-        searchField.font = .systemFont(ofSize: 21)
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.focusRingType = .none
-        searchField.textColor = Theme.text
         searchField.delegate = self
         searchField.placeholderString = nil
         searchField.setAccessibilityLabel("Search apps and commands")
         addSubview(searchField)
         scopeButton.bezelStyle = .inline
-        scopeButton.font = .systemFont(ofSize: 12, weight: .medium)
         scopeButton.target = self
         scopeButton.action = #selector(nextScope)
         scopeButton.toolTip = "Change category (Tab / Shift–Tab)"
@@ -61,7 +63,6 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         table.addTableColumn(column)
         table.headerView = nil
         table.backgroundColor = .clear
-        table.rowHeight = Theme.rowHeight
         table.intercellSpacing = .zero
         table.selectionHighlightStyle = .regular
         table.style = .plain
@@ -79,26 +80,73 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         scroll.autohidesScrollers = true
         scroll.automaticallyAdjustsContentInsets = false
         addSubview(scroll)
-        emptyTitle.alignment = .center
         addSubview(emptyTitle)
-        emptyDetail.alignment = .center
         addSubview(emptyDetail)
-        updateSurface()
+        restyle()
         displayObserver = NSWorkspace.shared.notificationCenter.observe(
             NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
         ) { [weak self] in
-            self?.updateSurface()
+            self?.refreshDesign(force: true)
+        }
+        designObserver = NotificationCenter.default.observe(.designPreviewChanged) { [weak self] in
+            self?.refreshDesign()
         }
         render(.initial)
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Applies the Design preview choice. Graphite follows the system appearance, which this reads on every open
+    /// because a nonactivating panel may not receive the theme change notification while the app is inactive.
+    func refreshDesign(force: Bool = false) {
+        let next = LauncherStyle.make(DesignPreview().launcher, systemDark: Self.systemIsDark)
+        guard force || next.design != style.design || next.dark != style.dark else { return }
+        style = next
+        restyle()
+    }
+    func applyDesign(_ design: LauncherDesign, systemDark: Bool) {
+        style = LauncherStyle.make(design, systemDark: systemDark)
+        restyle()
+    }
+    private func restyle() {
+        let palette = style.palette
+        appearance = NSAppearance(named: style.dark ? .darkAqua : .aqua)
+        layer?.cornerRadius = style.panelRadius
+        surface.cornerRadius = style.panelRadius
+        surface.palette = palette
+        searchField.font = style.queryFont
+        searchField.textColor = palette.ink
+        scopeButton.font = style.scopeFont
+        scopeButton.contentTintColor = style.scopeTint
+        for (label, font, color) in [
+            (emptyTitle, style.noMatchFont, palette.ink),
+            (emptyDetail, style.noMatchDetailFont, palette.muted),
+        ] {
+            label.font = font
+            label.textColor = color
+            label.alignment = style.noMatchAlignment
+        }
+        divider.isHidden = style.dividerInset == nil || !state.hasQuery
+        table.rowHeight = style.rowHeight
+        tintEditor()
+        updateSurface()
+        applyingSelection = true
+        defer { applyingSelection = false }
+        table.reloadData()
+        if let index = state.selectedIndex {
+            table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+            table.scrollRowToVisible(index)
+        }
+        resize()
+        updateHints()
+    }
+    private func tintEditor() {
+        (searchField.currentEditor() as? MonochromeFieldEditor)?.tint(
+            ink: style.palette.ink, highlight: style.palette.textHighlight)
+    }
     private func updateSurface() {
-        tint.layer?.backgroundColor = Theme.cg(Theme.surface, in: self)
-        layer?.borderColor = Theme.cg(
-            Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.55), in: self)
-        divider.layer?.backgroundColor = Theme.cg(
-            Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.22), in: self)
+        layer?.borderColor = Theme.cg(style.palette.ring, in: self)
+        divider.layer?.backgroundColor = Theme.cg(style.palette.divider, in: self)
+        surface.needsDisplay = true
         table.needsDisplay = true
     }
     override func viewDidChangeEffectiveAppearance() {
@@ -107,22 +155,34 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     }
     override func layout() {
         super.layout()
-        tint.frame = bounds
+        let width = bounds.width
+        let header = Self.initialHeight
+        surface.frame = bounds
+        let queryHeight = style.queryHeight
         searchField.frame = NSRect(
-            x: 24, y: 18, width: bounds.width - (scopeButton.isHidden ? 48 : 140), height: 31)
-        scopeButton.frame = NSRect(x: bounds.width - 108, y: 21, width: 88, height: 26)
-        divider.frame = NSRect(x: 20, y: 62, width: bounds.width - 40, height: 1)
-        scroll.frame = NSRect(x: 8, y: 68, width: bounds.width - 16, height: max(0, bounds.height - 76))
+            x: style.queryX, y: ((header - queryHeight) / 2).rounded(.down),
+            width: width - style.queryX - (scopeButton.isHidden ? 24 : 116), height: queryHeight)
+        scopeButton.frame = NSRect(x: width - 108, y: 21, width: 88, height: 26)
+        let inset = style.dividerInset ?? 0
+        divider.frame = NSRect(x: inset, y: header - 1, width: width - inset * 2, height: 1)
+        let top = header + style.topGap
+        scroll.frame = NSRect(
+            x: style.rowInset, y: top, width: width - style.rowInset * 2,
+            height: max(0, bounds.height - top - style.bottomPad))
         table.tableColumns.first?.width = scroll.contentSize.width
-        emptyTitle.frame = NSRect(x: 24, y: 83, width: bounds.width - 48, height: 20)
-        emptyDetail.frame = NSRect(x: 24, y: 108, width: bounds.width - 48, height: 18)
+        let textX = style.noMatchAlignment == .left ? style.rowInset + 11 + style.iconSize + 10 : 24
+        let textWidth = width - textX - 24
+        emptyTitle.frame = NSRect(x: textX, y: top + 15, width: textWidth, height: 20)
+        emptyDetail.frame = NSRect(x: textX, y: top + 40, width: textWidth, height: 18)
     }
     func reset() {
+        refreshDesign()
         searchField.stringValue = ""
         showKeys = false
         render(state.reset())
         updateHints()
         window?.makeFirstResponder(searchField)
+        tintEditor()
     }
     func update(entries: [SearchEntry], usage: [String: Int], lastUsed: [String: Double]) {
         render(state.update(entries: entries, usage: usage, lastUsed: lastUsed))
@@ -156,9 +216,13 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     func execute(at index: Int) { if let entry = state.entry(at: index) { onExecute?(entry) } }
     func controlTextDidBeginEditing(_ obj: Notification) {
         if let editor = searchField.currentEditor() as? NSTextView {
+            let palette = style.palette
             editor.allowsUndo = true
-            editor.insertionPointColor = Theme.text
-            editor.selectedTextAttributes = [.backgroundColor: Theme.selection, .foregroundColor: Theme.text]
+            tintEditor()
+            editor.insertionPointColor = palette.ink
+            editor.selectedTextAttributes = [
+                .backgroundColor: palette.textHighlight, .foregroundColor: palette.ink,
+            ]
         }
     }
     func controlTextDidChange(_ obj: Notification) { updateResults() }
@@ -199,7 +263,6 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         if change.filterChanged {
             let name = filter == .application ? "Apps" : filter == .window ? "Windows" : "All"
             scopeButton.title = name + "  ⇥"
-            scopeButton.contentTintColor = Theme.accent
             scopeButton.setAccessibilityLabel("Search category: " + name)
             emptyDetail.stringValue =
                 filter == nil
@@ -207,7 +270,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         }
         if change.hasQueryChanged {
             scopeButton.isHidden = !state.hasQuery
-            divider.isHidden = !state.hasQuery
+            divider.isHidden = style.dividerInset == nil || !state.hasQuery
         }
         if change.queryChanged {
             window?.invalidateCursorRects(for: searchField)
@@ -223,20 +286,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             resultReloadCount += 1
             table.reloadData()
         }
-        if change.resultsChanged || change.hasQueryChanged {
-            let height: CGFloat =
-                !state.hasQuery
-                ? Self.initialHeight
-                : results.isEmpty
-                    ? 140
-                    : 76 + CGFloat(min(results.count, 7)) * Theme.rowHeight + (results.count > 7 ? 20 : 0)
-            emptyTitle.isHidden = !state.hasQuery || !results.isEmpty
-            emptyDetail.isHidden = !state.hasQuery || !results.isEmpty
-            scroll.isHidden = results.isEmpty
-            onHeightChange?(height)
-            needsLayout = true
-            layoutSubtreeIfNeeded()
-        }
+        if change.resultsChanged || change.hasQueryChanged { resize() }
         if change.resultsChanged || change.selectionChanged {
             if let index = state.selectedIndex {
                 if table.selectedRow != index {
@@ -248,6 +298,14 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             }
         }
         if change.resultsChanged || change.selectionChanged { updateHints() }
+    }
+    private func resize() {
+        emptyTitle.isHidden = !state.hasQuery || !results.isEmpty
+        emptyDetail.isHidden = !state.hasQuery || !results.isEmpty
+        scroll.isHidden = results.isEmpty
+        onHeightChange?(style.height(results: results.count, hasQuery: state.hasQuery))
+        needsLayout = true
+        layoutSubtreeIfNeeded()
     }
     func invalidateIcons(paths: Set<String>) {
         icons.invalidate(paths: paths)
@@ -266,11 +324,14 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         let id = NSUserInterfaceItemIdentifier("cell")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ResultCell) ?? ResultCell()
         cell.identifier = id
+        cell.style = style
         cell.configure(
             results[row], index: row, icons: icons, selected: row == table.selectedRow, showKeys: showKeys)
         return cell
     }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ResultRow() }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        ResultRow(style: style)
+    }
     func tableViewSelectionDidChange(_ notification: Notification) {
         guard !applyingSelection else { return }
         state.select(index: table.selectedRow)
@@ -285,7 +346,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     private func updateHints() {
         for index in visibleRows() {
             (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ResultCell)?
-                .hint(index: index, selected: index == table.selectedRow, showKeys: showKeys)
+                .mark(index: index, selected: index == table.selectedRow, showKeys: showKeys)
         }
     }
 }

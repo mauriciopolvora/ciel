@@ -107,3 +107,67 @@ class SurfaceView: FlippedView {
 final class Divider: SurfaceView {
     override func refreshSurface() { layer?.backgroundColor = Theme.cg(Theme.hairline, in: self) }
 }
+
+/// The grays of one launcher design. Only Graphite has a light palette, since it is the design that follows the
+/// system appearance. Light hint grays stay at 0.42 or darker to keep 4.5:1 on the light surface.
+@MainActor struct LauncherPalette {
+    var surfaceTop: NSColor
+    var surfaceBottom: NSColor
+    var highlight: NSColor?
+    var ring: NSColor
+    var divider: NSColor
+    var title: NSColor
+    var selectedTitle: NSColor
+    var muted: NSColor
+    var selectedMuted: NSColor
+    var selectionFill: NSColor
+    var selectionRing: NSColor?
+    var selectionShadow: NSColor?
+    var bar: NSColor?
+    var hover: NSColor
+    var ink = Theme.text
+    var textHighlight = Theme.selection
+
+    static let inverse = LauncherPalette(
+        surfaceTop: Theme.surface, surfaceBottom: Theme.surface, ring: Theme.border.withAlphaComponent(0.55),
+        divider: Theme.border.withAlphaComponent(0.22), title: Theme.text,
+        selectedTitle: NSColor(white: 0.07, alpha: 1), muted: Theme.secondary,
+        selectedMuted: NSColor(white: 0.36, alpha: 1), selectionFill: Theme.accent,
+        hover: Theme.selection.withAlphaComponent(0.7))
+
+    static let graphiteDark = LauncherPalette(
+        surfaceTop: NSColor(white: 0.115, alpha: 1), surfaceBottom: NSColor(white: 0.078, alpha: 1),
+        highlight: NSColor(white: 1, alpha: 0.07), ring: NSColor(white: 1, alpha: 0.14),
+        divider: NSColor(white: 1, alpha: 0.07), title: NSColor(white: 0.86, alpha: 1),
+        selectedTitle: NSColor(white: 0.97, alpha: 1), muted: NSColor(white: 0.60, alpha: 1),
+        selectedMuted: NSColor(white: 0.70, alpha: 1), selectionFill: NSColor(white: 0.195, alpha: 1),
+        selectionRing: NSColor(white: 1, alpha: 0.09), selectionShadow: NSColor(white: 0, alpha: 0.45),
+        hover: NSColor(white: 0.15, alpha: 1), ink: NSColor(white: 0.97, alpha: 1),
+        textHighlight: NSColor(white: 0.30, alpha: 1))
+
+    static let graphiteLight = LauncherPalette(
+        surfaceTop: NSColor(white: 0.99, alpha: 1), surfaceBottom: NSColor(white: 0.95, alpha: 1),
+        ring: NSColor(white: 0, alpha: 0.13), divider: NSColor(white: 0, alpha: 0.08),
+        title: NSColor(white: 0.16, alpha: 1), selectedTitle: NSColor(white: 0.08, alpha: 1),
+        muted: NSColor(white: 0.42, alpha: 1), selectedMuted: NSColor(white: 0.38, alpha: 1),
+        selectionFill: NSColor(white: 1, alpha: 1), selectionRing: NSColor(white: 0, alpha: 0.08),
+        selectionShadow: NSColor(white: 0, alpha: 0.14), hover: NSColor(white: 0.915, alpha: 1),
+        ink: NSColor(white: 0.10, alpha: 1), textHighlight: NSColor(white: 0.80, alpha: 1))
+
+    static let console = LauncherPalette(
+        surfaceTop: NSColor(white: 0.012, alpha: 1), surfaceBottom: NSColor(white: 0.012, alpha: 1),
+        ring: Theme.border.withAlphaComponent(0.4), divider: Theme.border.withAlphaComponent(0.3),
+        title: Theme.secondary, selectedTitle: Theme.text, muted: NSColor(white: 0.50, alpha: 1),
+        selectedMuted: Theme.secondary, selectionFill: NSColor(white: 0.10, alpha: 1), bar: Theme.accent,
+        hover: NSColor(white: 0.055, alpha: 1))
+
+    /// Opaque edges for Increase Contrast.
+    func contrasted(dark: Bool) -> LauncherPalette {
+        var palette = self
+        let edge = dark ? Theme.border : NSColor(white: 0.45, alpha: 1)
+        palette.ring = edge
+        palette.divider = edge
+        palette.selectionRing = edge
+        return palette
+    }
+}

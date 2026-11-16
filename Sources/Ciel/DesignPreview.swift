@@ -23,9 +23,9 @@ enum LauncherDesign: String, CaseIterable, Sendable {
 
     var summary: String {
         switch self {
-        case .a: "Launcher A"
-        case .b: "Launcher B"
-        case .c: "Launcher C"
+        case .a: "Black, large type, white selection"
+        case .b: "Graphite depth, follows light and dark"
+        case .c: "Dense monospaced rows, selection bar"
         }
     }
 }
