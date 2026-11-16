@@ -75,13 +75,16 @@ import CielCore
             hud.show(HotKeyError.needsAccess.localizedDescription, error: true)
         }
         guard !NSAppleEventManager.shared().launchedAsLoginItem else { return }
-        if Preferences().onboarded { present() } else { showOnboarding() }
+        open()
     }
 
-    private func showOnboarding() {
+    private func open() {
+        guard !Preferences().onboarded else { return present() }
+        if let onboarding { return onboarding.present() }
         let onboarding = OnboardingController(hotKeys: hotKeys)
         onboarding.onFinish = { [weak self] in
             Preferences().onboarded = true
+            self?.onboarding = nil
             self?.present()
         }
         self.onboarding = onboarding
@@ -89,7 +92,7 @@ import CielCore
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        present()
+        open()
         return false
     }
 
@@ -172,7 +175,7 @@ import CielCore
         panel.launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
     }
 
-    @objc private func menuOpen() { present() }
+    @objc private func menuOpen() { open() }
 
     private func present() {
         guard !panel.isDragging else { return }
