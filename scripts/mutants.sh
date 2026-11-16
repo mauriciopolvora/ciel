@@ -29,6 +29,8 @@ mutants=(
     "M23|Accept a speech model download without checking its SHA-256"
     "M24|Save a launcher shortcut that Spotlight still holds"
     "M25|Read a Spotlight shortcut missing from the saved list as off"
+    "M27|Report a downloading speech model as not downloaded"
+    "M28|Drop the default dictation key while it waits for access"
 )
 
 mutate() {
@@ -90,6 +92,14 @@ mutate() {
         M25)
             swap Sources/Ciel/SpotlightShortcuts.swift \
                 's/guard let entry = saved\[id\] as\? \[String: Any\] else \{ return shipped \}/guard let entry = saved[id] as? [String: Any] else { return nil }/'
+            ;;
+        M27)
+            swap Sources/Ciel/Dictation.swift \
+                's/case \.downloading\(let fraction\): return \.downloading\(percent: Int\(fraction \* 100\)\)/case .downloading: return .notReady/'
+            ;;
+        M28)
+            swap Sources/Ciel/HotKeys.swift \
+                's/do \{ try register\(command, shortcut\) \} catch HotKeyError\.needsAccess \{\}/try register(command, shortcut)/'
             ;;
     esac
 }

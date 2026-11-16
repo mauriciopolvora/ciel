@@ -242,7 +242,7 @@ final class SettingsController: PreferencesController {
         menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
         let speechEnabled = Preferences().speechEnabled
         speechSwitch.state = speechEnabled ? .on : .off
-        dictationRecorder?.isEnabled = speechEnabled && speech.state == .ready
+        dictationRecorder?.isEnabled = speechEnabled
         let status = speech.state.status
         modelStatus.stringValue = status.text
         modelStatus.toolTip = status.text
@@ -256,6 +256,11 @@ final class SettingsController: PreferencesController {
     }
     @objc private func toggleSpeech() {
         Preferences().speechEnabled = speechSwitch.state == .on
+        if speechSwitch.state == .on {
+            do {
+                try hotKeys.assignIfUnset(.dictation, to: .modifier(.rightCommand))
+            } catch { showMessage(error.localizedDescription) }
+        }
         onSpeechChange?()
         refresh()
     }

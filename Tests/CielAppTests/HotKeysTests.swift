@@ -166,6 +166,40 @@ struct HotKeysTests {
         }
     }
 
+    @Test func turningOnSpeechSavesRightCommandToWaitForAccess() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            registrar.refused = [.modifier(.rightCommand)]
+            registrar.refusal = .needsAccess
+            var pressed: [HotKeyCommand] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { pressed.append($0) }, onChange: {})
+            try hotKeys.assignIfUnset(.dictation, to: .modifier(.rightCommand))
+            #expect(hotKeys.shortcut(for: .dictation) == .modifier(.rightCommand))
+            #expect(!hotKeys.isLive(.dictation))
+            let reloaded = HotKeys(defaults: defaults, registrar: registrar, onPress: { _ in }, onChange: {})
+            #expect(reloaded.shortcut(for: .dictation) == .modifier(.rightCommand))
+            registrar.refused = []
+            hotKeys.retryUnregistered()
+            registrar.press(.modifier(.rightCommand))
+            #expect(pressed == [.dictation])
+        }
+    }
+
+    @Test func theDefaultDictationKeyNeverReplacesOrDuplicatesAShortcut() throws {
+        try withEmptyDefaults { defaults in
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
+            try hotKeys.update(.window(.center), to: .modifier(.rightCommand))
+            try hotKeys.assignIfUnset(.dictation, to: .modifier(.rightCommand))
+            #expect(hotKeys.shortcut(for: .dictation) == nil)
+            try hotKeys.update(.window(.center), to: nil)
+            try hotKeys.update(.dictation, to: .modifier(.rightOption))
+            try hotKeys.assignIfUnset(.dictation, to: .modifier(.rightCommand))
+            #expect(hotKeys.shortcut(for: .dictation) == .modifier(.rightOption))
+        }
+    }
+
     @Test func dictationHasNoDefaultShortcut() {
         withEmptyDefaults { defaults in
             let hotKeys = HotKeys(
@@ -189,6 +223,7 @@ struct HotKeysTests {
 
 @MainActor final class FakeHotKeyRegistrar: HotKeyRegistrar {
     var refused: [Shortcut] = []
+    var refusal = HotKeyError.unavailable
     private var live: [Int: (shortcut: Shortcut, handler: @MainActor (HotKeyEvent) -> Void)] = [:]
     private var nextID = 0
 
@@ -196,7 +231,7 @@ struct HotKeysTests {
 
     func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
     {
-        if refused.contains(shortcut) { throw HotKeyError.unavailable }
+        if refused.contains(shortcut) { throw refusal }
         let id = nextID
         nextID += 1
         live[id] = (shortcut, handler)

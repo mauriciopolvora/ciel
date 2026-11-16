@@ -15,7 +15,8 @@
 | Rule | Enforced by |
 | --- | --- |
 | Saved ids and stored formats never change: entry ids, `WindowAction` raw values, shortcut and placement JSON | `SavedDataTests`, the stored-format fixtures in `LauncherPlacementTests`, mutants M1, M2, M3 and M5 |
-| Shortcuts bind under their shipped keys, and a shortcut is saved only after it registers | `SavedDataTests.aShortcutSavedUnderAShippedKeyFiresItsCommand`, `HotKeysTests`, mutants M12 and M13 |
+| Shortcuts bind under their shipped keys, and a shortcut is saved only after it registers. The one exception: turning on Speech to text saves Right ⌘ for dictation while it waits for access, unless another shortcut has it | `SavedDataTests.aShortcutSavedUnderAShippedKeyFiresItsCommand`, `HotKeysTests`, mutants M12, M13 and M28 |
+| A dictation press before the model is ready says why, with the live percent while it downloads, even when Ciel is in the background | `DictationTests.aPressBeforeTheModelIsReadySaysWhy`, the background dictation step of the window check, mutant M27 |
 | Unset toggles read as on, under their shipped keys, through `Preferences` | `SavedDataTests.togglesAreOnUntilTurnedOffUnderTheirShippedKeys`, mutant M15 |
 | A new `WindowAction` case defines its geometry | The compiler: `unitRect` switches over every case with no `default`. Mutant M4 |
 | The bundle id lives only in `AppIdentity` and `Resources/Info.plist` | `SavedDataTests.bundleIdentifierMatchesInfoPlist`, mutant M8 |

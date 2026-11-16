@@ -24,6 +24,7 @@ import CielCore
             exit(2)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in self?.finish(timeout: true) }
+        NSApp.activate(ignoringOtherApps: true)
         startFixture()
     }
 
@@ -130,8 +131,14 @@ import CielCore
 
     private func checkBackgroundDictation(then body: @escaping () -> Void) {
         let hud = StatusHUD()
+        let speech = SpeechModelStore(folder: directory)
+        speech.showForCheck(.downloading(fraction: 0.37))
         let dictation = Dictation(
-            recorder: SilentRecorder(), transcriber: { throw DictationError.notReady }, deliver: { _ in },
+            recorder: SilentRecorder(),
+            transcriber: {
+                throw DictationError.blocking(speechEnabled: true, model: speech.state) ?? .notReady
+            },
+            deliver: { _ in },
             fail: { [weak self] message in
                 self?.dictationMessage = message
                 hud.show(message, error: true)
@@ -158,7 +165,7 @@ import CielCore
             Self.postRightCommand(down: false)
             poll(
                 { [self] in
-                    dictationEvents == [.pressed, .released] && dictationMessage != nil
+                    dictationEvents == [.pressed, .released] && dictationMessage?.contains("37%") == true
                         && Self.showsOwnWindow()
                 },
                 within: 2, until: { $0 },

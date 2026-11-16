@@ -5,6 +5,8 @@ import Carbon
 import CielCore
 import os
 
+private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "Dictation")
+
 @MainActor protocol AudioRecorder {
     func start() throws
     func recorded(from start: Int) -> AudioClip
@@ -32,7 +34,11 @@ import os
     }
 
     private var phase = Phase.idle {
-        didSet { if phase.activity != oldValue.activity { onActivity(phase.activity) } }
+        didSet {
+            guard phase.activity != oldValue.activity else { return }
+            logger.log("Dictation \(String(describing: self.phase.activity), privacy: .public)")
+            onActivity(phase.activity)
+        }
     }
     private var transcript = LiveTranscript()
     private var live: Task<Void, Never>?
@@ -161,13 +167,24 @@ import os
     private static let grace = Duration.milliseconds(150)
 }
 
-enum DictationError: LocalizedError {
+enum DictationError: LocalizedError, Equatable {
     case off, notReady
+    case downloading(percent: Int)
+
+    static func blocking(speechEnabled: Bool, model: ModelState) -> DictationError? {
+        guard speechEnabled else { return .off }
+        switch model {
+        case .ready: return nil
+        case .downloading(let fraction): return .downloading(percent: Int(fraction * 100))
+        case .notDownloaded, .failed: return .notReady
+        }
+    }
 
     var errorDescription: String? {
         switch self {
         case .off: "Turn on Speech to text in Settings."
         case .notReady: "Download the speech model in Settings."
+        case .downloading(let percent): "The speech model is still downloading (\(percent)%)."
         }
     }
 }
