@@ -64,7 +64,7 @@ import AppKit
             return LauncherStyle(
                 design: design, dark: true, palette: contrast ? palette.contrasted(dark: true) : palette,
                 queryFont: .monospacedSystemFont(ofSize: 18, weight: .regular), queryX: 18, queryHeight: 24,
-                scopeFont: .monospacedSystemFont(ofSize: 11, weight: .medium), scopeTint: palette.muted,
+                scopeFont: .monospacedSystemFont(ofSize: 11, weight: .medium), scopeTint: palette.title,
                 titleFont: .monospacedSystemFont(ofSize: 13, weight: .regular),
                 hintFont: .monospacedSystemFont(ofSize: 11, weight: .regular),
                 noMatchFont: .monospacedSystemFont(ofSize: 13, weight: .medium),

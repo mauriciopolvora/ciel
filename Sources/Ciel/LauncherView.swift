@@ -115,8 +115,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         surface.palette = palette
         searchField.font = style.queryFont
         searchField.textColor = palette.ink
-        scopeButton.font = style.scopeFont
-        scopeButton.contentTintColor = style.scopeTint
+        updateScope()
         for (label, font, color) in [
             (emptyTitle, style.noMatchFont, palette.ink),
             (emptyDetail, style.noMatchDetailFont, palette.muted),
@@ -138,6 +137,13 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         }
         resize()
         updateHints()
+    }
+    /// An attributed title, because the inline bezel ignores the button font and tint.
+    private func updateScope() {
+        let name = filter == .application ? "Apps" : filter == .window ? "Windows" : "All"
+        scopeButton.attributedTitle = NSAttributedString(
+            string: name + "  ⇥", attributes: [.font: style.scopeFont, .foregroundColor: style.scopeTint])
+        scopeButton.setAccessibilityLabel("Search category: " + name)
     }
     private func tintEditor() {
         (searchField.currentEditor() as? MonochromeFieldEditor)?.tint(
@@ -261,9 +267,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     }
     private func apply(_ change: LauncherState.Change) {
         if change.filterChanged {
-            let name = filter == .application ? "Apps" : filter == .window ? "Windows" : "All"
-            scopeButton.title = name + "  ⇥"
-            scopeButton.setAccessibilityLabel("Search category: " + name)
+            updateScope()
             emptyDetail.stringValue =
                 filter == nil
                 ? "Try another app name or window command." : "Try another name, or switch to All."
