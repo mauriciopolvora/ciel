@@ -101,6 +101,9 @@ final class PillView: NSView {
         stack.anchorPoint = CGPoint(x: 0.5, y: PillLayout.margin / bounds.height)
         stack.bounds = bounds
         stack.position = CGPoint(x: bounds.midX, y: PillLayout.margin)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel("Dictation")
         refreshColors()
         scale(window?.backingScaleFactor ?? 2)
         apply()
@@ -157,6 +160,7 @@ final class PillView: NSView {
                 string: committed.isEmpty || tentative.isEmpty ? tentative : " " + tentative,
                 attributes: attributes(Theme.secondary)))
         let next = TranscriptLayout(text, maxWidth: PillLayout.textWidth)
+        transcriptChanged(text.string)
         guard !next.lines.isEmpty else {
             collapse()
             return changed()
@@ -207,7 +211,15 @@ final class PillView: NSView {
         if mode != .idle || !presence.isSettled { start() }
     }
 
+    /// The words draw in a layer, so VoiceOver reads them from this view.
+    private func transcriptChanged(_ text: String) {
+        guard text != accessibilityValue() as? String else { return }
+        setAccessibilityValue(text)
+        NSAccessibility.post(element: self, notification: .valueChanged)
+    }
+
     private func collapse() {
+        transcriptChanged("")
         layout = TranscriptLayout(maxWidth: PillLayout.textWidth)
         width.target = PillLayout.waveform.width
         height.target = PillLayout.waveform.height

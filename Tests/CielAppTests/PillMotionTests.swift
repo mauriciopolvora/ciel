@@ -146,6 +146,16 @@ struct PillMotionTests {
         #expect(pill.visibility == 0 && rested == 1)
     }
 
+    @Test func voiceOverReadsTheLiveTranscript() {
+        let pill = PillView()
+        pill.listen(reduceMotion: true)
+        #expect(pill.isAccessibilityElement() && pill.accessibilityRole() == .staticText)
+        pill.text(committed: "send the", tentative: "report")
+        #expect(pill.accessibilityValue() as? String == "send the report")
+        pill.text(committed: "", tentative: "")
+        #expect(pill.accessibilityValue() as? String == "")
+    }
+
     @Test func withMotionTheTranscriptGrowsOutOfTheWaveformWithoutJumps() {
         let pill = PillView()
         var rested = 0
