@@ -8,7 +8,7 @@
 - `bash scripts/check.sh --unit-only` runs everything before the app build and opens no windows.
 - `bash scripts/mutants.sh` reapplies each recorded past mistake to a scratch copy and fails if the tests miss one.
 - Run tests with `bash scripts/test.sh`, not bare `swift test`. Some Command Line Tools builds omit the Swift Testing macro plugin, and the wrapper loads it.
-- Format before checking: `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift`.
+- Format before checking: `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift`.
 
 ## Rules and what enforces them
 
@@ -27,6 +27,7 @@
 | Onboarding and Settings save a launcher shortcut only after Spotlight lets it go, through the shared `SpotlightGuide`, and read a Spotlight shortcut missing from the saved list as on | `OnboardingTests`, `SettingsSpotlightTests`, the onboarding and Settings Spotlight steps in `SmokeCheck`, mutants M24, M25 and M26 |
 | A speech model counts as ready only after its size and SHA-256 match the pinned values | `SpeechModelStoreTests`, mutant M23 |
 | Ad-hoc builds sign without hardened runtime. Developer ID builds sign app and framework with hardened runtime, one Team ID and library validation on | The signature check at the end of `scripts/build.sh`, and the launch step in `.github/workflows/checks.yml` |
+| `scripts/appcast.sh` writes an appcast only for a signature that matches `SUPublicEDKey`, and `sign_update` output never reaches a log or a `bash -x` trace | The wrong-key and `bash -x` malformed key cases in `scripts/check-appcast.sh` |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |
 | Colors, labels, switches and the About panel come from `Sources/Ciel/DesignSystem.swift` | `scripts/lint-colors.sh` in `check.sh`. Its error names the token to use |

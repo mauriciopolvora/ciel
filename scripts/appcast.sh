@@ -8,9 +8,19 @@ sign_update="$(dirname "$0")/../.build/artifacts/sparkle/Sparkle/bin/sign_update
 version="$(plutil -extract CFBundleVersion raw "$plist")"
 short_version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
 minimum_system="$(plutil -extract LSMinimumSystemVersion raw "$plist")"
-# On a malformed key sign_update prints the key, so its output is never shown.
-if ! signature="$(sed -n 's/^SPARKLE_PRIVATE_ED_KEY=//p' "$key_file" | "$sign_update" -p --ed-key-file - "$archive")"; then
+# On a malformed key sign_update prints the key, so tracing stays off until only a well-formed signature is left.
+tracing="${-//[^x]/}"
+{ set +x; } 2>/dev/null
+signature="$(sed -n 's/^SPARKLE_PRIVATE_ED_KEY=//p' "$key_file" | "$sign_update" -p --ed-key-file - "$archive" 2>/dev/null)" ||
+    signature=''
+[[ "$signature" =~ ^[A-Za-z0-9+/]{86}==$ ]] || signature=''
+if [[ -n "$tracing" ]]; then set -x; fi
+if [[ -z "$signature" ]]; then
     printf 'sign_update could not sign %s with the key in %s.\n' "$archive" "$key_file" >&2; exit 1
+fi
+if ! swift "$(dirname "$0")/VerifyUpdate.swift" "$(plutil -extract SUPublicEDKey raw "$plist")" "$signature" "$archive"; then
+    printf 'The key in %s does not match SUPublicEDKey in %s, so installed copies would reject this update.\n' \
+        "$key_file" "$plist" >&2; exit 1
 fi
 cat >"$appcast" <<EOF
 <?xml version="1.0" encoding="utf-8"?>

@@ -111,7 +111,7 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `scripts`: build, install, checks, and notarized release packaging.
 - `site`: the [cielmac.app](https://cielmac.app) landing page, a static Cloudflare Worker. Deploy it with `cd site && npm ci && npm run deploy`.
 
-Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
+Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
 
 Swift 6 checks actor ownership and values that cross worker boundaries. Search and native performance reports are saved under `.build/performance`. For benchmark options and measurement limits, see the [architecture plan](docs/architecture-plan.md).
 

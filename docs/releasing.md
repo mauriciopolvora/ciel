@@ -32,9 +32,9 @@ bash scripts/release.sh
 
 The release script builds an Apple Silicon app with hardened runtime and a secure timestamp. It submits the archive to Apple's notarization service and waits for the result. It then staples and validates the ticket, checks Gatekeeper acceptance, creates a fresh ZIP, and writes a SHA-256 checksum. A failed step stops the script.
 
-The final files are `dist/Ciel-0.5.0-arm64.zip`, its `.sha256` file, and a copy of the same archive named `dist/Ciel.zip` with `dist/Ciel.zip.sha256`. Review the signed app before uploading these files to a release. The release script does not publish or create a repository.
+The final files are `dist/Ciel-0.5.0-arm64.zip`, its `.sha256` file, a copy of the same archive named `dist/Ciel.zip` with `dist/Ciel.zip.sha256`, and `dist/appcast.xml`. Review the signed app before you publish. The release script does not publish anything. It prints the `gh release create` command that uploads all five files.
 
-Every GitHub release must attach `Ciel.zip` and `Ciel.zip.sha256`, with these exact names. The site download button links to `https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.zip`, and that link works only when the latest release has a file named `Ciel.zip`.
+Every GitHub release must use the tag `v<version>`, such as `v0.5.0`, and attach all five files with these exact names: `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml`. The site download button links to `https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.zip`, so it works only when the latest release has `Ciel.zip`. The appcast points installed copies to `https://github.com/mauriciopolvora/ciel/releases/download/v<version>/Ciel-<version>-arm64.zip`, so they update only when that tag and file exist.
 
 See [Apple's notarization documentation](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [notarytool guidance](https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool).
 
@@ -61,8 +61,8 @@ Ciel checks for updates with [Sparkle](https://sparkle-project.org). The app rea
 
 The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key or add it to CI.
 
-After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The appcast points to the versioned archive, so attach `Ciel-<version>-arm64.zip`, `Ciel.zip`, `appcast.xml` and both checksums to the GitHub release.
+After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The script checks the signature against `SUPublicEDKey` first, and a key that does not match stops it before it writes the appcast. Attach `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml` to the GitHub release tagged `v<version>`.
 
-CI checks the appcast script with a throwaway key on each run: `scripts/check-appcast.sh` signs a test archive, then validates the XML, its version, length and minimum system fields, and the signature.
+CI checks the appcast script with a throwaway key on each run: `scripts/check-appcast.sh` signs a test archive, then validates the XML, its version, length and minimum system fields, and the signature. It also checks that the script refuses a key that does not match `SUPublicEDKey`, and that a malformed key never reaches its output under `bash -x`.
 
 Ciel 0.5.0 and older have no updater. People who installed those versions must download Ciel once by hand. After that, Ciel updates itself.

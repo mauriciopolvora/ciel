@@ -30,5 +30,7 @@ shasum -a 256 "$archive" > "$archive.sha256"
 cp "$archive" dist/Ciel.zip
 (cd dist && shasum -a 256 Ciel.zip > Ciel.zip.sha256)
 bash scripts/appcast.sh "$app_path/Contents/Info.plist" "$archive" "$sparkle_key" "$PWD/dist/appcast.xml"
-printf 'Release archive: %s\nLatest archive: %s\n' "$archive" "$PWD/dist/Ciel.zip"
-printf 'Appcast: %s. Upload it with Ciel.zip to the GitHub release so installed copies see the update.\n' "$PWD/dist/appcast.xml"
+printf 'Review the signed app, then publish all five files under tag v%s with:\n\n' "$version"
+printf '    gh release create %q' "v$version"
+printf ' %q' "$archive" "$archive.sha256" "$PWD/dist/Ciel.zip" "$PWD/dist/Ciel.zip.sha256" "$PWD/dist/appcast.xml"
+printf '\n'
