@@ -124,7 +124,7 @@ struct PillMotionTests {
             #expect(width <= PillLayout.textWidth)
         }
         let size = PillLayout.transcript(layout)
-        #expect(size == CGSize(width: PillLayout.textWidth + 2 * PillLayout.padding.width, height: 64))
+        #expect(size == CGSize(width: layout.width + 2 * PillLayout.padding.width, height: 64))
         let canvas = PillLayout.canvas
         #expect(size.width + 2 * PillLayout.margin <= canvas.width)
         #expect(

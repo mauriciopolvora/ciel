@@ -70,6 +70,7 @@ final class PillView: NSView {
     private let endFade = CAGradientLayer()
     private let font = NSFont.systemFont(ofSize: 13)
     private var mode = Mode.idle
+    private var resting = true
     private var reduceMotion = false
     private var link: CADisplayLink?
     private var lastFrame: CFTimeInterval?
@@ -137,6 +138,7 @@ final class PillView: NSView {
     func listen(reduceMotion: Bool = Theme.reduceMotion) {
         self.reduceMotion = reduceMotion
         mode = .listening
+        resting = false
         refreshColors()
         if presence.isSettled, presence.value == 0 { reset() } else { collapse() }
         presence.response = Self.enter
@@ -243,7 +245,8 @@ final class PillView: NSView {
     }
 
     private func restIfHidden() {
-        guard mode == .idle, presence.isSettled, presence.value == 0 else { return }
+        guard !resting, mode == .idle, presence.isSettled, presence.value == 0 else { return }
+        resting = true
         link?.invalidate()
         link = nil
         reset()
