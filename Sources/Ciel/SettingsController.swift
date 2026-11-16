@@ -5,9 +5,9 @@ import ServiceManagement
 class PreferencesController: NSWindowController, NSWindowDelegate {
     let hotKeys: HotKeys
     let content: SurfaceView
-    private let errorLabel = Theme.label("", size: 12, color: Theme.error)
+    let errorLabel = Theme.label("", size: 12, color: Theme.error)
     private var baseSize: NSSize
-    private var recorders: [HotKeyCommand: ShortcutRecorder] = [:]
+    private(set) var recorders: [HotKeyCommand: ShortcutRecorder] = [:]
 
     init(title: String, size: NSSize, hotKeys: HotKeys) {
         self.hotKeys = hotKeys
@@ -69,6 +69,19 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
             ])
         }
         return box
+    }
+    @discardableResult
+    func footer(_ title: String, _ action: Selector, top: CGFloat, in parent: NSView) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.bezelStyle = .rounded
+        button.font = .systemFont(ofSize: 12)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        parent.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.topAnchor.constraint(equalTo: parent.topAnchor, constant: top),
+            button.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -20),
+        ])
+        return button
     }
     func label(
         _ title: String, x: CGFloat = 16, y: CGFloat, width: CGFloat = 246,
@@ -143,6 +156,11 @@ final class SettingsController: PreferencesController {
     private let modelStatus = SettingsController.status()
     private let modelButton = NSButton(title: "", target: nil, action: nil)
     private let speech: SpeechModelStore
+    let spotlightGuide: SpotlightGuide
+    private let spotlightSheet = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 480, height: 222), styleMask: [.titled], backing: .buffered,
+        defer: true)
+    private var poll: Task<Void, Never>?
     private var dictationRecorder: ShortcutRecorder?
     private var showsAccessMessage = false
     var onGuide: (() -> Void)?
@@ -150,9 +168,14 @@ final class SettingsController: PreferencesController {
     var onMenuBarIconChange: (() -> Void)?
     var onSpeechChange: (() -> Void)?
 
-    init(hotKeys: HotKeys, speech: SpeechModelStore) {
+    init(
+        hotKeys: HotKeys, speech: SpeechModelStore, spotlight: SpotlightShortcuts = .system,
+        open: @escaping @MainActor (URL) -> Void = { _ = NSWorkspace.shared.open($0) }
+    ) {
         self.speech = speech
-        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 608), hotKeys: hotKeys)
+        spotlightGuide = SpotlightGuide(hotKeys: hotKeys, spotlight: spotlight, open: open)
+        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 652), hotKeys: hotKeys)
+        spotlightGuide.owner = self
         let title = Theme.label("Ciel", size: 23)
         title.frame = NSRect(x: 36, y: 20, width: 408, height: 28)
         let subtitle = Theme.label(
@@ -180,6 +203,7 @@ final class SettingsController: PreferencesController {
             button.action = action
         }
         let launcher = recorder(.launcher, label: "Launcher shortcut")
+        launcher.onRecord = { [weak self] shortcut in self?.spotlightGuide.choose(shortcut) }
         let dictation = recorder(.dictation, label: "Dictation shortcut")
         dictation.acceptsModifierKey = true
         dictationRecorder = dictation
@@ -189,7 +213,8 @@ final class SettingsController: PreferencesController {
         var y = section(
             "General", at: 86,
             rows: [
-                ("Launcher shortcut", [launcher]), ("Launch at login", [login]), ("Animations", [animations]),
+                ("Launcher shortcut", [launcher]), ("Replace Spotlight", spotlightGuide.row()),
+                ("Launch at login", [login]), ("Animations", [animations]),
                 ("Show menu bar icon", [menuBarIcon]),
             ])
         y = section("Permissions", at: y, rows: [("Accessibility", [permissionLabel, permissionButton])])
@@ -212,11 +237,54 @@ final class SettingsController: PreferencesController {
             guide.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             about.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
         ])
+        buildSpotlightSheet()
         refresh()
     }
     required init?(coder: NSCoder) { fatalError() }
     @objc private func openGuide() { onGuide?() }
     @objc private func openAbout() { onAbout?() }
+
+    private func buildSpotlightSheet() {
+        let sheet = SurfaceView(frame: .zero)
+        spotlightSheet.appearance = NSAppearance(named: .darkAqua)
+        spotlightSheet.contentView = sheet
+        spotlightGuide.heading.frame = NSRect(x: 36, y: 24, width: 408, height: 26)
+        sheet.addSubview(spotlightGuide.heading)
+        let guideRows = rows([("Replace Spotlight", spotlightGuide.row())], at: 66, in: sheet)
+        spotlightGuide.note.frame = NSRect(x: 36, y: guideRows.frame.maxY + 12, width: 408, height: 32)
+        sheet.addSubview(spotlightGuide.note)
+        footer("Cancel", #selector(cancelSpotlight), top: 170, in: sheet).keyEquivalent = "\u{1b}"
+    }
+
+    private func showSpotlightSheet() {
+        if spotlightGuide.held != nil, poll == nil, let window, window.isVisible {
+            window.beginSheet(spotlightSheet)
+            poll = Task { [weak self] in
+                while true {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    guard let self, !Task.isCancelled else { return }
+                    spotlightGuide.tick()
+                }
+            }
+        } else if spotlightGuide.held == nil, let poll {
+            poll.cancel()
+            self.poll = nil
+            window?.endSheet(spotlightSheet)
+        }
+    }
+
+    @objc func cancelSpotlight() {
+        guard let held = spotlightGuide.held, let kept = hotKeys.shortcut(for: .launcher) else { return }
+        spotlightGuide.held = nil
+        showMessage("Kept \(kept.display). \(held.display) is still used by Spotlight.")
+        refresh()
+    }
+
+    override func windowWillClose(_ notification: Notification) {
+        super.windowWillClose(notification)
+        spotlightGuide.held = nil
+        refresh()
+    }
 
     private func section(_ title: String, at y: CGFloat, rows: [(String, [NSView])]) -> CGFloat {
         let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
@@ -228,6 +296,8 @@ final class SettingsController: PreferencesController {
     override func refresh() {
         hotKeys.retryUnregistered()
         super.refresh()
+        spotlightGuide.refresh()
+        showSpotlightSheet()
         let waiting = hotKeys.shortcut(for: .dictation) != nil && !hotKeys.isLive(.dictation)
         if waiting != showsAccessMessage {
             showsAccessMessage = waiting
@@ -242,7 +312,7 @@ final class SettingsController: PreferencesController {
         menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
         let speechEnabled = Preferences().speechEnabled
         speechSwitch.state = speechEnabled ? .on : .off
-        dictationRecorder?.isEnabled = speechEnabled && speech.state == .ready
+        dictationRecorder?.isEnabled = speechEnabled
         let status = speech.state.status
         modelStatus.stringValue = status.text
         modelStatus.toolTip = status.text
@@ -256,6 +326,11 @@ final class SettingsController: PreferencesController {
     }
     @objc private func toggleSpeech() {
         Preferences().speechEnabled = speechSwitch.state == .on
+        if speechSwitch.state == .on {
+            do {
+                try hotKeys.assignIfUnset(.dictation, to: .modifier(.rightCommand))
+            } catch { showMessage(error.localizedDescription) }
+        }
         onSpeechChange?()
         refresh()
     }

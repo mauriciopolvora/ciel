@@ -15,7 +15,8 @@
 | Rule | Enforced by |
 | --- | --- |
 | Saved ids and stored formats never change: entry ids, `WindowAction` raw values, shortcut and placement JSON | `SavedDataTests`, the stored-format fixtures in `LauncherPlacementTests`, mutants M1, M2, M3 and M5 |
-| Shortcuts bind under their shipped keys, and a shortcut is saved only after it registers | `SavedDataTests.aShortcutSavedUnderAShippedKeyFiresItsCommand`, `HotKeysTests`, mutants M12 and M13 |
+| Shortcuts bind under their shipped keys, and a shortcut is saved only after it registers. The one exception: turning on Speech to text saves Right ⌘ for dictation while it waits for access, unless another shortcut has it | `SavedDataTests.aShortcutSavedUnderAShippedKeyFiresItsCommand`, `HotKeysTests`, mutants M12, M13 and M28 |
+| A dictation press before the model is ready says why, with the live percent while it downloads, even when Ciel is in the background | `DictationTests.aPressBeforeTheModelIsReadySaysWhy`, the background dictation step of the window check, mutant M27 |
 | Unset toggles read as on, under their shipped keys, through `Preferences` | `SavedDataTests.togglesAreOnUntilTurnedOffUnderTheirShippedKeys`, mutant M15 |
 | A new `WindowAction` case defines its geometry | The compiler: `unitRect` switches over every case with no `default`. Mutant M4 |
 | The bundle id lives only in `AppIdentity` and `Resources/Info.plist` | `SavedDataTests.bundleIdentifierMatchesInfoPlist`, mutant M8 |
@@ -23,7 +24,7 @@
 | Window commands never target Ciel's own windows | `ForeignProcess` in `WindowController.swift`, `WindowOperationTests.ownProcessIsNeverATarget`, mutant M14 |
 | Window settle retries an unchanged window after 0.2 s, matches within 3 pt, settles as constrained only when the retry repeats, and never yields before the window responds | `FrameSettleTests`, `WindowOperationTests`, mutants M16 to M20 |
 | An invalidated icon load never delivers and never holds a load slot | `IconCacheTests`, whose waits fail after 3 s instead of hanging, mutants M21 and M22 |
-| Onboarding saves a launcher shortcut only after Spotlight lets it go, and reads a Spotlight shortcut missing from the saved list as on | `OnboardingTests`, the onboarding step in `SmokeCheck`, mutants M24 and M25 |
+| Onboarding and Settings save a launcher shortcut only after Spotlight lets it go, through the shared `SpotlightGuide`, and read a Spotlight shortcut missing from the saved list as on | `OnboardingTests`, `SettingsSpotlightTests`, the onboarding and Settings Spotlight steps in `SmokeCheck`, mutants M24, M25 and M26 |
 | A speech model counts as ready only after its size and SHA-256 match the pinned values | `SpeechModelStoreTests`, mutant M23 |
 | Ad-hoc builds sign without hardened runtime. Developer ID builds sign app and framework with hardened runtime, one Team ID and library validation on | The signature check at the end of `scripts/build.sh`, and the launch step in `.github/workflows/checks.yml` |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |

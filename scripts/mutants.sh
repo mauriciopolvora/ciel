@@ -29,6 +29,9 @@ mutants=(
     "M23|Accept a speech model download without checking its SHA-256"
     "M24|Save a launcher shortcut that Spotlight still holds"
     "M25|Read a Spotlight shortcut missing from the saved list as off"
+    "M26|Save a launcher shortcut from Settings that Spotlight still holds"
+    "M27|Report a downloading speech model as not downloaded"
+    "M28|Drop the default dictation key while it waits for access"
 )
 
 mutate() {
@@ -86,10 +89,22 @@ mutate() {
                 's/\n(\s+)loadsInFlight -= 1\n(\s+defer \{ startQueuedLoads\(\) \}\n\s+guard loads\[path\] === load else \{ return \}\n)/\n$2$1loadsInFlight -= 1\n/'
             ;;
         M23) swap Sources/Ciel/SpeechModelStore.swift 's/guard digest == model\.sha256 else/guard !digest.isEmpty else/' ;;
-        M24) swap Sources/Ciel/OnboardingController.swift 's/if spotlight\.owns\(shortcut\) \{/if false {/' ;;
+        M24) swap Sources/Ciel/SpotlightGuide.swift 's/if spotlight\.owns\(shortcut\) \{/if false {/' ;;
         M25)
             swap Sources/Ciel/SpotlightShortcuts.swift \
                 's/guard let entry = saved\[id\] as\? \[String: Any\] else \{ return shipped \}/guard let entry = saved[id] as? [String: Any] else { return nil }/'
+            ;;
+        M26)
+            swap Sources/Ciel/SettingsController.swift \
+                's/\n\s+launcher\.onRecord = \{ \[weak self\] shortcut in self\?\.spotlightGuide\.choose\(shortcut\) \}//'
+            ;;
+        M27)
+            swap Sources/Ciel/Dictation.swift \
+                's/case \.downloading\(let fraction\): return \.downloading\(percent: Int\(fraction \* 100\)\)/case .downloading: return .notReady/'
+            ;;
+        M28)
+            swap Sources/Ciel/HotKeys.swift \
+                's/do \{ try register\(command, shortcut\) \} catch HotKeyError\.needsAccess \{\}/try register(command, shortcut)/'
             ;;
     esac
 }

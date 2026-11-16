@@ -8,8 +8,11 @@ struct SpotlightShortcuts {
     static let keyboardSettings = URL(
         string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
     private static let shipped = [
-        "64": commandSpace,
-        "65": Shortcut(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey | optionKey)),
+        "64": (action: "Show Spotlight search", shortcut: commandSpace),
+        "65": (
+            action: "Show Finder search window",
+            shortcut: Shortcut(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey | optionKey))
+        ),
     ]
     private static let modifiers = [
         (NSEvent.ModifierFlags.command, cmdKey), (.option, optionKey), (.control, controlKey),
@@ -26,19 +29,25 @@ struct SpotlightShortcuts {
         }
     }
 
-    func owns(_ shortcut: Shortcut) -> Bool { active.contains(shortcut) }
+    func owns(_ shortcut: Shortcut) -> Bool { action(holding: shortcut) != nil }
 
-    /// An id missing from the saved list still has its shipped shortcut.
-    var active: [Shortcut] {
+    func action(holding shortcut: Shortcut) -> String? { active.first { $0.shortcut == shortcut }?.action }
+
+    var active: [(action: String, shortcut: Shortcut)] {
         let saved = read() ?? [:]
         return Self.shipped.compactMap { id, shipped in
-            guard let entry = saved[id] as? [String: Any] else { return shipped }
-            guard entry["enabled"] as? Bool ?? true else { return nil }
-            guard let value = entry["value"] as? [String: Any] else { return shipped }
-            guard let parameters = value["parameters"] as? [Int], parameters.count == 3 else { return nil }
-            let flags = NSEvent.ModifierFlags(rawValue: UInt(parameters[2]))
-            let carbon = Self.modifiers.reduce(0) { flags.contains($1.0) ? $0 | $1.1 : $0 }
-            return Shortcut(keyCode: UInt32(parameters[1]), modifiers: UInt32(carbon))
+            Self.shortcut(id, saved: saved, shipped: shipped.shortcut).map { (shipped.action, $0) }
         }
+    }
+
+    /// An id missing from the saved list still has its shipped shortcut.
+    private static func shortcut(_ id: String, saved: [String: Any], shipped: Shortcut) -> Shortcut? {
+        guard let entry = saved[id] as? [String: Any] else { return shipped }
+        guard entry["enabled"] as? Bool ?? true else { return nil }
+        guard let value = entry["value"] as? [String: Any] else { return shipped }
+        guard let parameters = value["parameters"] as? [Int], parameters.count == 3 else { return nil }
+        let flags = NSEvent.ModifierFlags(rawValue: UInt(parameters[2]))
+        let carbon = modifiers.reduce(0) { flags.contains($1.0) ? $0 | $1.1 : $0 }
+        return Shortcut(keyCode: UInt32(parameters[1]), modifiers: UInt32(carbon))
     }
 }
