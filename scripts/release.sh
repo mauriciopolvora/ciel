@@ -23,4 +23,6 @@ codesign --verify --strict --deep "$app_path"
 spctl --assess --type execute --verbose=2 "$app_path"
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
 shasum -a 256 "$archive" > "$archive.sha256"
-printf 'Release archive: %s\n' "$archive"
+cp "$archive" dist/Ciel.zip
+(cd dist && shasum -a 256 Ciel.zip > Ciel.zip.sha256)
+printf 'Release archive: %s\nLatest archive: %s\n' "$archive" "$PWD/dist/Ciel.zip"

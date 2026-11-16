@@ -30,7 +30,9 @@ bash scripts/release.sh
 
 The release script builds an Apple Silicon app with hardened runtime and a secure timestamp. It submits the archive to Apple's notarization service and waits for the result. It then staples and validates the ticket, checks Gatekeeper acceptance, creates a fresh ZIP, and writes a SHA-256 checksum. A failed step stops the script.
 
-The final files are `dist/Ciel-0.4.2-arm64.zip` and its `.sha256` file. Review the signed app before uploading these files to a release. The release script does not publish or create a repository.
+The final files are `dist/Ciel-0.5.0-arm64.zip`, its `.sha256` file, and a copy of the same archive named `dist/Ciel.zip` with `dist/Ciel.zip.sha256`. Review the signed app before uploading these files to a release. The release script does not publish or create a repository.
+
+Every GitHub release must attach `Ciel.zip` and `Ciel.zip.sha256`, with these exact names. The site download button links to `https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.zip`, and that link works only when the latest release has a file named `Ciel.zip`.
 
 See [Apple's notarization documentation](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [notarytool guidance](https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool).
 
