@@ -104,6 +104,8 @@ import CielCore
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Ciel is in the Dock only while an update alert shows, so a Dock click brings that alert forward.
+        guard NSApp.activationPolicy() == .accessory else { return true }
         open()
         return false
     }
