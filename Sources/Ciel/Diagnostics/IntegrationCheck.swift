@@ -11,6 +11,9 @@ import CielCore
     private var failures = 0
     private var enhancedFixture: (any WindowAccess)?
     private var minimumSizeFixture = false
+    private var dictationKey: Cleanup?
+    private var dictationEvents: [HotKeyEvent] = []
+    private var dictationMessage: String?
     private var fixtureDirectory: URL {
         minimumSizeFixture ? directory.appendingPathComponent("minimum") : directory
     }
@@ -120,7 +123,74 @@ import CielCore
         } else {
             print("SKIP fixture Enhanced UI mode: no focused fixture window")
         }
-        next(on: controller.capture(ForeignProcess(child.processIdentifier)))
+        checkBackgroundDictation { [self] in
+            next(on: controller.capture(ForeignProcess(child.processIdentifier)))
+        }
+    }
+
+    private func checkBackgroundDictation(then body: @escaping () -> Void) {
+        let hud = StatusHUD()
+        let dictation = Dictation(
+            recorder: SilentRecorder(), transcriber: { throw DictationError.notReady }, deliver: { _ in },
+            fail: { [weak self] message in
+                self?.dictationMessage = message
+                hud.show(message, error: true)
+            })
+        do {
+            dictationKey = try SystemHotKeyRegistrar().register(.modifier(.rightCommand)) {
+                [weak self] event in
+                self?.dictationEvents.append(event)
+                switch event {
+                case .pressed: dictation.press()
+                case .released: dictation.release()
+                case .cancelled: dictation.cancel()
+                }
+            }
+        } catch {
+            failures += 1
+            print("FAIL Background dictation: register Right ⌘: \(error.localizedDescription)")
+            return body()
+        }
+        let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        Self.postRightCommand(down: true)
+        Task { [self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            Self.postRightCommand(down: false)
+            poll(
+                { [self] in
+                    dictationEvents == [.pressed, .released] && dictationMessage != nil
+                        && Self.showsOwnWindow()
+                },
+                within: 2, until: { $0 },
+                then: { [self] passed in
+                    if !passed { failures += 1 }
+                    print(
+                        "\(passed ? "PASS" : "FAIL") Background dictation: events=\(dictationEvents), message=\(dictationMessage ?? "none"), hudOnScreen=\(Self.showsOwnWindow()), cielActive=\(NSApp.isActive), frontmostIsCiel=\(frontmost == getpid())"
+                    )
+                    dictationKey = nil
+                    body()
+                })
+        }
+    }
+
+    private static func postRightCommand(down: Bool) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let event = CGEvent(
+            keyboardEventSource: source, virtualKey: CGKeyCode(ModifierKey.rightCommand.rawValue),
+            keyDown: down)
+        event?.type = .flagsChanged
+        event?.flags =
+            down
+            ? CGEventFlags(
+                rawValue: CGEventFlags.maskCommand.rawValue | UInt64(ModifierKey.rightCommand.flag))
+            : []
+        event?.post(tap: .cghidEventTap)
+    }
+
+    private static func showsOwnWindow() -> Bool {
+        let windows =
+            CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        return windows.contains { $0[kCGWindowOwnerPID as String] as? pid_t == getpid() }
     }
 
     private func next(on target: WindowTarget) {
@@ -229,6 +299,12 @@ import CielCore
         print("Window integration: \(failures) failures")
         exit(failures == 0 ? 0 : 1)
     }
+}
+
+@MainActor private final class SilentRecorder: AudioRecorder {
+    func start() throws {}
+    func recorded(from start: Int) -> AudioClip { AudioClip(samples: []) }
+    func stop() -> AudioClip { AudioClip(samples: []) }
 }
 
 @MainActor final class WindowFixture: NSObject, NSWindowDelegate {
