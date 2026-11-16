@@ -46,8 +46,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }
-    /// Lays out 44-point rows with every control on one trailing edge, and returns the group's bottom.
-    func rows(_ rows: [(String, [NSView])], at y: CGFloat, in parent: NSView? = nil) -> CGFloat {
+    func rows(_ rows: [(String, [NSView])], at y: CGFloat, in parent: NSView? = nil) -> NSView {
         let box = group(
             NSRect(x: 20, y: y, width: 440, height: CGFloat(rows.count) * Theme.rowHeight), in: parent)
         for (index, (name, controls)) in rows.enumerated() {
@@ -69,7 +68,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
                 stack.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12),
             ])
         }
-        return box.frame.maxY
+        return box
     }
     func label(
         _ title: String, x: CGFloat = 16, y: CGFloat, width: CGFloat = 246,
@@ -223,7 +222,7 @@ final class SettingsController: PreferencesController {
         let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
         header.frame = NSRect(x: 36, y: y, width: 408, height: 17)
         content.addSubview(header)
-        return self.rows(rows, at: y + 23) + 20
+        return self.rows(rows, at: y + 23).frame.maxY + 20
     }
 
     override func refresh() {

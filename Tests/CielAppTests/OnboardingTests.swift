@@ -31,14 +31,14 @@ struct OnboardingTests {
         withOnboarding { onboarding, hotKeys, system in
             onboarding.choose(SpotlightShortcuts.commandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
-            #expect(onboarding.waiting == SpotlightShortcuts.commandSpace)
+            #expect(onboarding.heldBySpotlight == SpotlightShortcuts.commandSpace)
             #expect(system.opened == [SpotlightShortcuts.keyboardSettings])
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             system.symbolicHotKeys = ["64": ["enabled": false]]
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
-            #expect(onboarding.waiting == nil)
+            #expect(onboarding.heldBySpotlight == nil)
         }
     }
 
@@ -46,7 +46,7 @@ struct OnboardingTests {
         withOnboarding { onboarding, hotKeys, system in
             onboarding.choose(shiftCommandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == shiftCommandSpace)
-            #expect(onboarding.waiting == nil)
+            #expect(onboarding.heldBySpotlight == nil)
             #expect(system.opened.isEmpty)
         }
     }

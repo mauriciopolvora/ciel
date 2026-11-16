@@ -1,8 +1,6 @@
 import AppKit
 import CielCore
 
-/// Floats Ciel's icon under the System Settings window while it is in front, so the user can drag the app into the
-/// Accessibility list.
 @MainActor final class AccessibilityHelper {
     static let settingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
@@ -153,10 +151,12 @@ final class DragCard: SurfaceView, NSDraggingSource {
     }
 }
 
-/// Shows a faint copy of the icon rising from the card into the list, so the drag reads before the user tries it.
 final class DragTrail: NSView {
     static let height: CGFloat = 150
     static let cycle: CFTimeInterval = 2.4
+    private static let riseShare = 0.6
+    private static let fadeInShare = 0.15
+    private static let fadeOutShare = 0.3
     private let ghost = CALayer()
 
     override init(frame: NSRect) {
@@ -171,21 +171,20 @@ final class DragTrail: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// One cycle: rise and fade for 60% of it, then rest. `t` runs from 0 to 1.
-    static func pose(at t: Double) -> (transform: CATransform3D, opacity: Float) {
-        let p = min(t / 0.6, 1)
+    static func pose(at cycleFraction: Double) -> (transform: CATransform3D, opacity: Float) {
+        let p = min(cycleFraction / riseShare, 1)
         let eased = 1 - pow(1 - p, 3)
         let rise = CGFloat(eased) * (height - DragCard.iconFrame.height)
         let scale = 1 - 0.2 * CGFloat(eased)
-        let opacity = p < 1 ? min(p / 0.15, 1) * min((1 - p) / 0.3, 1) * 0.85 : 0
+        let opacity = p < 1 ? min(p / fadeInShare, 1) * min((1 - p) / fadeOutShare, 1) * 0.85 : 0
         let transform = CATransform3DScale(CATransform3DMakeTranslation(0, rise, 0), scale, scale, 1)
         return (transform, Float(opacity))
     }
 
-    func show(at t: Double) {
+    func show(at cycleFraction: Double) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let pose = Self.pose(at: t)
+        let pose = Self.pose(at: cycleFraction)
         ghost.transform = pose.transform
         ghost.opacity = pose.opacity
         CATransaction.commit()

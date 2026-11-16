@@ -1,15 +1,12 @@
 import AppKit
 
-/// Walks a new user through the launcher shortcut, then window access. It opens System Settings at the right pane,
-/// but only the user changes a system setting. Polling sees the change and moves on.
 final class OnboardingController: PreferencesController {
     enum Step: Int { case shortcut, access }
     private static let heights: [Step: CGFloat] = [.shortcut: 288, .access: 208]
 
     var onFinish: (() -> Void)?
     private(set) var step = Step.shortcut
-    /// A shortcut that Spotlight still holds. The previous launcher shortcut stays live until Spotlight lets go.
-    private(set) var waiting: Shortcut?
+    private(set) var heldBySpotlight: Shortcut?
     let helper = AccessibilityHelper()
     private let spotlight: SpotlightShortcuts
     private let isTrusted: @MainActor () -> Bool
@@ -35,7 +32,9 @@ final class OnboardingController: PreferencesController {
         super.init(
             title: "Set Up Ciel", size: NSSize(width: 480, height: Self.heights[.shortcut]!), hotKeys: hotKeys
         )
-        if let current = hotKeys.shortcut(for: .launcher), spotlight.owns(current) { waiting = current }
+        if let current = hotKeys.shortcut(for: .launcher), spotlight.owns(current) {
+            heldBySpotlight = current
+        }
         let launcher = recorder(.launcher, label: "Launcher shortcut")
         launcher.onRecord = { [weak self] shortcut in self?.choose(shortcut) }
         for (button, action) in [
@@ -51,10 +50,10 @@ final class OnboardingController: PreferencesController {
         }
 
         let shortcut = page("Choose a shortcut", "Press it in any app to open Ciel.")
-        let bottom = rows(
+        let shortcutRows = rows(
             [("Shortcut", [launcher]), ("Replace Spotlight", [spotlightStatus, spotlightButton])], at: 88,
             in: shortcut)
-        spotlightNote.frame = NSRect(x: 36, y: bottom + 12, width: 408, height: 32)
+        spotlightNote.frame = NSRect(x: 36, y: shortcutRows.frame.maxY + 12, width: 408, height: 32)
         spotlightNote.lineBreakMode = .byWordWrapping
         spotlightNote.maximumNumberOfLines = 2
         shortcut.addSubview(spotlightNote)
@@ -62,8 +61,8 @@ final class OnboardingController: PreferencesController {
 
         let access = page(
             "Allow window control", "Ciel needs Accessibility access to move windows and paste dictation.")
-        let accessBottom = rows([("Accessibility", [accessStatus, accessButton])], at: 88, in: access)
-        footer("Not Now", #selector(NSWindowController.close), top: accessBottom + 24, in: access)
+        let accessRows = rows([("Accessibility", [accessStatus, accessButton])], at: 88, in: access)
+        footer("Not Now", #selector(NSWindowController.close), top: accessRows.frame.maxY + 24, in: access)
         refresh()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -96,14 +95,14 @@ final class OnboardingController: PreferencesController {
     override func refresh() {
         super.refresh()
         for (index, page) in pages.enumerated() { page.isHidden = index != step.rawValue }
-        spotlightNote.isHidden = waiting == nil
+        spotlightNote.isHidden = heldBySpotlight == nil
         spotlightButton.isHidden =
-            waiting == nil && hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
+            heldBySpotlight == nil && hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
         spotlightButton.title =
-            waiting == nil ? "Use " + SpotlightShortcuts.commandSpace.display : "Open Settings…"
+            heldBySpotlight == nil ? "Use " + SpotlightShortcuts.commandSpace.display : "Open Settings…"
         spotlightStatus.stringValue =
-            waiting != nil ? "Used by Spotlight" : spotlightButton.isHidden ? "Replaced" : ""
-        spotlightStatus.textColor = waiting == nil ? Theme.success : Theme.secondary
+            heldBySpotlight != nil ? "Used by Spotlight" : spotlightButton.isHidden ? "Replaced" : ""
+        spotlightStatus.textColor = heldBySpotlight == nil ? Theme.success : Theme.secondary
         let trusted = isTrusted()
         accessStatus.stringValue = trusted ? "Allowed" : "Not allowed"
         accessStatus.textColor = trusted ? Theme.success : Theme.secondary
@@ -121,15 +120,14 @@ final class OnboardingController: PreferencesController {
         }
     }
 
-    /// Saves a shortcut only once macOS no longer handles it first. Otherwise opens Keyboard settings and waits.
     func choose(_ shortcut: Shortcut?) {
         guard let shortcut else { return showMessage(HotKeyError.required.localizedDescription) }
         if spotlight.owns(shortcut) {
-            waiting = shortcut
+            heldBySpotlight = shortcut
             showMessage("")
             open(SpotlightShortcuts.keyboardSettings)
         } else {
-            waiting = nil
+            heldBySpotlight = nil
             do {
                 try hotKeys.update(.launcher, to: shortcut)
                 showMessage("")
@@ -139,8 +137,8 @@ final class OnboardingController: PreferencesController {
     }
 
     func tick() {
-        if let waiting, !spotlight.owns(waiting) {
-            choose(waiting)
+        if let heldBySpotlight, !spotlight.owns(heldBySpotlight) {
+            choose(heldBySpotlight)
             if window?.isVisible == true { present() }
         }
         guard step == .access, isTrusted() else { return }
@@ -155,7 +153,7 @@ final class OnboardingController: PreferencesController {
     }
 
     @objc private func spotlightAction() {
-        if waiting == nil {
+        if heldBySpotlight == nil {
             choose(SpotlightShortcuts.commandSpace)
         } else {
             open(SpotlightShortcuts.keyboardSettings)

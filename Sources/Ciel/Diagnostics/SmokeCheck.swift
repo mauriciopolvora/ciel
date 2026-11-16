@@ -133,8 +133,6 @@ import UniformTypeIdentifiers
         print("PASS dictation pill states")
     }
 
-    /// Uses scratch hot keys and a fake Spotlight and trust state, so the check never registers ⌘Space or depends on
-    /// the runner's settings.
     private static func captureOnboarding(output: String) {
         let suite = "ciel.checks.onboarding"
         let defaults = UserDefaults(suiteName: suite)!
@@ -184,7 +182,6 @@ import UniformTypeIdentifiers
         print("PASS onboarding states")
     }
 
-    /// Writes the drag hint as a looping GIF from the same poses the live animation plays.
     private static func captureDragHint(output: String) {
         let card = DragCard(frame: NSRect(origin: .zero, size: DragCard.size))
         let trail = DragTrail(
