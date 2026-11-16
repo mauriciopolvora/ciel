@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy · Ciel</title>
-  <meta name="description" content="Ciel collects no data. It makes two network requests: a daily update check you can turn off, and the speech model download you start. This site sets no cookies and runs no analytics.">
+  <meta name="description" content="Ciel collects no data. It connects to GitHub for app updates and to Hugging Face for the speech model download you start. This site sets no cookies and runs no analytics.">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
@@ -26,7 +26,7 @@
   <main id="main" class="doc">
     <h1 class="section-title">Privacy</h1>
     <h2>The app</h2>
-    <p>Ciel runs entirely on your Mac. It has no account, server, or analytics. It makes two network requests. Once a day, it checks its release feed on GitHub for an update. GitHub sees that request as it sees any download, and you can stop it by turning off Automatically check for updates in Settings. Ciel downloads the speech model from Hugging Face only when you choose Download in Settings.</p>
+    <p>Ciel runs on your Mac. It has no account, server, or analytics. Once a day, it checks its release feed on GitHub for an update, and an update you install downloads from GitHub. GitHub receives your IP address and the Ciel and Sparkle versions, as with any download. Ciel sends no system profile. To stop these checks, turn off Automatically check for updates in Settings. Ciel downloads the speech model from Hugging Face only when you choose Download in Settings.</p>
     <p>Ciel stores your preferences, shortcuts, and launch history in the <code>app.mauriciopolvora.ciel</code> defaults domain. It caches the list of installed apps at <code>~/Library/Caches/app.mauriciopolvora.ciel/apps.json</code>. Nothing in either place is sent anywhere.</p>
     <p>Speech to text is off until you turn it on. It uses the microphone only while you dictate, from the moment you press the dictation shortcut until you stop. The Parakeet Ultra model turns the audio into text on your Mac. The audio stays in memory and is never saved or sent anywhere. To paste the text, Ciel puts it on the clipboard for a moment, then puts back what was there before. Without window access, the text stays on the clipboard for you to paste.</p>
     <p>Window commands use macOS Accessibility access to move and resize windows you choose. Ciel reads window positions and sizes for that purpose only.</p>
