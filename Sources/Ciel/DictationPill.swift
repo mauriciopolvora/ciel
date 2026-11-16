@@ -64,10 +64,7 @@ final class PillView: NSView {
     private let waveformPill = CALayer()
     private let bars = CAShapeLayer()
     private let transcriptPill = CALayer()
-    private let clip = CALayer()
     private let words = TranscriptLayer()
-    private let topFade = CAGradientLayer()
-    private let endFade = CAGradientLayer()
     private let font = NSFont.systemFont(ofSize: 13)
     private var mode = Mode.idle
     private var resting = true
@@ -96,20 +93,11 @@ final class PillView: NSView {
         stack.addSublayer(transcriptPill)
         stack.addSublayer(waveformPill)
         waveformPill.addSublayer(bars)
-        transcriptPill.addSublayer(clip)
-        clip.addSublayer(words)
-        clip.addSublayer(topFade)
-        clip.addSublayer(endFade)
-        clip.masksToBounds = true
+        transcriptPill.addSublayer(words)
         transcriptPill.cornerRadius = PillLayout.radius
-        transcriptPill.masksToBounds = true
         waveformPill.cornerRadius = PillLayout.radius
         words.needsDisplayOnBoundsChange = true
-        words.contentsGravity = .bottomLeft
         words.baseline = (TranscriptLayout.lineHeight - font.ascender + font.descender) / 2 - font.descender
-        endFade.startPoint = CGPoint(x: 0, y: 0.5)
-        endFade.endPoint = CGPoint(x: 1, y: 0.5)
-        for fade in [topFade, endFade] { fade.locations = Self.fadeStops.map { $0.location as NSNumber } }
         stack.anchorPoint = CGPoint(x: 0.5, y: PillLayout.margin / bounds.height)
         stack.bounds = bounds
         stack.position = CGPoint(x: bounds.midX, y: PillLayout.margin)
@@ -128,7 +116,7 @@ final class PillView: NSView {
     var showsTranscript: Bool { reveal.value > 0 }
     var lineCount: Int { layout.lines.count }
     /// How far the top fade over older lines has come in, from 0 to 1.
-    var olderLinesFade: Float { topFade.opacity }
+    var olderLinesFade: CGFloat { words.placement.topFade }
     var transcriptFrame: CGRect {
         CGRect(
             x: (bounds.width - width.value) / 2, y: PillLayout.margin + lift.value, width: width.value,
@@ -186,8 +174,6 @@ final class PillView: NSView {
         lift.target = PillLayout.waveform.height + PillLayout.gap
         reveal.target = 1
         changed()
-        words.setNeedsDisplay()
-        words.displayIfNeeded()
     }
 
     func advance(by seconds: Double) {
@@ -282,12 +268,16 @@ final class PillView: NSView {
             pill.borderColor = Theme.cg(Theme.hairline, in: self)
         }
         bars.fillColor = Theme.cg(Theme.text, in: self)
-        let colors = Self.fadeStops.map { Theme.cg(Theme.surface.withAlphaComponent($0.alpha), in: self) }
-        for fade in [topFade, endFade] { fade.colors = colors }
+        // Only the alpha counts: the words layer erases its text with this gradient, so the fade shows the pill.
+        words.fade = CGGradient(
+            colorsSpace: nil,
+            colors: Self.fadeStops.map { Theme.cg(Theme.surface.withAlphaComponent($0.alpha), in: self) }
+                as CFArray,
+            locations: Self.fadeStops.map { $0.location })
     }
 
     private func scale(_ factor: CGFloat) {
-        for layer in [bars, words, topFade, endFade] as [CALayer] { layer.contentsScale = factor }
+        for layer in [bars, words] as [CALayer] { layer.contentsScale = factor }
         words.setNeedsDisplay()
     }
 
@@ -309,20 +299,19 @@ final class PillView: NSView {
         let frame = transcriptFrame
         transcriptPill.frame = frame
         transcriptPill.opacity = Float(unit(reveal.value))
-        clip.frame = CGRect(
+        words.frame = CGRect(
             x: PillLayout.padding.width, y: 0, width: max(frame.width - 2 * PillLayout.padding.width, 0),
             height: frame.height)
         let textWidth = min(layout.width, PillLayout.textWidth)
-        words.frame = CGRect(
-            x: max((clip.bounds.width - textWidth) / 2, 0), y: PillLayout.padding.height + scroll.value,
-            width: textWidth, height: CGFloat(words.lines.count) * TranscriptLayout.lineHeight)
-        topFade.frame = CGRect(
-            x: 0, y: frame.height - Self.fadeLength, width: clip.bounds.width, height: Self.fadeLength)
-        let hidden = words.frame.maxY + PillLayout.padding.height - frame.height
-        topFade.opacity = Float(unit(hidden / TranscriptLayout.lineHeight))
-        endFade.frame = CGRect(
-            x: clip.bounds.width - Self.fadeLength, y: 0, width: Self.fadeLength, height: frame.height)
-        endFade.opacity = Float(unit((words.frame.maxX - clip.bounds.width) / 12))
+        let origin = CGPoint(
+            x: max((words.bounds.width - textWidth) / 2, 0), y: PillLayout.padding.height + scroll.value)
+        let hidden =
+            origin.y + CGFloat(words.lines.count) * TranscriptLayout.lineHeight + PillLayout.padding.height
+            - frame.height
+        words.placement = TranscriptLayer.Placement(
+            origin: origin, topFade: unit(hidden / TranscriptLayout.lineHeight),
+            endFade: unit((origin.x + textWidth - words.bounds.width) / 12))
+        words.displayIfNeeded()
         CATransaction.commit()
     }
 
@@ -349,33 +338,62 @@ final class PillView: NSView {
     private static let barGap: CGFloat = 3
     private static let restHeight: CGFloat = 2
     private static let peakHeight: CGFloat = 18
-    private static let fadeLength: CGFloat = 20
-    private static let fadeStops: [(location: Double, alpha: CGFloat)] = [
+    private static let fadeStops: [(location: CGFloat, alpha: CGFloat)] = [
         (0, 0), (0.35, 0.3), (0.7, 0.75), (1, 1),
     ]
 }
 
 private func unit(_ value: some BinaryFloatingPoint) -> CGFloat { CGFloat(min(max(value, 0), 1)) }
 
-/// Draws the newest lines of the transcript from the bottom up, redrawn only when the words change.
+/// Draws the newest lines of the transcript from the bottom up, and erases them under the fades. It clips and
+/// fades in its own drawing, so a snapshot shows the same pixels as the screen, and it redraws only when the
+/// words, their placement or its size change.
 private final class TranscriptLayer: CALayer {
-    var lines: [CTLine] = []
+    struct Placement: Equatable {
+        var origin = CGPoint.zero
+        var topFade: CGFloat = 0
+        var endFade: CGFloat = 0
+    }
+
+    var lines: [CTLine] = [] { didSet { setNeedsDisplay() } }
+    var placement = Placement() { didSet { if placement != oldValue { setNeedsDisplay() } } }
     var baseline: CGFloat = 0
+    var fade: CGGradient? { didSet { setNeedsDisplay() } }
 
     override init() { super.init() }
     override init(layer: Any) {
         super.init(layer: layer)
         guard let other = layer as? TranscriptLayer else { return }
         lines = other.lines
+        placement = other.placement
         baseline = other.baseline
+        fade = other.fade
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(in context: CGContext) {
         context.textMatrix = .identity
         for (index, line) in lines.reversed().enumerated() {
-            context.textPosition = CGPoint(x: 0, y: CGFloat(index) * TranscriptLayout.lineHeight + baseline)
+            context.textPosition = CGPoint(
+                x: placement.origin.x,
+                y: placement.origin.y + CGFloat(index) * TranscriptLayout.lineHeight + baseline)
             CTLineDraw(line, context)
         }
+        guard let fade else { return }
+        context.setBlendMode(.destinationOut)
+        if placement.topFade > 0 {
+            context.setAlpha(placement.topFade)
+            context.drawLinearGradient(
+                fade, start: CGPoint(x: 0, y: bounds.height - Self.fadeLength),
+                end: CGPoint(x: 0, y: bounds.height), options: [])
+        }
+        if placement.endFade > 0 {
+            context.setAlpha(placement.endFade)
+            context.drawLinearGradient(
+                fade, start: CGPoint(x: bounds.width - Self.fadeLength, y: 0),
+                end: CGPoint(x: bounds.width, y: 0), options: [])
+        }
     }
+
+    private static let fadeLength: CGFloat = 20
 }
