@@ -6,7 +6,7 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
     let hotKeys: HotKeys
     let content: SurfaceView
     private let errorLabel = Theme.label("", size: 12, color: Theme.error)
-    private let baseSize: NSSize
+    private var baseSize: NSSize
     private var recorders: [HotKeyCommand: ShortcutRecorder] = [:]
 
     init(title: String, size: NSSize, hotKeys: HotKeys) {
@@ -32,12 +32,43 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func group(_ frame: NSRect) -> FlippedView {
+    func group(_ frame: NSRect, in parent: NSView? = nil) -> FlippedView {
         let view = SurfaceView(frame: frame)
         view.isGroup = true
         view.refreshSurface()
-        content.addSubview(view)
+        (parent ?? content).addSubview(view)
         return view
+    }
+    static func status() -> NSTextField {
+        let label = Theme.label("", size: 12, color: Theme.secondary)
+        label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        label.alignment = .right
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
+    }
+    func rows(_ rows: [(String, [NSView])], at y: CGFloat, in parent: NSView? = nil) -> NSView {
+        let box = group(
+            NSRect(x: 20, y: y, width: 440, height: CGFloat(rows.count) * Theme.rowHeight), in: parent)
+        for (index, (name, controls)) in rows.enumerated() {
+            let top = CGFloat(index) * Theme.rowHeight
+            if index > 0 { box.addSubview(Divider(frame: NSRect(x: 16, y: top, width: 408, height: 1))) }
+            let label = Theme.label(name, size: 14)
+            let stack = NSStackView(views: controls)
+            stack.spacing = 8
+            stack.setHuggingPriority(.defaultHigh, for: .horizontal)
+            for view in [label, stack] {
+                view.translatesAutoresizingMaskIntoConstraints = false
+                box.addSubview(view)
+                view.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + Theme.rowHeight / 2)
+                    .isActive = true
+            }
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 16),
+                stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -16),
+                stack.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12),
+            ])
+        }
+        return box
     }
     func label(
         _ title: String, x: CGFloat = 16, y: CGFloat, width: CGFloat = 246,
@@ -79,6 +110,11 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         frame.origin.y = frame.maxY - size.height
         frame.size = size
         window.setFrame(frame, display: true)
+    }
+    func resize(toHeight height: CGFloat) {
+        baseSize.height = height
+        errorLabel.frame.origin.y = height - 6
+        showMessage(errorLabel.stringValue)
     }
     func refresh() {
         for (command, recorder) in recorders where !recorder.recording {
@@ -182,39 +218,11 @@ final class SettingsController: PreferencesController {
     @objc private func openGuide() { onGuide?() }
     @objc private func openAbout() { onAbout?() }
 
-    private static func status() -> NSTextField {
-        let label = Theme.label("", size: 12, color: Theme.secondary)
-        label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        label.alignment = .right
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return label
-    }
-
     private func section(_ title: String, at y: CGFloat, rows: [(String, [NSView])]) -> CGFloat {
         let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
         header.frame = NSRect(x: 36, y: y, width: 408, height: 17)
         content.addSubview(header)
-        let box = group(NSRect(x: 20, y: y + 23, width: 440, height: CGFloat(rows.count) * Theme.rowHeight))
-        for (index, (name, controls)) in rows.enumerated() {
-            let top = CGFloat(index) * Theme.rowHeight
-            if index > 0 { box.addSubview(Divider(frame: NSRect(x: 16, y: top, width: 408, height: 1))) }
-            let label = Theme.label(name, size: 14)
-            let stack = NSStackView(views: controls)
-            stack.spacing = 8
-            stack.setHuggingPriority(.defaultHigh, for: .horizontal)
-            for view in [label, stack] {
-                view.translatesAutoresizingMaskIntoConstraints = false
-                box.addSubview(view)
-                view.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + Theme.rowHeight / 2)
-                    .isActive = true
-            }
-            NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 16),
-                stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -16),
-                stack.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12),
-            ])
-        }
-        return box.frame.maxY + 20
+        return self.rows(rows, at: y + 23).frame.maxY + 20
     }
 
     override func refresh() {

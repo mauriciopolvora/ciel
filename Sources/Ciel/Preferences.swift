@@ -20,6 +20,11 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: "speechEnabled") }
     }
 
+    var onboarded: Bool {
+        get { defaults.bool(forKey: "onboarded") }
+        nonmutating set { defaults.set(newValue, forKey: "onboarded") }
+    }
+
     var hadWindowAccess: Bool {
         get { defaults.bool(forKey: "hadWindowAccess") }
         nonmutating set { defaults.set(newValue, forKey: "hadWindowAccess") }

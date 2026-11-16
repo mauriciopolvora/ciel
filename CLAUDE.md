@@ -23,6 +23,7 @@
 | Window commands never target Ciel's own windows | `ForeignProcess` in `WindowController.swift`, `WindowOperationTests.ownProcessIsNeverATarget`, mutant M14 |
 | Window settle retries an unchanged window after 0.2 s, matches within 3 pt, settles as constrained only when the retry repeats, and never yields before the window responds | `FrameSettleTests`, `WindowOperationTests`, mutants M16 to M20 |
 | An invalidated icon load never delivers and never holds a load slot | `IconCacheTests`, whose waits fail after 3 s instead of hanging, mutants M21 and M22 |
+| Onboarding saves a launcher shortcut only after Spotlight lets it go, and reads a Spotlight shortcut missing from the saved list as on | `OnboardingTests`, the onboarding step in `SmokeCheck`, mutants M24 and M25 |
 | A speech model counts as ready only after its size and SHA-256 match the pinned values | `SpeechModelStoreTests`, mutant M23 |
 | Ad-hoc builds sign without hardened runtime. Developer ID builds sign app and framework with hardened runtime, one Team ID and library validation on | The signature check at the end of `scripts/build.sh`, and the launch step in `.github/workflows/checks.yml` |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
