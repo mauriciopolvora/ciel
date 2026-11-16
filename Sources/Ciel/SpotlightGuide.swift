@@ -3,9 +3,8 @@ import AppKit
 @MainActor final class SpotlightGuide: NSObject {
     var held: Shortcut?
     weak var owner: PreferencesController?
-    let note = Theme.label(
-        "In Keyboard Shortcuts, select Spotlight and turn off Show Spotlight search. Ciel switches when ⌘Space is free.",
-        size: 12, color: Theme.secondary)
+    let heading = Theme.label("", size: 20)
+    let note = Theme.label("", size: 12, color: Theme.secondary)
     private let hotKeys: HotKeys
     private let spotlight: SpotlightShortcuts
     private let open: @MainActor (URL) -> Void
@@ -60,6 +59,11 @@ import AppKit
             held == nil && hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
             && !spotlight.owns(SpotlightShortcuts.commandSpace)
         note.isHidden = held == nil
+        if let held, let action = spotlight.action(holding: held) {
+            heading.stringValue = "Free \(held.display) from Spotlight"
+            note.stringValue =
+                "In Keyboard Shortcuts, select Spotlight and turn off \(action). Ciel switches when \(held.display) is free."
+        }
         for (status, button) in rows {
             button.isHidden = replaced
             button.title = held == nil ? "Use " + SpotlightShortcuts.commandSpace.display : "Open Settings…"

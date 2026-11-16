@@ -248,9 +248,8 @@ final class SettingsController: PreferencesController {
         let sheet = SurfaceView(frame: .zero)
         spotlightSheet.appearance = NSAppearance(named: .darkAqua)
         spotlightSheet.contentView = sheet
-        let heading = Theme.label("Free ⌘Space from Spotlight", size: 20)
-        heading.frame = NSRect(x: 36, y: 24, width: 408, height: 26)
-        sheet.addSubview(heading)
+        spotlightGuide.heading.frame = NSRect(x: 36, y: 24, width: 408, height: 26)
+        sheet.addSubview(spotlightGuide.heading)
         let guideRows = rows([("Replace Spotlight", spotlightGuide.row())], at: 66, in: sheet)
         spotlightGuide.note.frame = NSRect(x: 36, y: guideRows.frame.maxY + 12, width: 408, height: 32)
         sheet.addSubview(spotlightGuide.note)
@@ -261,9 +260,10 @@ final class SettingsController: PreferencesController {
         if spotlightGuide.held != nil, poll == nil, let window, window.isVisible {
             window.beginSheet(spotlightSheet)
             poll = Task { [weak self] in
-                while !Task.isCancelled {
+                while true {
                     try? await Task.sleep(for: .milliseconds(500))
-                    self?.spotlightGuide.tick()
+                    guard let self, !Task.isCancelled else { return }
+                    spotlightGuide.tick()
                 }
             }
         } else if spotlightGuide.held == nil, let poll {
@@ -277,6 +277,12 @@ final class SettingsController: PreferencesController {
         guard let held = spotlightGuide.held, let kept = hotKeys.shortcut(for: .launcher) else { return }
         spotlightGuide.held = nil
         showMessage("Kept \(kept.display). \(held.display) is still used by Spotlight.")
+        refresh()
+    }
+
+    override func windowWillClose(_ notification: Notification) {
+        super.windowWillClose(notification)
+        spotlightGuide.held = nil
         refresh()
     }
 

@@ -23,7 +23,7 @@ struct OnboardingTests {
                 "65": ["enabled": false],
             ]
         }
-        #expect(changed.active == [shiftCommandSpace])
+        #expect(changed.active.map(\.shortcut) == [shiftCommandSpace])
         #expect(!changed.owns(SpotlightShortcuts.commandSpace))
     }
 
