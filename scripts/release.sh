@@ -6,6 +6,10 @@ cd "$(dirname "$0")/.."
 if [[ "$SIGN_IDENTITY" != 'Developer ID Application:'* ]]; then
     printf 'A Developer ID Application identity is required.\n' >&2; exit 1
 fi
+sparkle_key="${SPARKLE_KEY_FILE:-$HOME/.config/secrets/ciel-sparkle.env}"
+if [[ ! -r "$sparkle_key" ]]; then
+    printf 'No update signing key at %s. Copy ciel-sparkle.env from mauriciovps with mode 600, or set SPARKLE_KEY_FILE.\n' "$sparkle_key" >&2; exit 1
+fi
 xcrun --find notarytool >/dev/null
 xcrun --find stapler >/dev/null
 export CIEL_ARCH="${CIEL_ARCH:-arm64}"
@@ -25,4 +29,6 @@ ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
 shasum -a 256 "$archive" > "$archive.sha256"
 cp "$archive" dist/Ciel.zip
 (cd dist && shasum -a 256 Ciel.zip > Ciel.zip.sha256)
+bash scripts/appcast.sh "$app_path/Contents/Info.plist" "$archive" "$sparkle_key" "$PWD/dist/appcast.xml"
 printf 'Release archive: %s\nLatest archive: %s\n' "$archive" "$PWD/dist/Ciel.zip"
+printf 'Appcast: %s. Upload it with Ciel.zip to the GitHub release so installed copies see the update.\n' "$PWD/dist/appcast.xml"

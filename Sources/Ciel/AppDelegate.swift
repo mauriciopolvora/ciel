@@ -8,6 +8,7 @@ import CielCore
     private let pill = DictationPill()
     private let history = UsageHistory()
     private let speech = SpeechModelStore()
+    private let updater = Updater()
     private var transcriber: TranscribeCppTranscriber?
     private lazy var hotKeys = HotKeys(
         registrar: SystemHotKeyRegistrar(),
@@ -72,6 +73,7 @@ import CielCore
             name: Notification.Name("com.apple.accessibility.api"),
             object: nil, suspensionBehavior: .deliverImmediately)
         guard pendingCheck == nil else { return }
+        updater.start()
         let accessLost = Preferences().windowAccessLost(trusted: WindowController.isTrusted)
         if !hotKeys.isLive(.launcher) {
             hud.show(
@@ -114,6 +116,7 @@ import CielCore
         menu.addItem(NSMenuItem(title: "Open Ciel", action: #selector(menuOpen), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "About Ciel…", action: #selector(showAbout), keyEquivalent: ""))
+        menu.addItem(updater.menuItem())
         menu.addItem(NSMenuItem(title: "Keyboard Guide…", action: #selector(showGuide), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "License Notices…", action: #selector(showNotices), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -123,7 +126,7 @@ import CielCore
         menu.addItem(NSMenuItem(title: "Rescan Applications", action: #selector(rescan), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Ciel", action: #selector(quit), keyEquivalent: "q"))
-        for item in menu.items { item.target = self }
+        for item in menu.items where item.target == nil { item.target = self }
         statusItem.menu = menu
         updateMenuBarIcon()
     }
@@ -260,7 +263,7 @@ import CielCore
     @objc private func showSettings() {
         panel.dismiss()
         if settings == nil {
-            settings = SettingsController(hotKeys: hotKeys, speech: speech)
+            settings = SettingsController(hotKeys: hotKeys, speech: speech, updater: updater)
             settings?.onMenuBarIconChange = { [weak self] in self?.updateMenuBarIcon() }
             settings?.onSpeechChange = { [weak self] in self?.speechChanged() }
             settings?.onGuide = { [weak self] in self?.showGuide() }

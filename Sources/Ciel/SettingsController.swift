@@ -152,10 +152,12 @@ final class SettingsController: PreferencesController {
     private let login = MonochromeSwitch(frame: .zero)
     private let animations = MonochromeSwitch(frame: .zero)
     private let menuBarIcon = MonochromeSwitch(frame: .zero)
+    private let updateChecks = MonochromeSwitch(frame: .zero)
     private let speechSwitch = MonochromeSwitch(frame: .zero)
     private let modelStatus = SettingsController.status()
     private let modelButton = NSButton(title: "", target: nil, action: nil)
     private let speech: SpeechModelStore
+    private let updater: Updater
     let spotlightGuide: SpotlightGuide
     private let spotlightSheet = NSWindow(
         contentRect: NSRect(x: 0, y: 0, width: 480, height: 222), styleMask: [.titled], backing: .buffered,
@@ -169,12 +171,13 @@ final class SettingsController: PreferencesController {
     var onSpeechChange: (() -> Void)?
 
     init(
-        hotKeys: HotKeys, speech: SpeechModelStore, spotlight: SpotlightShortcuts = .system,
+        hotKeys: HotKeys, speech: SpeechModelStore, updater: Updater, spotlight: SpotlightShortcuts = .system,
         open: @escaping @MainActor (URL) -> Void = { _ = NSWorkspace.shared.open($0) }
     ) {
         self.speech = speech
+        self.updater = updater
         spotlightGuide = SpotlightGuide(hotKeys: hotKeys, spotlight: spotlight, open: open)
-        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 652), hotKeys: hotKeys)
+        super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 696), hotKeys: hotKeys)
         spotlightGuide.owner = self
         let title = Theme.label("Ciel", size: 23)
         title.frame = NSRect(x: 36, y: 20, width: 408, height: 28)
@@ -187,6 +190,7 @@ final class SettingsController: PreferencesController {
             (login, "Launch at login", #selector(toggleLogin)),
             (animations, "Animations", #selector(toggleAnimations)),
             (menuBarIcon, "Show menu bar icon", #selector(toggleMenuBarIcon)),
+            (updateChecks, "Automatically check for updates", #selector(toggleUpdateChecks)),
             (speechSwitch, "Speech to text", #selector(toggleSpeech)),
         ] {
             toggle.target = self
@@ -215,7 +219,7 @@ final class SettingsController: PreferencesController {
             rows: [
                 ("Launcher shortcut", [launcher]), ("Replace Spotlight", spotlightGuide.row()),
                 ("Launch at login", [login]), ("Animations", [animations]),
-                ("Show menu bar icon", [menuBarIcon]),
+                ("Show menu bar icon", [menuBarIcon]), ("Automatically check for updates", [updateChecks]),
             ])
         y = section("Permissions", at: y, rows: [("Accessibility", [permissionLabel, permissionButton])])
         y = section(
@@ -310,6 +314,7 @@ final class SettingsController: PreferencesController {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         animations.state = Preferences().animations ? .on : .off
         menuBarIcon.state = Preferences().showMenuBarIcon ? .on : .off
+        updateChecks.state = updater.automaticallyChecks ? .on : .off
         let speechEnabled = Preferences().speechEnabled
         speechSwitch.state = speechEnabled ? .on : .off
         dictationRecorder?.isEnabled = speechEnabled
@@ -347,6 +352,7 @@ final class SettingsController: PreferencesController {
         Preferences().showMenuBarIcon = menuBarIcon.state == .on
         onMenuBarIconChange?()
     }
+    @objc private func toggleUpdateChecks() { updater.automaticallyChecks = updateChecks.state == .on }
     @objc private func toggleLogin() {
         do {
             if login.state == .on {

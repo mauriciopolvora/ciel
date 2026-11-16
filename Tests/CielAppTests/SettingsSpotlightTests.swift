@@ -108,7 +108,7 @@ struct SettingsSpotlightTests {
             let folder = FileManager.default.temporaryDirectory.appending(
                 path: "ciel-settings-" + UUID().uuidString)
             let settings = SettingsController(
-                hotKeys: hotKeys, speech: SpeechModelStore(folder: folder),
+                hotKeys: hotKeys, speech: SpeechModelStore(folder: folder), updater: Updater(),
                 spotlight: SpotlightShortcuts { system.symbolicHotKeys }, open: { system.opened.append($0) })
             body(settings, hotKeys, system)
         }

@@ -31,6 +31,10 @@ ditto "$binary_dir/CTranscribe.framework" "$framework"
 lipo "$framework/Versions/A/CTranscribe" -thin arm64 -output "$staging_dir/CTranscribe"
 mv "$staging_dir/CTranscribe" "$framework/Versions/A/CTranscribe"
 rm -rf "$framework/Headers" "$framework/Modules" "$framework/Versions/A/Headers" "$framework/Versions/A/Modules"
+sparkle="$staged_app/Contents/Frameworks/Sparkle.framework"
+ditto "$binary_dir/Sparkle.framework" "$sparkle"
+# Sparkle uses its XPC services only in sandboxed apps, and its sandboxing guide allows removing them otherwise.
+rm -rf "$sparkle/XPCServices" "$sparkle/Versions/B/XPCServices"
 if ! otool -l "$staged_app/Contents/MacOS/Ciel" | grep -q 'path @executable_path/../Frameworks '; then
     install_name_tool -add_rpath @executable_path/../Frameworks "$staged_app/Contents/MacOS/Ciel"
 fi
@@ -50,19 +54,22 @@ else
 fi
 # Nested code is signed before the bundle that seals it.
 "${sign[@]}" "$framework"
+"${sign[@]}" "$sparkle/Versions/B/Autoupdate"
+"${sign[@]}" "$sparkle/Versions/B/Updater.app"
+"${sign[@]}" "$sparkle"
 "${sign[@]}" --entitlements Resources/Ciel.entitlements "$staged_app"
 codesign --verify --strict --deep "$staged_app"
-# Under the hardened runtime, library validation loads the framework only when it shares the app's Team ID, and ad-hoc code has none.
-for code in "$staged_app" "$framework"; do
+# Under the hardened runtime, library validation loads a framework only when it shares the app's Team ID, and ad-hoc code has none.
+for code in "$staged_app" "$framework" "$sparkle" "$sparkle/Versions/B/Autoupdate" "$sparkle/Versions/B/Updater.app"; do
     details="$(codesign -dv "$code" 2>&1)"
     flags="$(sed -nE 's/.*flags=0x[0-9a-f]+\(([^)]*)\).*/,\1,/p' <<<"$details")"
     team="$(sed -n 's/^TeamIdentifier=//p' <<<"$details")"
     if [[ "$flags" == *,adhoc,* && "$flags" == *,runtime,* ]]; then
-        printf '%s is ad-hoc signed with hardened runtime, so the app cannot load its framework.\n' "$code" >&2; exit 1
+        printf '%s is ad-hoc signed with hardened runtime, so the app cannot load its frameworks.\n' "$code" >&2; exit 1
     elif [[ "$flags" != *,adhoc,* && "$flags" != *,runtime,* ]]; then
         printf '%s is Developer ID signed without hardened runtime, so it cannot be notarized.\n' "$code" >&2; exit 1
     elif [[ "$team" != "${app_team:=$team}" ]]; then
-        printf 'The app and its framework have different Team IDs.\n' >&2; exit 1
+        printf '%s and the app have different Team IDs.\n' "$code" >&2; exit 1
     fi
 done
 if codesign -d --entitlements - "$staged_app" 2>/dev/null | grep -q disable-library-validation; then
@@ -73,4 +80,5 @@ mv "$staged_app" "$app_path"
 printf 'Built %s\n' "$app_path"
 lipo -archs "$app_path/Contents/MacOS/Ciel"
 lipo -archs "$app_path/Contents/Frameworks/CTranscribe.framework/CTranscribe"
+lipo -archs "$app_path/Contents/Frameworks/Sparkle.framework/Sparkle"
 du -sh "$app_path"

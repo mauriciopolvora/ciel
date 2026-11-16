@@ -14,5 +14,8 @@
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSMicrophoneUsageDescription</key><string>Ciel listens while you hold the dictation shortcut and turns your speech into text on this Mac.</string>
+    <key>SUFeedURL</key><string>https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>pj+OdMDGmclTCwEn4vf29Yn02ok+/hz/D+zk3F5tcV0=</string>
+    <key>SUEnableAutomaticChecks</key><true/>
     <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Mauricio Polvora</string>
 </dict></plist>

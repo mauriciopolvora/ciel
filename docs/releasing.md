@@ -16,6 +16,8 @@ Ciel runs on Apple Silicon only, because speech to text uses transcribe.cpp with
 
 The build copies `CTranscribe.framework` into `Contents/Frameworks`, keeps only its arm64 slice, and removes its headers and module map. It adds the `@executable_path/../Frameworks` rpath to the app binary when SwiftPM did not. It signs the framework first, then the app with `Resources/Ciel.entitlements`, which grants microphone input under the hardened runtime. Developer ID builds use the hardened runtime. Ad-hoc builds do not, because library validation would reject a framework without a Team ID and the app would quit at launch. `codesign --verify --strict --deep` must pass, and the build stops if the app and framework signatures could not load together.
 
+The build also copies `Sparkle.framework` and removes its XPC services, which Sparkle uses only in sandboxed apps. It signs Sparkle's `Autoupdate` and `Updater.app` before the framework, with the same identity and the same Team ID and hardened runtime checks as the rest of the app.
+
 ## Sign and notarize
 
 Install a **Developer ID Application** certificate and its private key in the macOS keychain. Create a `notarytool` keychain profile with Apple's notarization credentials. Keep credentials and certificates outside the repository.
@@ -53,4 +55,14 @@ Ad-hoc signatures change identity when code changes. If window access stops work
 
 The install script saves the old Ciel bundle under `.build/backups` before it replaces it. For rollback, quit Ciel and copy the saved bundle back to `~/Applications`. Avoid running two copies with the same bundle identifier.
 
-Ciel 0.4.2 has no automatic update service. Updates require a manual download or build and installation.
+## Updates
+
+Ciel checks for updates with [Sparkle](https://sparkle-project.org). The app reads the feed at `https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml` and accepts only archives signed by the EdDSA key whose public half is `SUPublicEDKey` in `Resources/Info.plist`.
+
+The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key or add it to CI.
+
+After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The appcast points to the versioned archive, so attach `Ciel-<version>-arm64.zip`, `Ciel.zip`, `appcast.xml` and both checksums to the GitHub release.
+
+CI checks the appcast script with a throwaway key on each run: `scripts/check-appcast.sh` signs a test archive, then validates the XML, its version, length and minimum system fields, and the signature.
+
+Ciel 0.5.0 and older have no updater. People who installed those versions must download Ciel once by hand. After that, Ciel updates itself.
