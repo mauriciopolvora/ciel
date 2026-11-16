@@ -29,6 +29,9 @@ import UniformTypeIdentifiers
                 NSApp.appearance = NSAppearance(named: appearance)
                 capture(launcher, "launcher-" + name, output: output)
             }
+            await captureLauncherDesigns(launcher, fieldEditor: fieldEditor, output: output)
+            launcher.searchField.stringValue = "half"
+            launcher.selectFilter(2)
             NSApp.appearance = NSAppearance(named: .darkAqua)
             let preferences = showSettings()
             guard windowShortcuts() == nil else {
@@ -96,6 +99,28 @@ import UniformTypeIdentifiers
     }
 
     /// Runs under the checks bundle id, so it changes only the checks defaults and never touches model files.
+    /// Writes launcher-design-<design>-<state>-<mode>.png. Only Graphite follows the system, so the A and C light
+    /// captures match their dark ones.
+    private static func captureLauncherDesigns(
+        _ launcher: LauncherView, fieldEditor: MonochromeFieldEditor, output: String
+    ) async {
+        for design in LauncherDesign.allCases {
+            for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                NSApp.appearance = NSAppearance(named: appearance)
+                launcher.applyDesign(design, systemDark: appearance == .darkAqua)
+                launcher.selectFilter(0)
+                for (state, query) in [("empty", ""), ("results", "c"), ("none", "zzzzzzzzzzzz")] {
+                    launcher.searchField.stringValue = query
+                    launcher.updateResults()
+                    fieldEditor.setSelectedRange(NSRange(location: query.count, length: 0))
+                    await settleIcons(in: launcher)
+                    capture(launcher, "launcher-design-\(design.rawValue)-\(state)-\(mode)", output: output)
+                }
+            }
+        }
+        launcher.refreshDesign(force: true)
+    }
+
     private static func captureSpeechStates(
         _ settings: SettingsController, speech: SpeechModelStore, output: String
     ) {
