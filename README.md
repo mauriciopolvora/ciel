@@ -8,7 +8,7 @@ A small native macOS launcher for apps and window commands. Open it, type, and p
 
 Website: [cielmac.app](https://cielmac.app)
 
-Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. Its only network request is the speech model download you start in Settings. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
+Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. It makes two kinds of network request: the speech model download you start in Settings, and update checks. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
 
 ![Ciel opens as a blank black input box](docs/launcher-empty.png)
 
@@ -54,7 +54,7 @@ Search supports prefixes, abbreviations such as `vsc`, typing errors such as `sa
 
 Drag the empty input, or the border around a populated search, to move Ciel. White guides divide the usable display at one-quarter, one-half, and three-quarters. Nearby guides brighten. Release within 24 points to snap the input center to a guide. Hold Option to place it freely. Guides disappear when you release the mouse. Ciel remembers each display’s position across reopening and restart.
 
-The cloud icon in the menu bar provides Settings, Keyboard Guide, Window Shortcuts, Rescan Applications, About, License Notices, and Quit. Launch at login is optional in Settings.
+The cloud icon in the menu bar provides Settings, Keyboard Guide, Window Shortcuts, Rescan Applications, About, Check for Updates, License Notices, and Quit. Launch at login is optional in Settings.
 
 To hide the cloud icon, turn off **Settings → Show menu bar icon**. This takes effect immediately and stays off after restart. Open the launcher and press **Command–Comma** to return to Settings and show the icon again. You can also open Ciel from Applications if the launcher shortcut is unavailable.
 
@@ -86,9 +86,9 @@ The model is a 550 MB download. Ciel checks its size and SHA-256 against pinned 
 
 Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
 
-The only network request is the speech model download, and it starts only when you choose **Download** in Settings. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
+Ciel makes two kinds of network request. The speech model download starts only when you choose **Download** in Settings. Update checks fetch the appcast from Ciel's GitHub releases about once a day, and send only the Ciel and Sparkle versions. Turn them off with **Settings → Automatically check for updates**, or check by hand with **Check for Updates…** in the menu bar. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
 
-Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. There is no recurring idle timer.
+Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. The only recurring timer is Sparkle's daily update check, which stops when automatic checks are off.
 
 Search and keyboard selection do not wait for animation. Pointer hover uses a 120 ms transition. Reduce Motion and the animation setting disable motion. Reduce Transparency uses an opaque surface. Increase Contrast strengthens boundaries. Ciel uses native text editing and accessibility labels.
 
