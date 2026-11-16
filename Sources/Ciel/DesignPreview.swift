@@ -9,9 +9,9 @@ enum SettingsDesign: String, CaseIterable, Sendable {
 
     var summary: String {
         switch self {
-        case .a: "Settings A"
-        case .b: "Settings B"
-        case .c: "Settings C"
+        case .a: "Grouped rows"
+        case .b: "Key caps on top"
+        case .c: "Two columns"
         }
     }
 }

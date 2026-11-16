@@ -311,7 +311,7 @@ enum HotKeyError: LocalizedError {
     }
 }
 
-final class ShortcutRecorder: NSButton {
+class ShortcutRecorder: NSButton {
     var onRecord: ((Shortcut?) -> Void)?
     var onBegin: (() -> Void)?
     var onEnd: (() -> Void)?
@@ -320,7 +320,7 @@ final class ShortcutRecorder: NSButton {
     private(set) var recording = false
     private var gestures = ModifierKey.allCases.map(ModifierGesture.init)
     override var acceptsFirstResponder: Bool { true }
-    init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
+    required init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
         self.shortcut = shortcut
         self.onRecord = onRecord
         super.init(frame: .zero)
@@ -333,7 +333,7 @@ final class ShortcutRecorder: NSButton {
     }
     required init?(coder: NSCoder) { fatalError() }
     private func updateTitle() { title = recording ? "Press shortcut…" : shortcut?.display ?? "Set shortcut" }
-    @objc private func start() {
+    @objc func start() {
         window?.makeFirstResponder(self)
         gestures = ModifierKey.allCases.map(ModifierGesture.init)
         recording = true

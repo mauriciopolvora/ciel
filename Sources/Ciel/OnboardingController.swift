@@ -2,7 +2,7 @@ import AppKit
 
 final class OnboardingController: PreferencesController {
     enum Step: Int { case shortcut, access }
-    private static let heights: [Step: CGFloat] = [.shortcut: 288, .access: 208]
+    private static let heights: [Step: CGFloat] = [.shortcut: 264, .access: 208]
 
     var onFinish: (() -> Void)?
     private(set) var step = Step.shortcut
@@ -42,10 +42,10 @@ final class OnboardingController: PreferencesController {
 
         let shortcut = page("Choose a shortcut", "Press it in any app to open Ciel.")
         let shortcutRows = rows(
-            [("Shortcut", [launcher]), ("Replace Spotlight", spotlightGuide.row())], at: 88, in: shortcut)
+            [("Shortcut", [launcher])], at: 88, in: shortcut, caption: (0, spotlightGuide.caption()))
         spotlightGuide.note.frame = NSRect(x: 36, y: shortcutRows.frame.maxY + 12, width: 408, height: 32)
         shortcut.addSubview(spotlightGuide.note)
-        footer("Continue", #selector(advance), top: 236, in: shortcut)
+        footer("Continue", #selector(advance), top: 212, in: shortcut)
 
         let access = page(
             "Allow window control", "Ciel needs Accessibility access to move windows and paste dictation.")

@@ -73,6 +73,7 @@ import UniformTypeIdentifiers
                 }
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
+            captureSettingsDesigns(preferences, speech: speech, output: output)
             captureSpeechStates(preferences, speech: speech, output: output)
             capturePillStates(output: output)
             captureOnboarding(output: output)
@@ -114,6 +115,56 @@ import UniformTypeIdentifiers
         preferences.speechEnabled = wasEnabled
         settings.refresh()
         print("PASS speech settings states")
+    }
+
+    /// Captures each Settings design as shipped, then with ⌘Space replacing Spotlight in an isolated controller.
+    private static func captureSettingsDesigns(
+        _ settings: SettingsController, speech: SpeechModelStore, output: String
+    ) {
+        let preview = DesignPreview()
+        let original = preview.settings
+        let suite = "ciel.checks.settings-design"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        for design in SettingsDesign.allCases {
+            preview.settings = design
+            settings.show(design)
+            guard settings.design == design, settings.recorders[.launcher]?.window === settings.window else {
+                print("FAIL Settings did not switch to design \(design.letter)")
+                exit(1)
+            }
+            let name = "settings-design-" + design.rawValue
+            captureModes(settings.content, name, output: output)
+            defaults.removePersistentDomain(forName: suite)
+            let state = CheckSystemState()
+            state.symbolicHotKeys = ["64": ["enabled": false]]
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+            let replaced = SettingsController(
+                hotKeys: hotKeys, speech: speech, updater: Updater(),
+                spotlight: SpotlightShortcuts { state.symbolicHotKeys }, open: { state.opened.append($0) })
+            replaced.present()
+            replaced.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            guard replaced.design == design, replaced.spotlightGuide.replacement == .replaced,
+                hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
+            else {
+                print("FAIL Settings design \(design.letter) did not take ⌘Space from a free Spotlight")
+                exit(1)
+            }
+            captureModes(replaced.content, name + "-spotlight", output: output)
+            replaced.close()
+        }
+        preview.settings = original
+        settings.show(original)
+        print("PASS settings designs")
+    }
+
+    private static func captureModes(_ view: NSView, _ name: String, output: String) {
+        for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            capture(view, name + "-" + mode, output: output)
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 
     private static func capturePillStates(output: String) {

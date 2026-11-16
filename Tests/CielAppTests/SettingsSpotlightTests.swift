@@ -91,6 +91,23 @@ struct SettingsSpotlightTests {
         }
     }
 
+    @Test func everyDesignWaitsForSpotlightBeforeItSavesTheLauncherShortcut() {
+        withSettings { settings, hotKeys, system in
+            for design in SettingsDesign.allCases {
+                settings.show(design)
+                settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+                #expect(hotKeys.shortcut(for: .launcher) == .launcher)
+                #expect(settings.spotlightGuide.replacement == .waiting)
+                settings.cancelSpotlight()
+                #expect(settings.spotlightGuide.replacement == .offered)
+            }
+            system.symbolicHotKeys = ["64": ["enabled": false]]
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
+            #expect(settings.spotlightGuide.replacement == .replaced)
+        }
+    }
+
     @Test func aFreeShortcutIsSavedAtOnce() {
         withSettings { settings, hotKeys, system in
             settings.recorders[.launcher]?.accept(shiftCommandSpace)

@@ -13,6 +13,7 @@ import QuartzCore
     static let border = NSColor(white: 0.30, alpha: 1)
     static let guide = NSColor.white
     static let rowHeight: CGFloat = 44
+    static let captionedRowHeight: CGFloat = 62
     static let panelRadius: CGFloat = 16
     static let groupRadius: CGFloat = 10
     static let statusRadius: CGFloat = 12
@@ -72,6 +73,117 @@ final class MonochromeSwitch: NSButton {
             outline.stroke()
         }
     }
+}
+
+/// A borderless button that reads as text, for an action that belongs to the line it sits in.
+final class TextButton: NSButton {
+    private let size: CGFloat
+    private let color: NSColor
+
+    init(size: CGFloat = 12, color: NSColor = Theme.text, target: AnyObject?, action: Selector?) {
+        self.size = size
+        self.color = color
+        super.init(frame: .zero)
+        isBordered = false
+        self.target = target
+        self.action = action
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    var text: String {
+        get { title }
+        set {
+            attributedTitle = NSAttributedString(
+                string: newValue,
+                attributes: [.font: NSFont.systemFont(ofSize: size), .foregroundColor: color])
+        }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+}
+
+/// Draws a shortcut as one key cap per modifier and key.
+final class KeycapRecorder: ShortcutRecorder {
+    private static let height: CGFloat = 40
+    private static let gap: CGFloat = 6
+    private var caps: [String] {
+        guard !recording, let shortcut else { return [title] }
+        if let key = shortcut.modifierKey { return [key.display] }
+        let display = shortcut.display
+        let modifiers = display.prefix { "⌃⌥⇧⌘".contains($0) }
+        return modifiers.map(String.init) + [String(display.dropFirst(modifiers.count))]
+    }
+    private func attributed(_ cap: String) -> NSAttributedString {
+        let color = recording || shortcut == nil ? Theme.secondary : Theme.text
+        return NSAttributedString(
+            string: cap,
+            attributes: [.font: NSFont.systemFont(ofSize: 18, weight: .medium), .foregroundColor: color])
+    }
+    private func widths() -> [CGFloat] {
+        caps.map { max(Self.height, ceil(attributed($0).size().width) + 24) }
+    }
+    override var title: String { didSet { invalidateIntrinsicContentSize() } }
+    override var intrinsicContentSize: NSSize {
+        let widths = widths()
+        return NSSize(width: widths.reduce(0, +) + Self.gap * CGFloat(widths.count - 1), height: Self.height)
+    }
+    override var focusRingMaskBounds: NSRect { bounds }
+    override func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: Theme.rowRadius, yRadius: Theme.rowRadius).fill()
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        var x: CGFloat = 0
+        for (cap, width) in zip(caps, widths()) {
+            let frame = NSRect(x: x, y: 0, width: width, height: Self.height).insetBy(dx: 0.5, dy: 0.5)
+            let outline = NSBezierPath(roundedRect: frame, xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
+            (isHighlighted ? Theme.selection : Theme.group).setFill()
+            outline.fill()
+            Theme.hairline.setStroke()
+            outline.lineWidth = 1
+            outline.stroke()
+            let text = attributed(cap)
+            let size = text.size()
+            text.draw(at: NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2))
+            x += width + Self.gap
+        }
+    }
+}
+
+/// Opens a menu of shortcuts, with ⌘Space marked as the Spotlight replacement, and records a custom one on request.
+final class MenuRecorder: ShortcutRecorder {
+    required init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
+        super.init(shortcut: shortcut, onRecord: onRecord)
+        image = NSImage(systemSymbolName: "chevron.up.chevron.down", accessibilityDescription: nil)
+        imagePosition = .imageTrailing
+        imageHugsTitle = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func start() {
+        let menu = NSMenu()
+        var choices = [SpotlightShortcuts.commandSpace, Shortcut.launcher]
+        if let shortcut, !choices.contains(shortcut) { choices.insert(shortcut, at: 0) }
+        for choice in choices {
+            let item = NSMenuItem(title: choice.display, action: #selector(pick), keyEquivalent: "")
+            if choice == SpotlightShortcuts.commandSpace {
+                let title = NSMutableAttributedString(
+                    string: choice.display, attributes: [.font: NSFont.menuFont(ofSize: 0)])
+                title.append(
+                    NSAttributedString(
+                        string: "  Replaces Spotlight",
+                        attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: Theme.secondary]))
+                item.attributedTitle = title
+            }
+            item.target = self
+            item.representedObject = choice
+            item.state = choice == shortcut ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Record Shortcut…", action: #selector(record), keyEquivalent: ""))
+        menu.items.last?.target = self
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: isFlipped ? bounds.height + 4 : -4), in: self)
+    }
+    @objc private func pick(_ item: NSMenuItem) { onRecord?(item.representedObject as? Shortcut) }
+    @objc private func record() { super.start() }
 }
 
 class SurfaceView: FlippedView {
