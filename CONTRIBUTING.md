@@ -15,7 +15,7 @@ Native UI checks run only under a separate bundle identifier. They do not change
 Format Swift changes before running checks:
 
 ```sh
-swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift Package.swift
+swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift
 ```
 
 Use the tokens in `Sources/Ciel/DesignSystem.swift`. `check.sh` runs `scripts/lint-colors.sh`, which fails on a color, text label, native switch or checkbox, or standard About panel built outside that file and names the replacement. Put a needed exception on the offending line as `// color-lint: allow until YYYY-MM-DD, approved by <human>: <reason>`. Check light and dark appearance. Check Reduce Motion, Reduce Transparency, and Increase Contrast. Keep keyboard input, selection, and resizing immediate. Use native controls when possible.

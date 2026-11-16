@@ -47,6 +47,15 @@ import UniformTypeIdentifiers
                 exit(1)
             }
             print("PASS separate Window Shortcuts menu action")
+            menu.update()
+            let titles = menu.items.map(\.title)
+            guard let about = titles.firstIndex(of: "About Ciel…"), titles[about + 1] == "Check for Updates…",
+                !menu.items[about + 1].isEnabled
+            else {
+                print("FAIL Check for Updates menu item")
+                exit(1)
+            }
+            print("PASS Check for Updates menu item, off while the updater is stopped")
             guard let guide = showGuide(), guide.window?.isVisible == true else {
                 print("FAIL keyboard guide")
                 exit(1)
@@ -195,8 +204,8 @@ import UniformTypeIdentifiers
         let hotKeys = HotKeys(
             defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
         let settings = SettingsController(
-            hotKeys: hotKeys, speech: speech, spotlight: SpotlightShortcuts { state.symbolicHotKeys },
-            open: { state.opened.append($0) })
+            hotKeys: hotKeys, speech: speech, updater: Updater(),
+            spotlight: SpotlightShortcuts { state.symbolicHotKeys }, open: { state.opened.append($0) })
         settings.present()
         settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
         guard let sheet = settings.window?.attachedSheet?.contentView else {

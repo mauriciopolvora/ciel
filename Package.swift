@@ -8,10 +8,13 @@ let package = Package(
         .executable(name: "Ciel", targets: ["Ciel"]),
         .executable(name: "CielBenchmarks", targets: ["CielBenchmarks"]),
     ],
-    dependencies: [.package(url: "https://github.com/ordo-one/FuzzyMatch.git", exact: "1.4.0")],
+    dependencies: [
+        .package(url: "https://github.com/ordo-one/FuzzyMatch.git", exact: "1.4.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ],
     targets: [
         .target(name: "CielCore", dependencies: [.product(name: "FuzzyMatch", package: "FuzzyMatch")]),
-        .target(name: "CielApp", dependencies: ["CielCore", "CTranscribe"], path: "Sources/Ciel"),
+        .target(name: "CielApp", dependencies: ["CielCore", "CTranscribe", "Sparkle"], path: "Sources/Ciel"),
         .executableTarget(name: "Ciel", dependencies: ["CielApp"], path: "Sources/CielMain"),
         .executableTarget(name: "CielBenchmarks", dependencies: ["CielCore"]),
         .testTarget(name: "CielCoreTests", dependencies: ["CielCore"]),

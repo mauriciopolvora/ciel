@@ -1,0 +1,43 @@
+import AppKit
+import Sparkle
+
+/// Reads its feed and public key from Info.plist. Sparkle saves the automatic check setting itself, under
+/// `SUEnableAutomaticChecks`.
+@MainActor final class Updater {
+    private let dock = DockDuringUpdate()
+    private let controller: SPUStandardUpdaterController
+
+    init() {
+        controller = SPUStandardUpdaterController(
+            startingUpdater: false, updaterDelegate: nil, userDriverDelegate: dock)
+    }
+
+    var automaticallyChecks: Bool {
+        get { controller.updater.automaticallyChecksForUpdates }
+        set { controller.updater.automaticallyChecksForUpdates = newValue }
+    }
+
+    func start() { controller.startUpdater() }
+
+    /// Sparkle enables the item only while the updater can check.
+    func menuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
+        item.action = #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+        item.target = controller
+        return item
+    }
+}
+
+/// Sparkle shows a scheduled update behind other apps for an app with no Dock icon, so Ciel joins the Dock
+/// until the update session ends. https://sparkle-project.org/documentation/gentle-reminders
+@MainActor private final class DockDuringUpdate: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverWillHandleShowingUpdate(
+        _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState
+    ) {
+        NSApp.setActivationPolicy(.regular)
+    }
+
+    func standardUserDriverWillFinishUpdateSession() { NSApp.setActivationPolicy(.accessory) }
+}

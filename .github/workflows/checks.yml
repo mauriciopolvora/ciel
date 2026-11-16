@@ -43,6 +43,7 @@ jobs:
         run: |
           test "$(lipo -archs dist/Ciel.app/Contents/MacOS/Ciel)" = arm64
           test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
+          lipo dist/Ciel.app/Contents/Frameworks/Sparkle.framework/Sparkle -verify_arch arm64
           codesign --verify --strict --deep dist/Ciel.app
       - name: Launch the built app
         timeout-minutes: 1
