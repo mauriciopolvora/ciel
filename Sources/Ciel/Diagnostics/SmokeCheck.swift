@@ -1,5 +1,7 @@
 import AppKit
 import CielCore
+import ImageIO
+import UniformTypeIdentifiers
 
 @MainActor enum SmokeCheck {
     static func run(
@@ -64,6 +66,8 @@ import CielCore
             }
             captureSpeechStates(preferences, speech: speech, output: output)
             capturePillStates(output: output)
+            captureOnboarding(output: output)
+            captureDragHint(output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
                 "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
@@ -129,6 +133,115 @@ import CielCore
         print("PASS dictation pill states")
     }
 
+    /// Uses scratch hot keys and a fake Spotlight and trust state, so the check never registers ⌘Space or depends on
+    /// the runner's settings.
+    private static func captureOnboarding(output: String) {
+        let suite = "ciel.checks.onboarding"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let state = CheckSystemState()
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+        let onboarding = OnboardingController(
+            hotKeys: hotKeys, spotlight: SpotlightShortcuts { state.symbolicHotKeys },
+            isTrusted: { state.trusted }, open: { state.opened.append($0) })
+        var finished = false
+        onboarding.onFinish = { finished = true }
+        onboarding.present()
+        let frames: [(String, () -> Void)] = [
+            ("onboarding-shortcut", {}),
+            ("onboarding-shortcut-spotlight", { onboarding.choose(SpotlightShortcuts.commandSpace) }),
+            (
+                "onboarding-shortcut-ready",
+                {
+                    state.symbolicHotKeys = ["64": ["enabled": false]]
+                    onboarding.tick()
+                }
+            ),
+            ("onboarding-access", { onboarding.show(.access) }),
+        ]
+        for (name, change) in frames {
+            change()
+            for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                NSApp.appearance = NSAppearance(named: appearance)
+                capture(onboarding.content, name + "-" + mode, output: output)
+            }
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+        guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
+            state.opened == [SpotlightShortcuts.keyboardSettings]
+        else {
+            print("FAIL onboarding did not take ⌘Space after Spotlight let go")
+            exit(1)
+        }
+        state.trusted = true
+        onboarding.tick()
+        guard finished, onboarding.window?.isVisible == false else {
+            print("FAIL onboarding did not finish after access was granted")
+            exit(1)
+        }
+        print("PASS onboarding states")
+    }
+
+    /// Writes the drag hint as a looping GIF from the same poses the live animation plays.
+    private static func captureDragHint(output: String) {
+        let card = DragCard(frame: NSRect(origin: .zero, size: DragCard.size))
+        let trail = DragTrail(
+            frame: NSRect(x: 0, y: 0, width: DragCard.iconFrame.width, height: DragTrail.height))
+        for view in [card, trail] { view.appearance = NSAppearance(named: .darkAqua) }
+        guard let cardImage = captureLayer(of: card, "onboarding-drag-card", output: output),
+            let trailLayer = trail.layer
+        else {
+            print("FAIL drag hint card")
+            exit(1)
+        }
+        let icon = DragCard.iconFrame
+        let base = DragCard.size.height - icon.maxY
+        let size = NSSize(width: DragCard.size.width, height: base + DragTrail.height)
+        let count = 36
+        let images = (0..<count).compactMap { index -> CGImage? in
+            trail.show(at: Double(index) / Double(count))
+            guard
+                let bitmap = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+                let context = NSGraphicsContext(bitmapImageRep: bitmap)
+            else { return nil }
+            let cg = context.cgContext
+            cg.scaleBy(x: 2, y: 2)
+            cg.setFillColor(Theme.cg(Theme.selection, in: card))
+            cg.fill(CGRect(origin: .zero, size: size))
+            NSGraphicsContext.current = context
+            cardImage.draw(in: NSRect(origin: .zero, size: DragCard.size))
+            NSGraphicsContext.current = nil
+            cg.translateBy(x: icon.minX, y: base)
+            trailLayer.render(in: cg)
+            return bitmap.cgImage
+        }
+        let url = URL(fileURLWithPath: output + "/onboarding-drag.gif") as CFURL
+        guard images.count == count,
+            let gif = CGImageDestinationCreateWithURL(url, UTType.gif.identifier as CFString, count, nil)
+        else {
+            print("FAIL drag hint frames")
+            exit(1)
+        }
+        let delay = DragTrail.cycle / Double(count)
+        CGImageDestinationSetProperties(
+            gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+        for image in images {
+            CGImageDestinationAddImage(
+                gif, image,
+                [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay]] as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(gif) else {
+            print("FAIL drag hint GIF")
+            exit(1)
+        }
+        print("PASS drag hint animation")
+    }
+
     private static func settleIcons(in launcher: LauncherView) async {
         launcher.layoutSubtreeIfNeeded()
         let deadline = ProcessInfo.processInfo.systemUptime + 5
@@ -183,18 +296,33 @@ import CielCore
     }
 
     /// Renders at 2x, since CI displays run at 1x and the docs screenshots come from these captures.
-    private static func capture(_ view: NSView, _ name: String, output: String) {
+    @discardableResult
+    private static func capture(_ view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
         view.layoutSubtreeIfNeeded()
         guard
             let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
                 pixelsHigh: Int(view.bounds.height * 2), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
                 isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
-        else { return }
+        else { return nil }
         bitmap.size = view.bounds.size
         view.cacheDisplay(in: view.bounds, to: bitmap)
         if let png = bitmap.representation(using: .png, properties: [:]) {
             try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
         }
+        return bitmap
+    }
+}
+
+@MainActor private final class CheckSystemState {
+    var symbolicHotKeys: [String: Any]?
+    var trusted = false
+    var opened: [URL] = []
+}
+
+@MainActor private struct AcceptingRegistrar: HotKeyRegistrar {
+    func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
+    {
+        Cleanup {}
     }
 }

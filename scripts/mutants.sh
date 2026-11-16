@@ -27,6 +27,8 @@ mutants=(
     "M21|Deliver an icon load that was invalidated and requested again"
     "M22|Let an invalidated icon load keep its in-flight slot"
     "M23|Accept a speech model download without checking its SHA-256"
+    "M24|Save a launcher shortcut that Spotlight still holds"
+    "M25|Read a Spotlight shortcut missing from the saved list as off"
 )
 
 mutate() {
@@ -84,6 +86,11 @@ mutate() {
                 's/\n(\s+)loadsInFlight -= 1\n(\s+defer \{ startQueuedLoads\(\) \}\n\s+guard loads\[path\] === load else \{ return \}\n)/\n$2$1loadsInFlight -= 1\n/'
             ;;
         M23) swap Sources/Ciel/SpeechModelStore.swift 's/guard digest == model\.sha256 else/guard !digest.isEmpty else/' ;;
+        M24) swap Sources/Ciel/OnboardingController.swift 's/if spotlight\.owns\(shortcut\) \{/if false {/' ;;
+        M25)
+            swap Sources/Ciel/SpotlightShortcuts.swift \
+                's/guard let entry = saved\[id\] as\? \[String: Any\] else \{ return shipped \}/guard let entry = saved[id] as? [String: Any] else { return nil }/'
+            ;;
     esac
 }
 

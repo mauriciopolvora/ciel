@@ -35,6 +35,7 @@ import CielCore
     private var windowShortcuts: WindowShortcutsController?
     private var keyboardGuide: KeyboardGuideController?
     private var about: AboutController?
+    private var onboarding: OnboardingController?
     private var observers: [Cleanup] = []
     private var session: WindowTarget?
     private var pendingCheck: (@MainActor (CheckHandles) -> Void)?
@@ -73,7 +74,18 @@ import CielCore
         } else if hotKeys.shortcut(for: .dictation) != nil, !hotKeys.isLive(.dictation) {
             hud.show(HotKeyError.needsAccess.localizedDescription, error: true)
         }
-        if !NSAppleEventManager.shared().launchedAsLoginItem { present() }
+        guard !NSAppleEventManager.shared().launchedAsLoginItem else { return }
+        if Preferences().onboarded { present() } else { showOnboarding() }
+    }
+
+    private func showOnboarding() {
+        let onboarding = OnboardingController(hotKeys: hotKeys)
+        onboarding.onFinish = { [weak self] in
+            Preferences().onboarded = true
+            self?.present()
+        }
+        self.onboarding = onboarding
+        onboarding.present()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
