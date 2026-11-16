@@ -29,24 +29,24 @@ struct OnboardingTests {
 
     @Test func aShortcutSpotlightHoldsIsSavedOnlyAfterSpotlightLetsGo() {
         withOnboarding { onboarding, hotKeys, system in
-            onboarding.choose(SpotlightShortcuts.commandSpace)
+            onboarding.spotlightGuide.choose(SpotlightShortcuts.commandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
-            #expect(onboarding.heldBySpotlight == SpotlightShortcuts.commandSpace)
+            #expect(onboarding.spotlightGuide.held == SpotlightShortcuts.commandSpace)
             #expect(system.opened == [SpotlightShortcuts.keyboardSettings])
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             system.symbolicHotKeys = ["64": ["enabled": false]]
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
-            #expect(onboarding.heldBySpotlight == nil)
+            #expect(onboarding.spotlightGuide.held == nil)
         }
     }
 
     @Test func aFreeShortcutIsSavedAtOnce() {
         withOnboarding { onboarding, hotKeys, system in
-            onboarding.choose(shiftCommandSpace)
+            onboarding.spotlightGuide.choose(shiftCommandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == shiftCommandSpace)
-            #expect(onboarding.heldBySpotlight == nil)
+            #expect(onboarding.spotlightGuide.held == nil)
             #expect(system.opened.isEmpty)
         }
     }
@@ -83,7 +83,7 @@ struct OnboardingTests {
     }
 }
 
-@MainActor private final class FakeSystem {
+@MainActor final class FakeSystem {
     var symbolicHotKeys: [String: Any]?
     var trusted = false
     var opened: [URL] = []

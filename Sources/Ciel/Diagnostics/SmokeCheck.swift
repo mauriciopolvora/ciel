@@ -67,6 +67,7 @@ import UniformTypeIdentifiers
             captureSpeechStates(preferences, speech: speech, output: output)
             capturePillStates(output: output)
             captureOnboarding(output: output)
+            captureSpotlightSheet(speech: speech, output: output)
             captureDragHint(output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
@@ -149,7 +150,10 @@ import UniformTypeIdentifiers
         onboarding.present()
         let frames: [(String, () -> Void)] = [
             ("onboarding-shortcut", {}),
-            ("onboarding-shortcut-spotlight", { onboarding.choose(SpotlightShortcuts.commandSpace) }),
+            (
+                "onboarding-shortcut-spotlight",
+                { onboarding.spotlightGuide.choose(SpotlightShortcuts.commandSpace) }
+            ),
             (
                 "onboarding-shortcut-ready",
                 {
@@ -180,6 +184,40 @@ import UniformTypeIdentifiers
             exit(1)
         }
         print("PASS onboarding states")
+    }
+
+    private static func captureSpotlightSheet(speech: SpeechModelStore, output: String) {
+        let suite = "ciel.checks.settings-spotlight"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let state = CheckSystemState()
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+        let settings = SettingsController(
+            hotKeys: hotKeys, speech: speech, spotlight: SpotlightShortcuts { state.symbolicHotKeys },
+            open: { state.opened.append($0) })
+        settings.present()
+        settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+        guard let sheet = settings.window?.attachedSheet?.contentView else {
+            print("FAIL Settings did not open the Spotlight guide for ⌘Space")
+            exit(1)
+        }
+        for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            capture(sheet, "settings-spotlight-guide-" + mode, output: output)
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        state.symbolicHotKeys = ["64": ["enabled": false]]
+        settings.spotlightGuide.tick()
+        guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
+            state.opened == [SpotlightShortcuts.keyboardSettings], settings.spotlightGuide.held == nil
+        else {
+            print("FAIL Settings did not take ⌘Space after Spotlight let go")
+            exit(1)
+        }
+        settings.close()
+        print("PASS settings Spotlight guide")
     }
 
     private static func captureDragHint(output: String) {
