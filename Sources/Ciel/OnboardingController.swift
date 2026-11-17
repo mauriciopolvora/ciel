@@ -2,7 +2,7 @@ import AppKit
 
 final class OnboardingController: PreferencesController {
     enum Step: Int { case shortcut, access }
-    private static let heights: [Step: CGFloat] = [.shortcut: 288, .access: 208]
+    private static let heights: [Step: CGFloat] = [.shortcut: 240, .access: 204]
 
     var onFinish: (() -> Void)?
     private(set) var step = Step.shortcut
@@ -30,27 +30,28 @@ final class OnboardingController: PreferencesController {
         if let current = hotKeys.shortcut(for: .launcher), spotlight.owns(current) {
             spotlightGuide.held = current
         }
-        let launcher = recorder(.launcher, label: "Launcher shortcut")
+        let launcher = recorder(.launcher, label: "Launcher shortcut", style: MenuRecorder.self)
         launcher.onRecord = { [weak self] shortcut in self?.spotlightGuide.choose(shortcut) }
         accessButton.bezelStyle = .rounded
         accessButton.font = .systemFont(ofSize: 12)
         accessButton.target = self
         accessButton.action = #selector(allowAccess)
         for control in [launcher, accessButton] {
-            control.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            control.widthAnchor.constraint(equalToConstant: SettingsController.controlWidth).isActive = true
         }
 
         let shortcut = page("Choose a shortcut", "Press it in any app to open Ciel.")
-        let shortcutRows = rows(
-            [("Shortcut", [launcher]), ("Replace Spotlight", spotlightGuide.row())], at: 88, in: shortcut)
-        spotlightGuide.note.frame = NSRect(x: 36, y: shortcutRows.frame.maxY + 12, width: 408, height: 32)
+        var y: CGFloat = 92
+        column("Launcher shortcut", [launcher, spotlightGuide.caption], at: &y, in: shortcut)
+        spotlightGuide.note.frame = NSRect(x: 36, y: y + 16, width: 408, height: 32)
         shortcut.addSubview(spotlightGuide.note)
-        footer("Continue", #selector(advance), top: 236, in: shortcut)
+        footer("Continue", #selector(advance), top: 188, in: shortcut)
 
         let access = page(
             "Allow window control", "Ciel needs Accessibility access to move windows and paste dictation.")
-        let accessRows = rows([("Accessibility", [accessStatus, accessButton])], at: 88, in: access)
-        footer("Not Now", #selector(NSWindowController.close), top: accessRows.frame.maxY + 24, in: access)
+        y = 92
+        column("Accessibility", [accessStatus, accessButton], at: &y, in: access)
+        footer("Not Now", #selector(NSWindowController.close), top: y + 24, in: access)
         refresh()
     }
     required init?(coder: NSCoder) { fatalError() }

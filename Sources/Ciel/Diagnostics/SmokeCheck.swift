@@ -1,6 +1,7 @@
 import AppKit
 import CielCore
 import ImageIO
+import Sparkle
 import UniformTypeIdentifiers
 
 @MainActor enum SmokeCheck {
@@ -73,6 +74,7 @@ import UniformTypeIdentifiers
                 }
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
+            checkSettings(preferences, speech: speech, output: output)
             captureSpeechStates(preferences, speech: speech, output: output)
             capturePillStates(output: output)
             captureOnboarding(output: output)
@@ -114,6 +116,43 @@ import UniformTypeIdentifiers
         preferences.speechEnabled = wasEnabled
         settings.refresh()
         print("PASS speech settings states")
+    }
+
+    /// The check never starts the updater, so Sparkle reports that it cannot check and the button stays off.
+    /// Then ⌘Space replaces a free Spotlight in an isolated controller.
+    private static func checkSettings(
+        _ settings: SettingsController, speech: SpeechModelStore, output: String
+    ) {
+        guard !settings.updateButton.isEnabled, settings.updateButton.window === settings.window,
+            settings.updateButton.action == #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+        else {
+            print(
+                "FAIL Check for Updates is enabled while the updater is stopped, or is not Sparkle's action")
+            exit(1)
+        }
+        let suite = "ciel.checks.settings-spotlight"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let state = CheckSystemState()
+        state.symbolicHotKeys = ["64": ["enabled": false]]
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+        let replaced = SettingsController(
+            hotKeys: hotKeys, speech: speech, updater: Updater(),
+            spotlight: SpotlightShortcuts { state.symbolicHotKeys }, open: { state.opened.append($0) })
+        replaced.present()
+        replaced.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+        guard replaced.spotlightGuide.replacement == .replaced,
+            replaced.spotlightGuide.caption.stringValue == "Replaces Spotlight",
+            hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
+        else {
+            print("FAIL Settings did not take ⌘Space from a free Spotlight")
+            exit(1)
+        }
+        capture(replaced.content, "settings-spotlight", output: output)
+        replaced.close()
+        print("PASS settings update button and Spotlight replacement")
     }
 
     /// Plays a scripted dictation through the pill: transcript passes every 0.5 s like the live engine, and levels

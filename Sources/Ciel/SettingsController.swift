@@ -91,8 +91,14 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         view.frame = NSRect(x: x, y: y, width: width, height: 21)
         parent.addSubview(view)
     }
-    func recorder(_ command: HotKeyCommand, label: String) -> ShortcutRecorder {
-        let recorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: command), onRecord: { _ in })
+    func recorder(
+        _ command: HotKeyCommand, label: String, style: ShortcutRecorder.Type = ShortcutRecorder.self
+    ) -> ShortcutRecorder {
+        let recorder = style.init(shortcut: hotKeys.shortcut(for: command), onRecord: { _ in })
+        wire(recorder, command, label: label)
+        return recorder
+    }
+    func wire(_ recorder: ShortcutRecorder, _ command: HotKeyCommand, label: String) {
         recorder.onBegin = { [weak self, weak recorder] in
             self?.hotKeys.recordingHandler = { [weak recorder] shortcut in recorder?.accept(shortcut) }
         }
@@ -110,7 +116,6 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
             recorder.toolTip = "Click to change the launcher shortcut. Press Escape to cancel."
         }
         recorders[command] = recorder
-        return recorder
     }
     func showMessage(_ message: String) {
         errorLabel.stringValue = message
@@ -146,16 +151,21 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
 }
 
 final class SettingsController: PreferencesController {
-    private static let controlWidth: CGFloat = 120
-    private let permissionLabel = SettingsController.status()
-    private let permissionButton = NSButton(title: "Allow Access…", target: nil, action: nil)
-    private let login = MonochromeSwitch(frame: .zero)
-    private let animations = MonochromeSwitch(frame: .zero)
-    private let menuBarIcon = MonochromeSwitch(frame: .zero)
-    private let updateChecks = MonochromeSwitch(frame: .zero)
-    private let speechSwitch = MonochromeSwitch(frame: .zero)
-    private let modelStatus = SettingsController.status()
-    private let modelButton = NSButton(title: "", target: nil, action: nil)
+    static let controlWidth: CGFloat = 120
+    let permissionLabel = SettingsController.status()
+    let permissionButton = NSButton(title: "Allow Access…", target: nil, action: nil)
+    let login = MonochromeSwitch(frame: .zero)
+    let animations = MonochromeSwitch(frame: .zero)
+    let menuBarIcon = MonochromeSwitch(frame: .zero)
+    let updateChecks = MonochromeSwitch(frame: .zero)
+    let speechSwitch = MonochromeSwitch(frame: .zero)
+    let modelStatus = SettingsController.status()
+    let modelButton = NSButton(title: "", target: nil, action: nil)
+    let guideButton = NSButton(title: "Keyboard Guide…", target: nil, action: nil)
+    let aboutButton = NSButton(title: "About Ciel…", target: nil, action: nil)
+    let updateButton: NSButton
+    let dictationRecorder: ShortcutRecorder
+    private var canCheckObservation: NSKeyValueObservation?
     private let speech: SpeechModelStore
     private let updater: Updater
     let spotlightGuide: SpotlightGuide
@@ -163,7 +173,6 @@ final class SettingsController: PreferencesController {
         contentRect: NSRect(x: 0, y: 0, width: 480, height: 222), styleMask: [.titled], backing: .buffered,
         defer: true)
     private var poll: Task<Void, Never>?
-    private var dictationRecorder: ShortcutRecorder?
     private var showsAccessMessage = false
     var onGuide: (() -> Void)?
     var onAbout: (() -> Void)?
@@ -177,15 +186,10 @@ final class SettingsController: PreferencesController {
         self.speech = speech
         self.updater = updater
         spotlightGuide = SpotlightGuide(hotKeys: hotKeys, spotlight: spotlight, open: open)
+        dictationRecorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: .dictation), onRecord: { _ in })
+        updateButton = updater.checkButton()
         super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 696), hotKeys: hotKeys)
         spotlightGuide.owner = self
-        let title = Theme.label("Ciel", size: 23)
-        title.frame = NSRect(x: 36, y: 20, width: 408, height: 28)
-        let subtitle = Theme.label(
-            "App launcher, window controls and dictation", size: 12, color: Theme.secondary)
-        subtitle.frame = NSRect(x: 36, y: 50, width: 408, height: 16)
-        content.addSubview(title)
-        content.addSubview(subtitle)
         for (toggle, name, action) in [
             (login, "Launch at login", #selector(toggleLogin)),
             (animations, "Animations", #selector(toggleAnimations)),
@@ -200,53 +204,51 @@ final class SettingsController: PreferencesController {
         menuBarIcon.toolTip = "You can still open Settings from the launcher with Command–Comma."
         for (button, action) in [
             (permissionButton, #selector(requestPermission)), (modelButton, #selector(modelAction)),
+            (guideButton, #selector(openGuide)), (aboutButton, #selector(openAbout)),
         ] {
             button.bezelStyle = .rounded
             button.font = .systemFont(ofSize: 12)
             button.target = self
             button.action = action
         }
-        let launcher = recorder(.launcher, label: "Launcher shortcut")
+        wire(dictationRecorder, .dictation, label: "Dictation shortcut")
+        dictationRecorder.acceptsModifierKey = true
+        let launcher = recorder(.launcher, label: "Launcher shortcut", style: MenuRecorder.self)
         launcher.onRecord = { [weak self] shortcut in self?.spotlightGuide.choose(shortcut) }
-        let dictation = recorder(.dictation, label: "Dictation shortcut")
-        dictation.acceptsModifierKey = true
-        dictationRecorder = dictation
-        for control in [launcher, dictation, permissionButton, modelButton] {
+        for control in [launcher, dictationRecorder, permissionButton, modelButton] {
             control.widthAnchor.constraint(equalToConstant: Self.controlWidth).isActive = true
         }
-        var y = section(
-            "General", at: 86,
-            rows: [
-                ("Launcher shortcut", [launcher]), ("Replace Spotlight", spotlightGuide.row()),
-                ("Launch at login", [login]), ("Animations", [animations]),
-                ("Show menu bar icon", [menuBarIcon]), ("Automatically check for updates", [updateChecks]),
-            ])
-        y = section("Permissions", at: y, rows: [("Accessibility", [permissionLabel, permissionButton])])
-        y = section(
-            "Dictation", at: y,
-            rows: [
-                ("Speech to text", [speechSwitch]), ("Shortcut", [dictation]),
-                ("Speech model", [modelStatus, modelButton]),
-            ])
-        let guide = NSButton(title: "Keyboard Guide…", target: self, action: #selector(openGuide))
-        let about = NSButton(title: "About Ciel…", target: self, action: #selector(openAbout))
-        for button in [guide, about] {
-            button.bezelStyle = .rounded
-            button.font = .systemFont(ofSize: 12)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(button)
-            button.topAnchor.constraint(equalTo: content.topAnchor, constant: y).isActive = true
+        canCheckObservation = updater.observeCanCheck { [weak self] can in
+            self?.updateButton.isEnabled = can
         }
-        NSLayoutConstraint.activate([
-            guide.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-            about.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
-        ])
         buildSpotlightSheet()
+        resize(toHeight: layout(launcher))
         refresh()
+        window?.center()
     }
     required init?(coder: NSCoder) { fatalError() }
     @objc private func openGuide() { onGuide?() }
     @objc private func openAbout() { onAbout?() }
+
+    private func layout(_ launcher: ShortcutRecorder) -> CGFloat {
+        var y: CGFloat = 20
+        column("Launcher shortcut", [launcher, spotlightGuide.caption], at: &y)
+        rule(at: &y)
+        column("General", [switchLine(login, "Launch at login")], at: &y)
+        column("", [switchLine(animations, "Animations")], at: &y)
+        column("", [switchLine(menuBarIcon, "Show menu bar icon")], at: &y)
+        column("", [switchLine(updateChecks, "Automatically check for updates")], at: &y)
+        column("", [updateButton], at: &y)
+        rule(at: &y)
+        column("Accessibility", [permissionLabel, permissionButton], at: &y)
+        rule(at: &y)
+        column("Dictation", [switchLine(speechSwitch, "Speech to text")], at: &y)
+        column("Shortcut", [dictationRecorder], at: &y)
+        column("Speech model", [modelStatus, modelButton], at: &y)
+        place(guideButton, x: 20, top: y + 20)
+        place(aboutButton, right: 460, top: y + 20)
+        return y + 61
+    }
 
     private func buildSpotlightSheet() {
         let sheet = SurfaceView(frame: .zero)
@@ -290,13 +292,6 @@ final class SettingsController: PreferencesController {
         refresh()
     }
 
-    private func section(_ title: String, at y: CGFloat, rows: [(String, [NSView])]) -> CGFloat {
-        let header = Theme.label(title, size: 13, weight: .semibold, color: Theme.secondary)
-        header.frame = NSRect(x: 36, y: y, width: 408, height: 17)
-        content.addSubview(header)
-        return self.rows(rows, at: y + 23).frame.maxY + 20
-    }
-
     override func refresh() {
         hotKeys.retryUnregistered()
         super.refresh()
@@ -317,7 +312,7 @@ final class SettingsController: PreferencesController {
         updateChecks.state = updater.automaticallyChecks ? .on : .off
         let speechEnabled = Preferences().speechEnabled
         speechSwitch.state = speechEnabled ? .on : .off
-        dictationRecorder?.isEnabled = speechEnabled
+        dictationRecorder.isEnabled = speechEnabled
         let status = speech.state.status
         modelStatus.stringValue = status.text
         modelStatus.toolTip = status.text

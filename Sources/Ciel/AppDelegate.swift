@@ -75,6 +75,7 @@ import CielCore
             object: nil, suspensionBehavior: .deliverImmediately)
         guard pendingCheck == nil else { return }
         updater.start()
+        Preferences().dropRetiredKeys()
         let accessLost = Preferences().windowAccessLost(trusted: WindowController.isTrusted)
         if !hotKeys.isLive(.launcher) {
             hud.show(

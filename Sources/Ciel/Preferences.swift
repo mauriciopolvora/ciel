@@ -37,6 +37,11 @@ struct Preferences {
         return hadWindowAccess && !trusted
     }
 
+    /// Test builds of the design prototypes saved a chosen design under these keys. Ciel has one design now.
+    func dropRetiredKeys() {
+        for key in ["designPreview.settings", "designPreview.launcher"] { defaults.removeObject(forKey: key) }
+    }
+
     private func onUnlessTurnedOff(_ key: String) -> Bool {
         defaults.object(forKey: key) == nil || defaults.bool(forKey: key)
     }

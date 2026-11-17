@@ -142,7 +142,8 @@ struct Waveform: Equatable {
 struct TranscriptLayout {
     static let lineHeight: CGFloat = 16
     let lines: [CTLine]
-    /// The widest line without its trailing spaces.
+    /// Each line without its trailing spaces, so the space before a wrap does not pull a centered line left.
+    let widths: [CGFloat]
     let width: CGFloat
 
     init(_ text: NSAttributedString = NSAttributedString(), maxWidth: CGFloat) {
@@ -155,14 +156,17 @@ struct TranscriptLayout {
             start += count
         }
         self.lines = lines
-        width = ceil(
-            lines.map { line in
-                CGFloat(
-                    CTLineGetTypographicBounds(line, nil, nil, nil) - CTLineGetTrailingWhitespaceWidth(line))
-            }.max() ?? 0)
+        widths = lines.map { line in
+            CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil) - CTLineGetTrailingWhitespaceWidth(line))
+        }
+        width = ceil(widths.max() ?? 0)
     }
 
     var height: CGFloat { CGFloat(lines.count) * Self.lineHeight }
+
+    /// Where a line starts so it sits centered in `space`. While the pill springs wider, a line can be wider
+    /// than the pill: it stays centered and overflows both edges under the side fades.
+    static func start(of width: CGFloat, in space: CGFloat) -> CGFloat { (space - width) / 2 }
 }
 
 /// Sizes of the two pills. The transcript pill widens with its first line, then grows a line at a time up to

@@ -10,12 +10,14 @@ Ciel opens as one empty black input box. There is no visible text or symbol unti
 | --- | --- | --- |
 | Surface | 0.035 | Black launcher and settings background |
 | Group | 0.075 | Settings groups and switch tracks |
-| Selection | 0.14 | Selected result and selected input text |
+| Selection | 0.14 | Hovered result and selected input text |
 | Border | 0.30 | Quiet surface boundaries. `Theme.hairline` draws it at 35% for group outlines and row dividers, or fully under Increase Contrast |
 | Secondary | 0.62 | Descriptions and key hints |
-| Accent | 0.92 | Actions and shortcut labels |
+| Accent | 0.92 | Selected result fill, actions and shortcut labels |
 | Text | 0.94 | Search input and result names |
 | Guide | 1.0 | Placement guide lines during a drag |
+| Selected text | 0.07 | Result name on the selected row |
+| Selected secondary | 0.36 | Key hint, app icon tint and window symbol on the selected row (5.6:1 on Accent) |
 
 These colors have equal red, green, and blue values. App icons retain their source colors. Errors use system red with an explicit message. Enabled access uses white text. Settings switches use gray tracks and white thumbs, with native button keyboard and accessibility behavior.
 
@@ -23,22 +25,26 @@ These colors have equal red, green, and blue values. App icons retain their sour
 
 - Launcher width: 640 points. Empty launcher height: 68 points.
 - Input starts 24 points from the left edge. It has no placeholder or search icon.
-- A trimmed empty query shows no results, category button, divider, or empty-result message.
+- A trimmed empty query shows no results, category button, or empty-result message.
 - Typing reveals result titles, app icons or window symbols, and the category control.
 - Clearing the query restores the empty input immediately. Whitespace and catalog refreshes keep it empty.
 - Result rows: 44 points. One result produces a 120-point panel. Show up to seven full rows before scrolling.
+- The selected row is a near-white fill with near-black text. Under Increase Contrast it also gets a border ring. Hover uses Selection at 70%.
 - Panel radius: 16 points. Group radius: 10 points. Row radius: 8 points.
-- Use the macOS system font. Input: 21 points. Results: 15 points. Setting labels: 14 points. Descriptions: 12 points.
+- Use the macOS system font. Input: 24 points. Results: 15 points medium. Key hints: 12 points medium. No matches: 15 points medium over a 13-point line. Setting labels: 13 points. Descriptions: 12 points.
 - Settings use a text header and neutral controls. Keep the cloud artwork outside the daily interface.
 
 ## Settings
 
-- One leading line at 36 points holds the title, subtitle, section headers and row labels.
-- Sections: General, Permissions and Dictation. Each has a 13-point semibold header in secondary gray above its group.
-- Rows are 44 points, separated by hairline dividers inset 16 points.
-- Every control ends on one trailing edge, 16 points inside the group, measured by alignment rects. Shortcut recorders and action buttons are 120 points wide.
-- A status sits in the same row as its action, right before the button, in 12-point tabular digits. Ready and allowed use text white, waiting states use secondary gray, and a failure uses system red with its message.
-- Footer buttons are standard push buttons aligned to the group edges.
+Settings and onboarding use two columns. `Sources/Ciel/SettingsLayout.swift` draws them.
+
+- Names sit in a right-aligned column in secondary gray at 13 points that ends at 172 points. Controls start at 188 points and end by 444 points.
+- Lines are 36 points. A name and its controls share a first baseline.
+- Hairline rules inset 36 points separate Launcher shortcut, General, Accessibility and Dictation.
+- The launcher shortcut is a menu: ⌘Space (marked Replaces Spotlight), ⌃⌥Space and Record Shortcut…. Beside it, a 12-point caption says Replaces Spotlight or Used by Spotlight.
+- Each switch has its name as a clickable label to its right. Check for Updates… sits under Automatically check for updates, and is off while Sparkle cannot check.
+- Shortcut recorders and action buttons are 120 points wide. A status sits right before its button in 12-point tabular digits. Ready and allowed use text white, waiting states use secondary gray, and a failure uses system red with its message.
+- Footer buttons are standard push buttons, 20 points in from each side.
 
 ## Placement
 
@@ -54,7 +60,7 @@ Save positions by display UUID. Keep the input’s top edge as the anchor. Store
 
 Opening, closing, search, selection, category switching, and panel resizing are immediate. Do not animate keyboard actions. Empty Return and Command-number actions do nothing. Tab and Shift–Tab keep their category behavior without adding visible content to an empty launcher.
 
-Pointer hover uses a 120 ms opacity transition and the curve `(0.23, 1, 0.32, 1)`. Status messages use short opacity fades. Dictation shows two black capsules at the bottom center of the screen with the pointer. The lower one is a waveform: its bars follow the microphone level with a fast rise and a slower fall, the newest level in the middle flowing out to the edges, and a slow ripple while Ciel transcribes. The upper one holds the live transcript, the settled words in text gray and the guesses after them in secondary gray. It springs out of the waveform once words arrive, widens to fit the first line up to 360 pt, then grows a line at a time up to three lines. Past that, new lines push the text up and older lines fade out under the top edge. Every change uses an interruptible critically damped spring, driven by the display link. Reduce Motion and the app animation switch make each change instant, keep the bars on the live level without the flow, and hold them still while Ciel transcribes. Increase Contrast strengthens boundaries. All surfaces already satisfy Reduce Transparency by being opaque.
+Pointer hover uses a 120 ms opacity transition and the curve `(0.23, 1, 0.32, 1)`. Status messages use short opacity fades. Dictation shows two black capsules at the bottom center of the screen with the pointer. The lower one is a waveform: its bars follow the microphone level with a fast rise and a slower fall, the newest level in the middle flowing out to the edges, and a slow ripple while Ciel transcribes. The upper one holds the live transcript, the settled words in text gray and the guesses after them in secondary gray. Each line is centered. It springs out of the waveform once words arrive, widens to fit the first line up to 360 pt, then grows a line at a time up to three lines. Past that, new lines push the text up and older lines fade out under the top edge. Every change uses an interruptible critically damped spring, driven by the display link. Reduce Motion and the app animation switch make each change instant, keep the bars on the live level without the flow, and hold them still while Ciel transcribes. Increase Contrast strengthens boundaries. All surfaces already satisfy Reduce Transparency by being opaque.
 
 Use native text editing, scrolling, focus behavior, and accessibility labels. The input retains its spoken search label even though it has no visible placeholder. Full result names remain available to accessibility and tooltips.
 
@@ -78,6 +84,9 @@ Applied [Emil Kowalski’s design engineering skill](https://github.com/emilkowa
 | Three unlabeled Settings cards | General, Permissions and Dictation sections with headers and row dividers | Show what each group is for at a glance |
 | Status under the label, button centered beside both lines | Status and its action on one line, on a shared trailing edge | Read the state and the fix together |
 | Gray inline footer buttons | Standard push buttons | Stop the footer from looking disabled |
+| Grouped Settings rows with section headers | Two columns, names on the left and controls on the right | Picked by the operator from three prototypes |
+| Gray selected row with a faint ring, 21-point input, divider under the input | Near-white selected row, 24-point input, no divider | Picked by the operator from three prototypes |
+| Left-aligned transcript lines | Centered transcript lines | Keep the text on the pill's center line as it grows |
 
 ## Validation
 

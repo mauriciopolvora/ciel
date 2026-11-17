@@ -20,10 +20,9 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     private let scroll = NSScrollView()
     private let icons = IconCache()
     let scopeButton = NSButton()
-    private let emptyTitle = Theme.label("No matches", size: 14, weight: .medium)
+    private let emptyTitle = Theme.label("No matches", size: 15, weight: .medium)
     private let emptyDetail = Theme.label(
-        "Try another name, or switch to All.", size: 12, color: Theme.secondary)
-    private let divider = FlippedView()
+        "Try another name, or switch to All.", size: 13, color: Theme.secondary)
     private let tint = LauncherDragSurface()
     private var displayObserver: Cleanup?
     private var showKeys = false
@@ -38,9 +37,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         appearance = NSAppearance(named: .darkAqua)
         tint.wantsLayer = true
         addSubview(tint)
-        divider.wantsLayer = true
-        addSubview(divider)
-        searchField.font = .systemFont(ofSize: 21)
+        searchField.font = .systemFont(ofSize: 24)
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.focusRingType = .none
@@ -97,8 +94,6 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         tint.layer?.backgroundColor = Theme.cg(Theme.surface, in: self)
         layer?.borderColor = Theme.cg(
             Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.55), in: self)
-        divider.layer?.backgroundColor = Theme.cg(
-            Theme.border.withAlphaComponent(Theme.increaseContrast ? 1 : 0.22), in: self)
         table.needsDisplay = true
     }
     override func viewDidChangeEffectiveAppearance() {
@@ -109,9 +104,8 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         super.layout()
         tint.frame = bounds
         searchField.frame = NSRect(
-            x: 24, y: 18, width: bounds.width - (scopeButton.isHidden ? 48 : 140), height: 31)
+            x: 24, y: 18, width: bounds.width - (scopeButton.isHidden ? 48 : 140), height: 32)
         scopeButton.frame = NSRect(x: bounds.width - 108, y: 21, width: 88, height: 26)
-        divider.frame = NSRect(x: 20, y: 62, width: bounds.width - 40, height: 1)
         scroll.frame = NSRect(x: 8, y: 68, width: bounds.width - 16, height: max(0, bounds.height - 76))
         table.tableColumns.first?.width = scroll.contentSize.width
         emptyTitle.frame = NSRect(x: 24, y: 83, width: bounds.width - 48, height: 20)
@@ -207,7 +201,6 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         }
         if change.hasQueryChanged {
             scopeButton.isHidden = !state.hasQuery
-            divider.isHidden = !state.hasQuery
         }
         if change.queryChanged {
             window?.invalidateCursorRects(for: searchField)
@@ -285,7 +278,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     private func updateHints() {
         for index in visibleRows() {
             (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ResultCell)?
-                .hint(index: index, selected: index == table.selectedRow, showKeys: showKeys)
+                .mark(index: index, selected: index == table.selectedRow, showKeys: showKeys)
         }
     }
 }

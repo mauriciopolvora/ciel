@@ -91,6 +91,67 @@ struct SettingsSpotlightTests {
         }
     }
 
+    @Test func theCaptionBesideTheShortcutFollowsTheSpotlightState() {
+        withSettings { settings, hotKeys, system in
+            #expect(settings.spotlightGuide.caption.stringValue == "")
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            #expect(hotKeys.shortcut(for: .launcher) == .launcher)
+            #expect(settings.spotlightGuide.caption.stringValue == "Used by Spotlight")
+            settings.cancelSpotlight()
+            #expect(settings.spotlightGuide.caption.stringValue == "")
+            system.symbolicHotKeys = ["64": ["enabled": false]]
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
+            #expect(settings.spotlightGuide.caption.stringValue == "Replaces Spotlight")
+        }
+    }
+
+    @Test func checkForUpdatesSitsUnderTheToggleAndIsOffWhileTheUpdaterIsStopped() {
+        withSettings { settings, _, _ in
+            let button = settings.updateButton
+            #expect(button.title == "Check for Updates…")
+            #expect(button.action == Selector(("checkForUpdates:")))
+            #expect(!button.isEnabled)
+            let content = settings.content
+            content.layoutSubtreeIfNeeded()
+            let toggle = Self.alignment(of: settings.updateChecks, in: content)
+            let frame = Self.alignment(of: button, in: content)
+            #expect(frame.minY > toggle.maxY, "toggle \(toggle), button \(frame)")
+            #expect(abs(frame.minX - toggle.minX) <= 0.5, "toggle \(toggle), button \(frame)")
+        }
+    }
+
+    @Test func aLongDownloadErrorTruncatesInsideItsRow() {
+        withEmptyDefaults { defaults in
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
+            let speech = SpeechModelStore(
+                folder: FileManager.default.temporaryDirectory.appending(
+                    path: "ciel-settings-" + UUID().uuidString))
+            let settings = SettingsController(hotKeys: hotKeys, speech: speech, updater: Updater())
+            speech.showForCheck(.failed(String(repeating: "The network connection was lost. ", count: 6)))
+            settings.refresh()
+            let content = settings.content
+            content.layoutSubtreeIfNeeded()
+            let button = Self.alignment(of: settings.modelButton, in: content)
+            let status = Self.alignment(of: settings.modelStatus, in: content)
+            let name = Self.labels(in: content).first { $0.stringValue == "Speech model" }
+            let nameFrame = name.map { Self.alignment(of: $0, in: content) } ?? .zero
+            let frames = "name \(nameFrame), status \(status), button \(button)"
+            #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "\(frames)")
+            #expect(status.minX >= nameFrame.maxX - 0.5 && status.maxX <= button.minX + 0.5, "\(frames)")
+        }
+    }
+
+    /// Bezeled buttons draw inside a frame wider than their visible shape, so rows lay out by alignment rect.
+    private static func alignment(of view: NSView, in content: NSView) -> NSRect {
+        view.superview?.convert(view.alignmentRect(forFrame: view.frame), to: content) ?? .zero
+    }
+
+    private static func labels(in view: NSView) -> [NSTextField] {
+        view.subviews.flatMap { ($0 as? NSTextField).map { [$0] } ?? labels(in: $0) }
+    }
+
     @Test func aFreeShortcutIsSavedAtOnce() {
         withSettings { settings, hotKeys, system in
             settings.recorders[.launcher]?.accept(shiftCommandSpace)
