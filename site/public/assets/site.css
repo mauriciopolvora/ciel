@@ -1487,6 +1487,13 @@ main > .final {
     aspect-ratio: 4 / 5;
   }
 
+  /* The 4 by 5 stage shows only the middle of the sky */
+  .menubar {
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.24)),
+      url("menubar-sky-mobile.jpg") 0 0 / 100% 100%;
+  }
+
   .launcher {
     top: 12%;
     width: 92%;
