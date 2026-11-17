@@ -29,27 +29,47 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Set the temporary paths
         run: printf 'KEYCHAIN=%s\nSPARKLE_KEY_FILE=%s\n' "$RUNNER_TEMP/ciel-release.keychain-db" "$RUNNER_TEMP/ciel-sparkle.env" >> "$GITHUB_ENV"
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-      - name: Check the version
+      - name: Check the version and the commit
         env:
           INPUT_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          fail() { printf '%s\n' "$1" >&2; exit 1; }
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then version="${GITHUB_REF_NAME#v}"; else version="$INPUT_VERSION"; fi
           plist=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "$version" != "$plist" ]]; then
-            printf 'Version %s does not match CFBundleShortVersionString %s in Resources/Info.plist.\n' "$version" "$plist" >&2; exit 1
+          build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$version" == "$plist" ]] ||
+            fail "Version $version does not match CFBundleShortVersionString $plist in Resources/Info.plist."
+          [[ "$build" =~ ^[0-9]+$ ]] || fail "CFBundleVersion $build is not a whole number."
+          git fetch -q --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || fail "$GITHUB_SHA is not on main. Release only merged commits."
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&status=success" \
+            --jq '[.workflow_runs[] | select(.name == "Check Ciel")] | length')
+          [[ "$passed" -gt 0 ]] || fail "Check Ciel has not passed on $GITHUB_SHA."
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
+          if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
           fi
-          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            printf 'Release v%s already exists.\n' "$version" >&2; exit 1
+          # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
+          latest_tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          if [[ -n "$latest_tag" ]]; then
+            IFS=. read -r a b c <<<"${latest_tag#v}"
+            IFS=. read -r x y z <<<"$version"
+            (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
           fi
-          if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY" "refs/tags/v$version" >/dev/null; then
-            printf 'Tag v%s already exists. Push the tag to release it, or pick a new version.\n' "$version" >&2; exit 1
+          latest_build=$(curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml" 2>/dev/null |
+            sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p' || true)
+          if [[ -n "$latest_build" ]] && (( build <= latest_build )); then
+            fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
           fi
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Build before any secret is on the runner
+        run: swift build -c release --product Ciel --arch arm64
       - name: Import the Developer ID certificate into a temporary keychain
         env:
           P12_BASE64: ${{ secrets.CIEL_DEVID_P12_BASE64 }}

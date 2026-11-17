@@ -4,10 +4,17 @@
 
 `.github/workflows/release.yml` publishes a release on a macOS runner. No Mac is needed. To start it, do one of these:
 
-- Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, merge, then push the tag `v<version>` on the merge commit.
-- Run the workflow from the Actions tab, or with `gh workflow run release.yml -f version=<version>`. It releases the head of the branch you pick and creates the tag on that commit.
+- Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, merge, wait for `Check Ciel` to pass on the merge commit, then push the tag `v<version>` on it.
+- Run the workflow from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag on that commit.
 
-The version must match `CFBundleShortVersionString`, and the release must not exist yet. The workflow:
+Before it reads any secret, the workflow stops unless all of these hold:
+
+- The version matches `CFBundleShortVersionString`, and no release has it yet. A run from the Actions tab also needs a new tag.
+- The commit is on `main`, and the `Check Ciel` workflow passed on it.
+- The version is newer than the latest release, and `CFBundleVersion` is higher than the build in the latest appcast, because Sparkle offers only a higher build.
+- The app builds.
+
+The workflow then:
 
 1. Imports the Developer ID certificate into a temporary keychain.
 2. Writes the update signing key to a temporary file with mode 600.
@@ -28,6 +35,15 @@ It reads these repository secrets:
 | `CIEL_SPARKLE_ENV` | Contents of `ciel-sparkle.env`, the line `SPARKLE_PRIVATE_ED_KEY=<key>` |
 
 The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad-hoc signed app and uploads it as a development archive. It does not publish anything.
+
+### Roll back
+
+A published release is live as soon as the workflow uploads it, even when the check after it fails. To stop new downloads and updates of a bad release, do one of these:
+
+- `gh release edit v<previous> --latest` points the download link and the appcast back to the previous release.
+- `gh release delete v<bad> --cleanup-tag` removes the release and its tag. The workflow refuses to release a version whose release or tag exists, so delete both before you run it again for the same version.
+
+Sparkle never offers a lower build, so copies that already updated stay on the bad build. To fix them, release a new version with a higher `CFBundleVersion`.
 
 ## Build architectures
 
