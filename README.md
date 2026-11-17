@@ -18,7 +18,7 @@ Results appear after you type. Clearing the input returns to the empty box.
 
 ## Build and install
 
-Ciel is available as source. A notarized download is not available yet.
+Download the signed and notarized app from [Releases](https://github.com/mauriciopolvora/ciel/releases/latest), or build it from source.
 
 Requires an **Apple Silicon Mac** with **macOS 14 or later** and a **Swift 6 toolchain**. Apple's Command Line Tools are sufficient for local builds. Full Xcode is optional.
 
