@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import Foundation
+import QuartzCore
 
 struct NativePerformanceBudget {
     var maximumP95Milliseconds: Double = 50
@@ -25,10 +26,13 @@ struct NativePerformanceBudget {
 }
 
 @MainActor enum PerformanceCheck {
-    static func run(launcher: LauncherView, panel: LauncherPanel, startupMilliseconds: Double) {
+    static func run(
+        launcher: LauncherView, panel: LauncherPanel, open: @escaping () -> Void, startupMilliseconds: Double
+    ) {
         Task {
             do {
-                try await measure(launcher: launcher, panel: panel, startupMilliseconds: startupMilliseconds)
+                try await measure(
+                    launcher: launcher, panel: panel, open: open, startupMilliseconds: startupMilliseconds)
             } catch {
                 print("FAIL native performance: \(error.localizedDescription)")
                 exit(1)
@@ -36,9 +40,9 @@ struct NativePerformanceBudget {
         }
     }
 
-    private static func measure(launcher: LauncherView, panel: LauncherPanel, startupMilliseconds: Double)
-        async throws
-    {
+    private static func measure(
+        launcher: LauncherView, panel: LauncherPanel, open: () -> Void, startupMilliseconds: Double
+    ) async throws {
         let environment = ProcessInfo.processInfo.environment
         let cycles = try integer(
             "CIEL_NATIVE_CYCLES", default: 300, range: 10...100_000, environment: environment)
@@ -74,6 +78,7 @@ struct NativePerformanceBudget {
         panel.displayIfNeeded()
         let afterSession = try resources()
         samples.append(afterSession)
+        let interactions = try await Interactions.measure(launcher: launcher, panel: panel, open: open)
         panel.orderOut(nil)
         let idleStart = try resources()
         try await Task.sleep(for: .seconds(idleSeconds))
@@ -100,6 +105,7 @@ struct NativePerformanceBudget {
             "updateMedianMilliseconds": percentile(timings, fraction: 0.5),
             "updateP95Milliseconds": p95,
             "updateMaximumMilliseconds": timings.last ?? 0,
+            "interactions": interactions.report,
             "idleCPUPercentOfOneCore": idleCPU,
             "sessionResidentGrowthMiB": growthMiB,
             "resourceSamples": samples.map {
@@ -118,6 +124,7 @@ struct NativePerformanceBudget {
             "failures": failures,
             "limits": [
                 "Native update timing ends at synchronous layout/display submission, not physical display presentation.",
+                "Interaction timing ends at the target time of the first display frame after the change; mainThread is the synchronous part.",
                 "First icon settlement uses bounded polling and includes polling overhead.",
                 "Resident memory growth describes this workload; it is not a leak proof.",
             ],

@@ -264,7 +264,12 @@ import CielCore
         }
     }
 
+    /// Settings opens centered on the screen the person is using: the launcher's screen when the launcher is
+    /// showing, otherwise the screen under the pointer.
     @objc private func showSettings() {
+        let screen =
+            (panel.isVisible ? panel.screen : nil)
+            ?? NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
         panel.dismiss()
         if settings == nil {
             settings = SettingsController(hotKeys: hotKeys, speech: speech, updater: updater)
@@ -273,7 +278,7 @@ import CielCore
             settings?.onGuide = { [weak self] in self?.showGuide() }
             settings?.onAbout = { [weak self] in self?.showAbout() }
         }
-        settings?.present()
+        if let screen { settings?.present(on: screen) } else { settings?.present() }
     }
 
     @objc private func showWindowShortcuts() {
@@ -313,7 +318,8 @@ import CielCore
         present()
         check(
             CheckHandles(
-                launcher: panel.launcher, panel: panel, fieldEditor: panel.fieldEditor, catalog: catalog,
+                launcher: panel.launcher, panel: panel, openLauncher: { [self] in present() },
+                fieldEditor: panel.fieldEditor, catalog: catalog,
                 hotKeys: hotKeys, speech: speech,
                 menu: statusItem.menu,
                 showSettings: { [self] in

@@ -23,6 +23,7 @@ final class LauncherPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
+        animationBehavior = .none
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
         isMovable = true
@@ -37,7 +38,9 @@ final class LauncherPanel: NSPanel {
         launcher.onHeightChange = { [weak self] height in self?.resize(toHeight: height) }
     }
 
-    func present() {
+    func present() { PerformanceTrace.measure("LauncherOpen") { show() } }
+
+    private func show() {
         launcher.reset()
         if let screen = NSScreen.screens.first(where: {
             NSMouseInRect(NSEvent.mouseLocation, $0.frame, false)
@@ -51,7 +54,7 @@ final class LauncherPanel: NSPanel {
                 ?? CGRect(
                     x: area.midX - frame.width / 2, y: area.minY + (area.height - frame.height) * 0.62,
                     width: frame.width, height: frame.height)
-            setFrame(placed, display: true)
+            setFrame(placed, display: false)
             anchor = CGPoint(x: placed.minX, y: placed.maxY)
         }
         presenting = true
@@ -73,7 +76,7 @@ final class LauncherPanel: NSPanel {
         if let anchor, let screen = screen ?? NSScreen.main {
             resized = LauncherPlacement.frame(anchor: anchor, size: resized.size, screen: screen.visibleFrame)
         }
-        setFrame(resized, display: true)
+        setFrame(resized, display: false)
     }
 
     func drag(with event: NSEvent) {

@@ -72,7 +72,17 @@ enum WindowOutcome: Equatable, Sendable {
         let worker = worker
         isBusy = true
         Task {
-            let result = await worker.perform(action, selection: target.selection.value, displays: displays)
+            let selection = await target.selection.value
+            let result: Result<WindowOutcome, Error>
+            switch await worker.leaveFullScreen(action, selection: selection) {
+            case .failure(let error): result = .failure(error)
+            case .success(let check):
+                // A full screen Space hides the menu bar and Dock, so the screens are read again after the window leaves.
+                result = await worker.perform(
+                    action, selection: selection,
+                    displays: check.leftFullScreen ? DisplaySnapshot.current() : displays,
+                    budgetStart: check.budgetStart)
+            }
             isBusy = false
             completion(result)
         }
@@ -95,12 +105,18 @@ private actor WindowWorker {
 
     private func releaseCapture(_ id: UUID) { engine.releaseCapture(id) }
 
+    func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) -> Result<FullScreenCheck, Error>
+    {
+        Result { try engine.leaveFullScreen(action, selection: selection) }
+    }
+
     func perform(
-        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
+        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot],
+        budgetStart: TimeInterval
     ) -> Result<WindowOutcome, Error> {
         Result {
             try PerformanceTrace.measure("WindowOperation") {
-                try engine.perform(action, selection: selection, displays: displays)
+                try engine.perform(action, selection: selection, displays: displays, budgetStart: budgetStart)
             }
         }
     }
@@ -128,7 +144,7 @@ enum WindowError: LocalizedError, Equatable, Sendable {
         switch self {
         case .permission: return "Allow Accessibility access in Settings to move windows."
         case .noWindow: return "Focus an app window, then try again."
-        case .fullScreen: return "Exit macOS full screen before moving this window."
+        case .fullScreen: return "This window did not leave macOS full screen. Try again."
         case .noHistory: return "Move or resize this window first."
         case .oneDisplay: return "Connect another display to use this command."
         case .unsupported: return "This window does not support that action."

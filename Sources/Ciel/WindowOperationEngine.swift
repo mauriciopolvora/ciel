@@ -11,6 +11,11 @@ final class WindowSelection: Hashable, Sendable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
+struct FullScreenCheck: Equatable, Sendable {
+    let leftFullScreen: Bool
+    let budgetStart: TimeInterval
+}
+
 protocol WindowOperationClock {
     var now: TimeInterval { get }
     func sleep(for interval: TimeInterval)
@@ -38,6 +43,10 @@ final class WindowOperationEngine {
     private static let pollInterval: TimeInterval = 0.01
     private static let enhancedUIRestoreTimeout: TimeInterval = 0.05
 
+    private static func budget(for action: WindowAction) -> TimeInterval {
+        action == .minimize ? minimizeBudget : frameBudget
+    }
+
     init(accessibility: any WindowAccessibility, clock: (any WindowOperationClock)? = nil) {
         self.accessibility = accessibility
         self.clock = clock ?? SystemWindowClock()
@@ -57,20 +66,23 @@ final class WindowOperationEngine {
 
     func releaseCapture(_ id: UUID) { captures.removeAll { $0.selectionID == id } }
 
+    /// Starts the command's budget. When the window left full screen, the caller reads the screens again and the budget starts over.
+    func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) throws -> FullScreenCheck {
+        let start = clock.now
+        let budget = Budget(clock: clock, duration: Self.budget(for: action), from: start)
+        let left = try leaveFullScreen(window(for: selection), check: budget)
+        return FullScreenCheck(leftFullScreen: left, budgetStart: left ? clock.now : start)
+    }
+
     func perform(
-        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
+        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot],
+        budgetStart: TimeInterval? = nil
     ) throws -> WindowOutcome {
-        guard accessibility.isTrusted else { throw WindowError.permission }
-        guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
-            throw WindowError.noWindow
-        }
-        if captures[captureIndex].window == nil, let pid = captures[captureIndex].pid {
-            captures[captureIndex].window = accessibility.focusedWindow(pid: pid)
-        }
-        guard let window = captures[captureIndex].window else { throw WindowError.noWindow }
-        let budget = Budget(
-            clock: clock, duration: action == .minimize ? Self.minimizeBudget : Self.frameBudget)
-        if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }
+        let window = try window(for: selection)
+        let duration = Self.budget(for: action)
+        var budget = Budget(clock: clock, duration: duration, from: budgetStart ?? clock.now)
+        let leftFullScreen = try leaveFullScreen(window, check: budget)
+        if leftFullScreen { budget = Budget(clock: clock, duration: duration, from: clock.now) }
         if action == .minimize {
             try minimize(window, budget: budget)
             return .applied
@@ -126,6 +138,41 @@ final class WindowOperationEngine {
         if !FrameSettle.matches(actual.size, desired.size) { return .sizeLimited }
         if !FrameSettle.matches(actual.origin, desired.origin) { return .positionLimited }
         return .applied
+    }
+
+    /// A full-screen window first leaves full screen, so the command then lands on the screen it returns to.
+    private func window(for selection: WindowSelection) throws -> any WindowAccess {
+        guard accessibility.isTrusted else { throw WindowError.permission }
+        guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
+            throw WindowError.noWindow
+        }
+        if captures[captureIndex].window == nil, let pid = captures[captureIndex].pid {
+            captures[captureIndex].window = accessibility.focusedWindow(pid: pid)
+        }
+        guard let window = captures[captureIndex].window else { throw WindowError.noWindow }
+        return window
+    }
+
+    /// The full screen check spends the caller's budget. Only the exit wait gets its own.
+    private func leaveFullScreen(_ window: any WindowAccess, check: Budget) throws -> Bool {
+        guard try window.isFullScreen(timeout: check.timeout()) else { return false }
+        let budget = Budget(clock: clock, duration: FullScreenExit.budget)
+        try window.exitFullScreen(timeout: budget.timeout())
+        var exit = FullScreenExit()
+        var lastFullScreen = true
+        while true {
+            do {
+                try budget.pause(FullScreenExit.pollInterval)
+            } catch WindowError.timedOut {
+                // A window still animating out of full screen at the deadline takes the command anyway.
+                if !lastFullScreen { return true }
+                throw WindowError.fullScreen
+            }
+            let fullScreen = try? window.isFullScreen(timeout: budget.timeout())
+            if let fullScreen { lastFullScreen = fullScreen }
+            let frame = try? window.frame(timeout: budget.timeout())
+            if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return true }
+        }
     }
 
     private func withEnhancedUserInterfaceDisabled<T>(
@@ -219,9 +266,9 @@ final class WindowOperationEngine {
         let clock: any WindowOperationClock
         let deadline: TimeInterval
 
-        init(clock: any WindowOperationClock, duration: TimeInterval) {
+        init(clock: any WindowOperationClock, duration: TimeInterval, from start: TimeInterval? = nil) {
             self.clock = clock
-            deadline = clock.now + duration
+            deadline = (start ?? clock.now) + duration
         }
         var remaining: TimeInterval { max(0, deadline - clock.now) }
         func timeout() throws -> TimeInterval {

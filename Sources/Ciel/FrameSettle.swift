@@ -84,3 +84,28 @@ struct FrameSettle {
             y: max(visible.minY, min(frame.minY, visible.maxY - frame.height)))
     }
 }
+
+/// Leaving full screen animates the window back to its Space, so it counts as done only when the window no longer
+/// reports full screen and its frame has held within tolerance for the settle interval.
+struct FullScreenExit {
+    static let budget: TimeInterval = 1.5
+    static let pollInterval: TimeInterval = 0.03
+
+    private var last: CGRect?
+    private var stableSince: TimeInterval?
+
+    /// A failed read passes nil, which restarts the wait as if the window were still moving.
+    mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
+        guard fullScreen == false, let frame else {
+            last = nil
+            stableSince = nil
+            return false
+        }
+        if let last, FrameSettle.matches(frame, last), let stableSince {
+            return now - stableSince >= FrameSettle.settleInterval
+        }
+        last = frame
+        stableSince = now
+        return false
+    }
+}

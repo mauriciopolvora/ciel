@@ -231,6 +231,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             layoutSubtreeIfNeeded()
         }
         if change.resultsChanged || change.selectionChanged {
+            let previous = table.selectedRow
             if let index = state.selectedIndex {
                 if table.selectedRow != index {
                     table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
@@ -239,8 +240,9 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             } else if table.selectedRow >= 0 {
                 table.deselectAll(nil)
             }
+            // An arrow key changes only the rows it leaves and enters.
+            updateHints(rows: change.resultsChanged ? nil : [previous, table.selectedRow])
         }
-        if change.resultsChanged || change.selectionChanged { updateHints() }
     }
     func invalidateIcons(paths: Set<String>) {
         icons.invalidate(paths: paths)
@@ -263,7 +265,12 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             results[row], index: row, icons: icons, selected: row == table.selectedRow, showKeys: showKeys)
         return cell
     }
-    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? { ResultRow() }
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let id = NSUserInterfaceItemIdentifier("row")
+        let view = (tableView.makeView(withIdentifier: id, owner: self) as? ResultRow) ?? ResultRow()
+        view.identifier = id
+        return view
+    }
     func tableViewSelectionDidChange(_ notification: Notification) {
         guard !applyingSelection else { return }
         state.select(index: table.selectedRow)
@@ -275,8 +282,8 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         let end = min(visible.location + visible.length, results.count)
         return min(visible.location, end)..<end
     }
-    private func updateHints() {
-        for index in visibleRows() {
+    private func updateHints(rows: [Int]? = nil) {
+        for index in rows ?? Array(visibleRows()) where index >= 0 {
             (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ResultCell)?
                 .mark(index: index, selected: index == table.selectedRow, showKeys: showKeys)
         }

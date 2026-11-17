@@ -80,7 +80,7 @@ enum AppCheck: Equatable {
                 showGuide: app.showGuide)
         case .performance:
             PerformanceCheck.run(
-                launcher: app.launcher, panel: app.panel,
+                launcher: app.launcher, panel: app.panel, open: app.openLauncher,
                 startupMilliseconds: AppPerformance.startupMilliseconds)
         }
     }
