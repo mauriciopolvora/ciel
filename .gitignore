@@ -7,3 +7,7 @@ dist/
 .env
 .env.*
 .cloudflare/
+
+# Pitch video build files
+pitch-video/node_modules/
+pitch-video/frames/

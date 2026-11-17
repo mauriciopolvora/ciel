@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ciel pitch video</title>
+<style>
+  @font-face {
+    font-family: "Geist";
+    src: url("/site/public/assets/fonts/Geist-Variable.woff2") format("woff2");
+    font-weight: 100 900;
+  }
+
+  :root {
+    /* Ciel's gray tokens, from Sources/Ciel/DesignSystem.swift */
+    --surface: #090909;
+    --hairline: #212121;
+    --secondary: #9e9e9e;
+    --accent: #ebebeb;
+    --text: #f0f0f0;
+    --selected-text: #121212;
+    --selected-secondary: #5c5c5c;
+    /* The desktop mock, from site/public/assets/site.css */
+    --raised: #181818;
+    --raised-2: #1f1f1f;
+    --line-strong: #313131;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: #000;
+    overflow: hidden;
+  }
+
+  body {
+    width: 1280px;
+    height: 720px;
+    color: var(--text);
+    font-family: "Geist", sans-serif;
+    font-size: 15px;
+    line-height: 24px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  svg { display: block; flex: none; fill: currentColor; }
+
+  #frame {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #screen {
+    position: absolute;
+    inset: 0;
+    transform-origin: 820px 100%;
+  }
+
+  #sky {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 30%;
+  }
+
+  /* Menu bar */
+
+  .menubar {
+    position: absolute;
+    inset: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 24px;
+    padding: 0 16px;
+    background: rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(24px);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+  }
+
+  .menubar svg { width: 13px; height: 13px; }
+  .menubar b { font-weight: 650; }
+  .menubar .right { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+  .menubar img { width: 16px; height: 16px; border-radius: 4px; }
+
+  /* Windows */
+
+  .area { position: absolute; inset: 24px 0 0; }
+
+  .win {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--raised);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  }
+
+  .win-bar {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    background: var(--raised-2);
+  }
+
+  .win-bar i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+
+  .win-title {
+    position: absolute;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--secondary);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+
+  .win-title svg { width: 14px; height: 14px; }
+
+  /* Calendar */
+
+  .cal {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 22px 16px 0 4px;
+  }
+
+  .cal h2 {
+    margin: 0 0 14px 24px;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 28px;
+    letter-spacing: -0.01em;
+  }
+
+  .cal-days, .cal-grid {
+    display: grid;
+    grid-template-columns: 40px repeat(5, 1fr);
+  }
+
+  .cal-days {
+    flex: none;
+    height: 30px;
+    color: var(--secondary);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .cal-days span { padding-left: 8px; white-space: nowrap; }
+  .cal-days b { display: inline-block; min-width: 20px; margin-left: 3px; border-radius: 10px; font-weight: 600; text-align: center; }
+  .cal-days .today { color: var(--text); }
+  .cal-days .today b { background: var(--accent); color: var(--selected-text); }
+
+  .cal-grid {
+    flex: 1;
+    min-height: 0;
+    background: repeating-linear-gradient(#242424 0 1px, transparent 1px 11.1111%);
+  }
+
+  .cal-hours {
+    display: grid;
+    grid-template-rows: repeat(9, 1fr);
+    padding-right: 8px;
+    color: var(--selected-secondary);
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 14px;
+    text-align: right;
+  }
+
+  .cal-hours span { padding-top: 5px; }
+  .cal-day { position: relative; border-left: 1px solid #242424; }
+
+  .cal-day div {
+    position: absolute;
+    left: 3px;
+    right: 4px;
+    overflow: hidden;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #272727;
+    color: var(--text);
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 15px;
+    white-space: nowrap;
+  }
+
+  .cal-day small { display: block; color: var(--secondary); font-size: 10.5px; }
+
+  /* Notes */
+
+  .note {
+    flex: 1;
+    padding: 22px 28px;
+    font-size: 16px;
+    line-height: 26px;
+  }
+
+  .note h2 {
+    margin: 0 0 12px;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 28px;
+    letter-spacing: -0.01em;
+  }
+
+  .note h3 {
+    margin: 20px 0 4px;
+    color: var(--secondary);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  .note div { height: 26px; white-space: nowrap; }
+
+  .note-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 19px;
+    margin-left: 1px;
+    background: var(--text);
+    vertical-align: -4px;
+  }
+
+  /* Launcher, with the geometry of LauncherView.swift and LauncherResults.swift:
+     640 wide, 68 tall when empty, 44 point rows, 24 point input */
+
+  .launcher {
+    position: absolute;
+    left: 320px;
+    top: 150px;
+    width: 640px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  }
+
+  .launcher-top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 66px;
+    padding-left: 23px;
+  }
+
+  #query {
+    font-size: 24px;
+    line-height: 32px;
+    letter-spacing: -0.005em;
+    white-space: pre;
+  }
+
+  #caret {
+    width: 1.5px;
+    height: 27px;
+    margin-left: 1px;
+    background: var(--text);
+  }
+
+  .chip {
+    position: absolute;
+    right: 19px;
+    top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 88px;
+    height: 26px;
+    border-radius: 13px;
+    background: #171717;
+    color: var(--secondary);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+  }
+
+  .chip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .results { padding: 0 7px 8px; }
+
+  .row {
+    position: relative;
+    height: 44px;
+    color: var(--text);
+  }
+
+  .row::before {
+    content: "";
+    position: absolute;
+    inset: 2px 1px;
+    border-radius: 8px;
+  }
+
+  .row.selected::before { background: var(--accent); }
+  .row.selected { color: var(--selected-text); }
+
+  .row .tile {
+    position: absolute;
+    left: 12px;
+    top: 9px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--raised-2);
+    color: var(--accent);
+  }
+
+  .row .tile svg { width: 15px; height: 15px; }
+
+  .row .shape {
+    position: absolute;
+    left: 11px;
+    top: 8px;
+    width: 28px;
+    height: 28px;
+    color: var(--secondary);
+    fill: none;
+  }
+
+  .row.selected .shape { color: var(--selected-secondary); }
+  .row .shape .ink { fill: var(--text); stroke: none; opacity: 0.8; }
+  .row .shape .glyph { stroke: var(--text); opacity: 0.8; }
+  .row.selected .shape .ink { fill: var(--selected-text); }
+  .row.selected .shape .glyph { stroke: var(--selected-text); }
+
+  .row .title {
+    position: absolute;
+    left: 50px;
+    top: 11px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 21px;
+    white-space: nowrap;
+  }
+
+  .row .hint {
+    position: absolute;
+    right: 16px;
+    top: 15px;
+    width: 14px;
+    height: 14px;
+    color: var(--selected-secondary);
+  }
+
+  .row:not(.selected) .hint { display: none; }
+
+  /* Dictation, with the geometry of PillLayout in PillMotion.swift */
+
+  #pills {
+    position: absolute;
+    inset: 0;
+    transform-origin: 640px 696px;
+  }
+
+  .pill {
+    position: absolute;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    background: var(--surface);
+  }
+
+  #waveform { left: 592px; top: 664px; width: 96px; height: 32px; }
+
+  #waveform i {
+    position: absolute;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--text);
+  }
+
+  #words {
+    position: absolute;
+    inset: 0 13px;
+    overflow: hidden;
+  }
+
+  #words span.line {
+    position: absolute;
+    left: 50%;
+    top: 7px;
+    font-size: 13px;
+    line-height: 16px;
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+
+  #tentative { color: var(--secondary); }
+
+  /* Keys, after the keycaps on cielmac.app */
+
+  #keys, #talk-key {
+    position: absolute;
+    left: 44px;
+    bottom: 40px;
+    display: flex;
+    gap: 8px;
+  }
+
+  kbd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 15px;
+    border: 1px solid var(--line-strong);
+    border-radius: 11px;
+    background: var(--raised);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  kbd.glyph { padding: 0; }
+  kbd svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* End card */
+
+  #end {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+
+  #end img { width: 132px; height: 132px; }
+
+  #end h1 {
+    margin: 22px 0 0;
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 52px;
+    letter-spacing: -0.03em;
+  }
+
+  #end p {
+    margin: 8px 0 0;
+    color: var(--secondary);
+    font-size: 21px;
+    line-height: 28px;
+    letter-spacing: -0.005em;
+  }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="screen">
+    <img id="sky" src="/Resources/CloudPainting.png" alt="">
+
+    <div class="menubar">
+      <svg><use href="#apple-logo"/></svg>
+      <b id="app-name">Finder</b>
+      <span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
+      <span class="right"><img src="/site/public/assets/icon-32.png" alt=""><span>9:41</span></span>
+    </div>
+
+    <div class="area">
+      <div class="win" id="calendar">
+        <div class="win-bar">
+          <i></i><i></i><i></i>
+          <span class="win-title"><svg><use href="#calendar-blank"/></svg>Calendar</span>
+        </div>
+        <div class="cal">
+          <h2>November</h2>
+          <div class="cal-days"><span></span><span>Mon <b>16</b></span><span class="today">Tue <b>17</b></span><span>Wed <b>18</b></span><span>Thu <b>19</b></span><span>Fri <b>20</b></span></div>
+          <div class="cal-grid">
+            <div class="cal-hours"><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span></div>
+            <div class="cal-day"><div style="top: calc(5.5556% + 2px); height: calc(11.1111% - 3px)">Planning<small>9:30</small></div><div style="top: calc(55.5556% + 2px); height: calc(11.1111% - 3px)">Call with Ana<small>14:00</small></div></div>
+            <div class="cal-day"><div style="top: calc(11.1111% + 2px); height: calc(11.1111% - 3px)">Pitch rehearsal<small>10:00</small></div><div style="top: calc(66.6667% + 2px); height: calc(16.6667% - 3px)">Focus time<small>15:00</small></div></div>
+            <div class="cal-day"><div style="top: calc(55.5556% + 2px); height: calc(11.1111% - 3px)">Design review<small>14:00</small></div></div>
+            <div class="cal-day"><div style="top: calc(33.3333% + 2px); height: calc(11.1111% - 3px)">Team lunch<small>12:00</small></div></div>
+            <div class="cal-day"><div style="top: calc(11.1111% + 2px); height: calc(22.2222% - 3px)">Demo day<small>10:00</small></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="win" id="notes">
+        <div class="win-bar">
+          <i></i><i></i><i></i>
+          <span class="win-title"><svg><use href="#note-pencil"/></svg>Notes</span>
+        </div>
+        <div class="note">
+          <h2>Launch week</h2>
+          <div>Finish the pitch deck</div>
+          <div>Record the product video</div>
+          <div>Book the room for Friday</div>
+          <div>Order lunch for twelve</div>
+          <h3>Reminders</h3>
+          <div>Send the invite to Ana</div>
+          <div>Print the name tags</div>
+          <div><span id="dictated"></span><i class="note-caret" id="note-caret"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="launcher" id="launcher">
+      <div class="launcher-top">
+        <span id="query"></span><i id="caret"></i>
+        <span class="chip" id="chip">All<svg viewBox="0 0 24 24"><path d="M3 12h13M12 7l5 5-5 5M21 6v12"/></svg></span>
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+
+    <div id="pills">
+      <div class="pill" id="transcript">
+        <div id="words"><span class="line"><span id="committed"></span><span id="tentative"></span></span></div>
+      </div>
+      <div class="pill" id="waveform"></div>
+    </div>
+  </div>
+
+  <div id="keys">
+    <kbd class="glyph" id="key-cmd"><svg viewBox="0 0 24 24"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/></svg></kbd>
+    <kbd id="key-space">Space</kbd>
+  </div>
+  <div id="talk-key">
+    <kbd id="key-talk">Right<svg viewBox="0 0 24 24"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/></svg></kbd>
+  </div>
+
+  <div id="end">
+    <img id="end-icon" src="/site/public/assets/icon-256.png" alt="">
+    <h1 id="end-name">Ciel</h1>
+    <p id="end-url">cielmac.app</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* Every style on this page is a pure function of t: no transitions, timers or clocks.
+   window.render(t) draws the frame at t seconds, and render.mjs steps it one frame at a time. */
+
+const $ = (id) => document.getElementById(id);
+const clamp01 = (value) => Math.min(1, Math.max(0, value));
+const lerp = (from, to, amount) => from + (to - from) * amount;
+const span = (t, start, end) => clamp01((t - start) / (end - start));
+
+function bezier(x1, y1, x2, y2) {
+  const curve = (a, b, s) => 3 * a * s * (1 - s) * (1 - s) + 3 * b * s * s * (1 - s) + s * s * s;
+  return (x) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let low = 0;
+    let high = 1;
+    for (let i = 0; i < 40; i++) {
+      const mid = (low + high) / 2;
+      if (curve(x1, x2, mid) < x) low = mid;
+      else high = mid;
+    }
+    return curve(y1, y2, (low + high) / 2);
+  };
+}
+
+const EASE = bezier(0.32, 0.72, 0, 1); // --ease on cielmac.app
+const EASE_IN_OUT = bezier(0.65, 0, 0.35, 1);
+
+/* Timeline, in seconds */
+
+const BEATS = [
+  { open: 1.0, keys: [["c", 1.55], ["a", 1.7], ["l", 1.83], ["e", 2.0]], enter: 2.75 },
+  { open: 3.75, keys: [["l", 4.15], ["e", 4.28], ["f", 4.39], ["t", 4.53]], enter: 5.13 },
+  { open: 6.25, keys: [["n", 6.6], ["o", 6.74]], enter: 7.4 },
+  { open: 8.35, keys: [["r", 8.7], ["i", 8.81], ["g", 8.94]], enter: 9.49 },
+];
+const [OPEN_CALENDAR, SNAP_LEFT, OPEN_NOTES, SNAP_RIGHT] = BEATS.map((beat) => beat.enter);
+const POP = 0.4;
+const MOVE = 0.55;
+const KEYS_IN = [0.2, 0.5];
+const KEYS_OUT = [9.7, 9.95];
+const ZOOM = 1.5;
+const ZOOM_IN = [10.2, 11.4];
+const TALK_KEY_IN = [10.9, 11.15];
+const TALK = 11.7; // Right Command goes down
+const TALK_KEY_OUT = [15.4, 15.65];
+const ZOOM_OUT = [16.3, 17.5];
+const FADE = [17.9, 18.5];
+const REVEAL = 18.55;
+window.DURATION = 22;
+window.POSTER_AT = 2.4;
+
+/* Dictation, relative to TALK */
+
+const SENTENCE = "Move the design review to Thursday at ten.";
+const HEARD = [
+  [0.95, "", "Move the"],
+  [1.45, "Move the", "design review"],
+  [1.95, "Move the design review", "to Thursday"],
+  [2.45, "Move the design review to Thursday", "at ten."],
+  [3.2, SENTENCE, ""],
+];
+const RELEASE = 2.95;
+const PASTE = 3.5;
+const SYLLABLES = [
+  [0.36, 0.9], [0.58, 0.55], [0.78, 0.7], [0.97, 0.95], [1.2, 0.6], [1.4, 0.85],
+  [1.68, 0.5], [1.88, 1], [2.1, 0.7], [2.32, 0.6], [2.52, 0.9],
+];
+
+/* Search, copied from site/public/assets/site.js */
+
+const WINDOW_COMMANDS = [
+  ["Left Half", [0, 0, 0.5, 1]],
+  ["Right Half", [0.5, 0, 0.5, 1]],
+  ["Top Half", [0, 0, 1, 0.5]],
+  ["Bottom Half", [0, 0.5, 1, 0.5]],
+  ["Top Left Quarter", [0, 0, 0.5, 0.5]],
+  ["Top Right Quarter", [0.5, 0, 0.5, 0.5]],
+  ["Bottom Left Quarter", [0, 0.5, 0.5, 0.5]],
+  ["Bottom Right Quarter", [0.5, 0.5, 0.5, 0.5]],
+  ["First Three Fourths", [0, 0, 0.75, 1]],
+  ["Center Three Fourths", [0.125, 0, 0.75, 1]],
+  ["Last Three Fourths", [0.25, 0, 0.75, 1]],
+  ["Maximize", [0, 0, 1, 1], "full fill expand"],
+  ["Almost Maximize", [0.05, 0.05, 0.9, 0.9], "large expand padding"],
+  ["Center", "center"],
+  ["Restore Previous Size", "restore", "undo reset previous"],
+  ["Minimize", "minimize", "minimise hide dock"],
+  ["Move to Next Display", "next", "monitor screen"],
+  ["Move to Previous Display", "previous", "monitor screen"],
+].map(([title, action, keywords = "snap tile resize move"]) => ({
+  kind: "window",
+  title,
+  action,
+  keywords: keywords + " window",
+}));
+
+const APPS = [
+  ["Safari", "compass"],
+  ["Calculator", "calculator"],
+  ["Terminal", "terminal-window"],
+  ["Notes", "note-pencil"],
+  ["Music", "music-notes"],
+  ["Calendar", "calendar-blank"],
+  ["Mail", "envelope-simple"],
+  ["System Settings", "gear-six"],
+  ["Finder", "folder-simple"],
+  ["Visual Studio Code", "code"],
+  ["Messages", "chat-circle"],
+  ["Photo Booth", "camera"],
+].map(([title, icon]) => ({ kind: "app", title, icon, keywords: "" }));
+
+const ENTRIES = [...APPS, ...WINDOW_COMMANDS];
+
+const fold = (text) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+function editDistance(a, b) {
+  const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) rows[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      rows[i][j] = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        rows[i][j] = Math.min(rows[i][j], rows[i - 2][j - 2] + 1);
+    }
+  }
+  return rows[a.length][b.length];
+}
+
+function score(entry, query) {
+  const title = fold(entry.title);
+  const words = title.split(" ");
+  const terms = query.split(/\s+/);
+  if (title === query) return 1000;
+  if (title.startsWith(query)) return 900;
+  if (terms.every((term) => words.some((word) => word.startsWith(term)))) return 800;
+  if (query.length > 1 && words.map((word) => word[0]).join("").startsWith(query)) return 760;
+  let typos = 0;
+  const close = terms.every((term) => {
+    if (term.length < 3) return words.some((word) => word.startsWith(term));
+    const best = Math.min(
+      ...words.flatMap((word) => [
+        editDistance(term, word.slice(0, term.length)),
+        editDistance(term, word.slice(0, term.length + 1)),
+        editDistance(term, word),
+      ]),
+    );
+    typos += best;
+    return best <= (term.length >= 6 ? 2 : 1);
+  });
+  if (close) return 600 - typos * 20;
+  const keywords = fold(entry.keywords).split(" ");
+  if (terms.every((term) => [...words, ...keywords].some((word) => word.startsWith(term)))) return 300;
+  return 0;
+}
+
+function search(text) {
+  const query = fold(text);
+  if (!query) return [];
+  return ENTRIES.map((entry) => ({ entry, score: score(entry, query) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title))
+    .map((match) => match.entry);
+}
+
+/* A window command's symbol, with the geometry of ActionIcon in LauncherResults.swift */
+
+function shapeSVG(action) {
+  const part = (x, y, w, h) =>
+    `<rect class="ink" x="${4.5 + x * 19}" y="${7.5 + y * 13}" width="${w * 19}" height="${h * 13}" rx="0.8"/>`;
+  const glyph = (d) => `<path class="glyph" d="${d}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const body = Array.isArray(action)
+    ? part(...action)
+    : {
+        center: part(0.25, 0.2, 0.5, 0.6),
+        restore: glyph("M10.5 11.5 8.5 13.5l2 2M8.5 13.5h8a2 2 0 0 0 0-4h-1.5"),
+        minimize: glyph("m11 13 3 3 3-3"),
+        next: glyph("M9.5 14h9M15.5 11l3 3-3 3"),
+        previous: glyph("M18.5 14h-9M12.5 11l-3 3 3 3"),
+      }[action];
+  return `<svg class="shape" viewBox="0 0 28 28"><rect x="2" y="5" width="24" height="18" rx="3" stroke="currentColor" stroke-width="1.2"/>${body}</svg>`;
+}
+
+function rowsHTML(entries) {
+  return entries
+    .slice(0, 7)
+    .map((entry, index) => {
+      const icon =
+        entry.kind === "app"
+          ? `<span class="tile"><svg><use href="#${entry.icon}"/></svg></span>`
+          : shapeSVG(entry.action);
+      return `<div class="row${index === 0 ? " selected" : ""}">${icon}<span class="title">${entry.title}</span><svg class="hint"><use href="#arrow-elbow-down-left"/></svg></div>`;
+    })
+    .join("");
+}
+
+/* The dictation pills, with the same springs and waveform as PillMotion.swift and DictationPill.swift.
+   The simulation runs once at 240 steps a second and keeps one snapshot per video frame. */
+
+class Spring {
+  constructor(value, response) {
+    this.value = value;
+    this.velocity = 0;
+    this.target = value;
+    this.response = response;
+  }
+  advance(seconds) {
+    const frequency = (2 * Math.PI) / this.response;
+    this.velocity += (frequency * frequency * (this.target - this.value) - 2 * frequency * this.velocity) * seconds;
+    this.value += this.velocity * seconds;
+  }
+}
+
+const BARS = 15;
+const HALF = 7;
+const PERIOD = 1 / 24;
+const weight = (distance) => 0.35 + 0.65 * Math.cos((distance / HALF) * (Math.PI / 2));
+const mirrored = (side) => [...side.slice().reverse(), ...side.slice(1)];
+
+function voice(time) {
+  if (time < SYLLABLES[0][0] || time > 2.75) return 0;
+  let level = 0.28;
+  for (const [at, peak] of SYLLABLES) {
+    const age = time - at;
+    if (age < 0) continue;
+    level = Math.max(level, peak * (age < 0.04 ? age / 0.04 : Math.exp(-(age - 0.04) / 0.1)));
+  }
+  return level;
+}
+
+function simulateDictation(textWidth) {
+  const step = 1 / 240;
+  const frames = [];
+  const presence = new Spring(0, 0.32);
+  const reveal = new Spring(0, 0.32);
+  const width = new Spring(96, 0.4);
+  const lift = new Spring(0, 0.4);
+  const history = new Array(HALF + 2).fill(0);
+  let since = 0;
+  let level = 0;
+  let amplitudes = new Array(BARS).fill(0);
+  let heard = -1;
+
+  for (let index = 0; index <= (PASTE + 1) * 240; index++) {
+    const time = index * step;
+    const listening = time < RELEASE;
+    const idle = time >= PASTE;
+
+    presence.response = idle ? 0.22 : 0.32;
+    presence.target = idle ? 0 : 1;
+    while (heard + 1 < HEARD.length && time >= HEARD[heard + 1][0]) {
+      heard++;
+      width.target = Math.max(96, Math.min(textWidth(heard), 360) + 28);
+      lift.target = 40;
+      reveal.target = 1;
+    }
+
+    const input = listening ? voice(time) : 0;
+    level += (input - level) * (1 - Math.exp(-step / (input > level ? 0.03 : 0.2)));
+    since += step;
+    while (since >= PERIOD) {
+      since -= PERIOD;
+      history.unshift(listening ? level : 0);
+      history.pop();
+    }
+    const current = listening ? level : 0;
+    const aged = (age) => {
+      if (age === 0) return current;
+      if (age <= since) return current + ((history[0] - current) * age) / since;
+      const position = (age - since) / PERIOD;
+      const at = Math.min(Math.floor(position), history.length - 2);
+      const fraction = position - at;
+      return history[at] * (1 - fraction) + history[at + 1] * fraction;
+    };
+    const side = Array.from({ length: HALF + 1 }, (_, distance) =>
+      listening
+        ? weight(distance) * aged(distance * PERIOD)
+        : weight(distance) * 0.2 * (0.5 + 0.5 * Math.sin((2 * Math.PI * time) / 1.1 - distance * 0.7)),
+    );
+    if (!idle) {
+      const target = mirrored(side);
+      const blend = 1 - Math.exp(-step / 0.05);
+      amplitudes = amplitudes.map((value, bar) => value + (target[bar] - value) * blend);
+    }
+    for (const spring of [presence, reveal, width, lift]) spring.advance(step);
+
+    if (index % 4 === 0)
+      frames.push({
+        presence: presence.value,
+        reveal: reveal.value,
+        width: width.value,
+        lift: lift.value,
+        amplitudes: amplitudes.slice(),
+        heard,
+      });
+  }
+  return frames;
+}
+
+/* Elements */
+
+const screen = $("screen");
+const launcher = $("launcher");
+const calendar = $("calendar");
+const notes = $("notes");
+const pills = $("pills");
+const transcript = $("transcript");
+const words = $("words");
+const waveform = $("waveform");
+waveform.innerHTML = "<i></i>".repeat(BARS);
+const bars = [...waveform.children];
+let dictation = [];
+let heardWidths = [];
+let drawnQuery = null;
+let drawnHeard = null;
+
+const CALENDAR_OPEN = [0.19, 0.1, 0.62, 0.76];
+const NOTES_OPEN = [0.34, 0.06, 0.5, 0.74];
+const LEFT_HALF = [0, 0, 0.5, 1];
+const RIGHT_HALF = [0.5, 0, 0.5, 1];
+
+function place(win, t, openedAt, from, snappedAt, to) {
+  if (t < openedAt) {
+    win.style.display = "none";
+    return;
+  }
+  const shown = EASE(span(t, openedAt, openedAt + POP));
+  const moved = EASE(span(t, snappedAt, snappedAt + MOVE));
+  const [x, y, w, h] = from.map((value, i) => lerp(value, to[i], moved));
+  Object.assign(win.style, {
+    display: "flex",
+    left: `${x * 1280}px`,
+    top: `${y * 696}px`,
+    width: `${w * 1280}px`,
+    height: `${h * 696}px`,
+    opacity: lerp(0, 1, span(t, openedAt, openedAt + POP * 0.6)),
+    transform: `scale(${lerp(0.96, 1, shown)})`,
+  });
+}
+
+const gray = (value) => `rgb(${value} ${value} ${value})`;
+
+function press(key, amount) {
+  key.style.background = gray(Math.round(lerp(24, 44, amount)));
+  key.style.borderColor = gray(Math.round(lerp(49, 84, amount)));
+  key.style.transform = `translateY(${amount * 1.5}px)`;
+}
+
+const held = (t, down, up) => span(t, down - 0.06, down) * (1 - span(t, up, up + 0.12));
+
+function blink(t, since) {
+  return (t - since) % 1.06 < 0.56;
+}
+
+window.render = (t) => {
+  /* Camera */
+  const zoom = lerp(1, ZOOM, EASE_IN_OUT(span(t, ...ZOOM_IN)) - EASE_IN_OUT(span(t, ...ZOOM_OUT)));
+  screen.style.transform = `scale(${zoom})`;
+
+  /* Windows and the menu bar */
+  place(calendar, t, OPEN_CALENDAR, CALENDAR_OPEN, SNAP_LEFT, LEFT_HALF);
+  place(notes, t, OPEN_NOTES, NOTES_OPEN, SNAP_RIGHT, RIGHT_HALF);
+  $("app-name").textContent = t >= OPEN_NOTES ? "Notes" : t >= OPEN_CALENDAR ? "Calendar" : "Finder";
+  const pasted = t >= TALK + PASTE;
+  $("dictated").textContent = pasted ? SENTENCE : "";
+  $("note-caret").style.opacity = blink(t, pasted ? TALK + PASTE : OPEN_NOTES) ? 1 : 0;
+
+  /* Launcher: opening, typing and running are immediate, as in the app */
+  const beat = BEATS.find((each) => t >= each.open && t < each.enter);
+  launcher.style.display = beat ? "block" : "none";
+  if (beat) {
+    const typed = beat.keys.filter(([, at]) => t >= at);
+    const query = typed.map(([letter]) => letter).join("");
+    if (query !== drawnQuery) {
+      drawnQuery = query;
+      $("query").textContent = query;
+      $("chip").style.display = query ? "flex" : "none";
+      $("results").innerHTML = rowsHTML(search(query));
+      $("results").style.display = query ? "block" : "none";
+    }
+    const lastKey = typed.length ? typed[typed.length - 1][1] : beat.open;
+    $("caret").style.opacity = blink(t, lastKey) ? 1 : 0;
+  }
+
+  /* Keys */
+  $("keys").style.opacity = span(t, ...KEYS_IN) - span(t, ...KEYS_OUT);
+  let command = 0;
+  let space = 0;
+  for (const { open } of BEATS) {
+    command = Math.max(command, held(t, open - 0.14, open + 0.16));
+    space = Math.max(space, held(t, open, open + 0.13));
+  }
+  press($("key-cmd"), command);
+  press($("key-space"), space);
+  $("talk-key").style.opacity = span(t, ...TALK_KEY_IN) - span(t, ...TALK_KEY_OUT);
+  press($("key-talk"), held(t, TALK, TALK + RELEASE));
+
+  /* Dictation */
+  const frame = t < TALK ? null : dictation[Math.min(Math.round((t - TALK) * 60), dictation.length - 1)];
+  const shown = frame ? clamp01(frame.presence) : 0;
+  pills.style.display = shown > 0 ? "block" : "none";
+  if (frame && shown > 0) {
+    pills.style.opacity = shown;
+    pills.style.transform = `translateY(${(1 - shown) * 6}px) scale(${0.96 + 0.04 * shown})`;
+    Object.assign(transcript.style, {
+      left: `${640 - frame.width / 2}px`,
+      top: `${664 - frame.lift}px`,
+      width: `${frame.width}px`,
+      height: "32px",
+      opacity: clamp01(frame.reveal),
+    });
+    if (frame.heard !== drawnHeard) {
+      drawnHeard = frame.heard;
+      const [, committed, tentative] = frame.heard < 0 ? [0, "", ""] : HEARD[frame.heard];
+      $("committed").textContent = committed;
+      $("tentative").textContent = committed && tentative ? " " + tentative : tentative;
+    }
+    const overflow = frame.heard < 0 ? 0 : clamp01((heardWidths[frame.heard] - (frame.width - 28)) / 12);
+    const edge = `rgb(0 0 0 / ${1 - overflow})`;
+    words.style.maskImage = `linear-gradient(90deg, ${edge}, #000 20px, #000 calc(100% - 20px), ${edge})`;
+    frame.amplitudes.forEach((amplitude, index) => {
+      const height = 2 + 16 * clamp01(amplitude);
+      Object.assign(bars[index].style, {
+        left: `${11 + index * 5}px`,
+        top: `${15 - height / 2}px`,
+        height: `${height}px`,
+      });
+    });
+  }
+
+  /* End card */
+  const end = $("end");
+  end.style.display = t >= FADE[0] ? "flex" : "none";
+  end.style.opacity = span(t, ...FADE);
+  [$("end-icon"), $("end-name"), $("end-url")].forEach((element, index) => {
+    const start = REVEAL + index * 0.12;
+    const amount = EASE(span(t, start, start + 0.9));
+    element.style.opacity = amount;
+    element.style.filter = amount < 1 ? `blur(${(1 - amount) * 10}px)` : "none";
+    element.style.transform = `translateY(${(1 - amount) * 20}px)`;
+  });
+};
+
+window.ready = (async () => {
+  const sprite = await (await fetch("/site/public/assets/icons.svg")).text();
+  document.body.insertAdjacentHTML("afterbegin", sprite);
+  await document.fonts.load('500 15px "Geist"');
+  await document.fonts.ready;
+  await Promise.all([...document.images].map((image) => image.decode()));
+  const context = document.createElement("canvas").getContext("2d");
+  context.font = '13px "Geist"';
+  heardWidths = HEARD.map(([, committed, tentative]) =>
+    Math.ceil(context.measureText([committed, tentative].filter(Boolean).join(" ")).width),
+  );
+  dictation = simulateDictation((index) => heardWidths[index]);
+  window.render(0);
+  return document.fonts.check('500 15px "Geist"');
+})();
+</script>
+</body>
+</html>
