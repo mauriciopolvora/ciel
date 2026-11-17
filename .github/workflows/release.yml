@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      actions: read
     defaults:
       run:
         shell: bash
@@ -49,7 +50,7 @@ jobs:
           git fetch -q --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || fail "$GITHUB_SHA is not on main. Release only merged commits."
           passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&status=success" \
-            --jq '[.workflow_runs[] | select(.name == "Check Ciel")] | length')
+            --jq '[.workflow_runs[] | select(.path == ".github/workflows/checks.yml" and .event == "push")] | length')
           [[ "$passed" -gt 0 ]] || fail "Check Ciel has not passed on $GITHUB_SHA."
           if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
           if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
@@ -71,7 +72,7 @@ jobs:
               fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
           fi
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
-      - name: Build before any secret is on the runner
+      - name: Build before any step reads a secret
         run: swift build -c release --product Ciel --arch arm64
       - name: Import the Developer ID certificate into a temporary keychain
         env:
