@@ -74,12 +74,14 @@ enum WindowOutcome: Equatable, Sendable {
         Task {
             let selection = await target.selection.value
             let result: Result<WindowOutcome, Error>
-            switch await worker.leaveFullScreen(selection) {
+            switch await worker.leaveFullScreen(action, selection: selection) {
             case .failure(let error): result = .failure(error)
-            case .success(let left):
+            case .success(let check):
                 // A full screen Space hides the menu bar and Dock, so the screens are read again after the window leaves.
                 result = await worker.perform(
-                    action, selection: selection, displays: left ? DisplaySnapshot.current() : displays)
+                    action, selection: selection,
+                    displays: check.leftFullScreen ? DisplaySnapshot.current() : displays,
+                    budgetStart: check.budgetStart)
             }
             isBusy = false
             completion(result)
@@ -103,16 +105,18 @@ private actor WindowWorker {
 
     private func releaseCapture(_ id: UUID) { engine.releaseCapture(id) }
 
-    func leaveFullScreen(_ selection: WindowSelection) -> Result<Bool, Error> {
-        Result { try engine.leaveFullScreen(selection: selection) }
+    func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) -> Result<FullScreenCheck, Error>
+    {
+        Result { try engine.leaveFullScreen(action, selection: selection) }
     }
 
     func perform(
-        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
+        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot],
+        budgetStart: TimeInterval
     ) -> Result<WindowOutcome, Error> {
         Result {
             try PerformanceTrace.measure("WindowOperation") {
-                try engine.perform(action, selection: selection, displays: displays)
+                try engine.perform(action, selection: selection, displays: displays, budgetStart: budgetStart)
             }
         }
     }

@@ -253,14 +253,31 @@ struct WindowOperationTests {
         #expect(fixture.window.writes == [.exitFullScreen, .minimize])
     }
 
-    @Test("Leaving full screen on its own reports whether the screens need a new read")
+    @Test("Leaving full screen on its own reports the exit and when the command's budget starts")
     func leaveFullScreenReportsTheExit() throws {
         let fixture = fixture()
-        #expect(try !fixture.engine.leaveFullScreen(selection: fixture.selection))
+        fixture.clock.now = 2
+        let windowed = try fixture.engine.leaveFullScreen(.leftHalf, selection: fixture.selection)
+        #expect(windowed == FullScreenCheck(leftFullScreen: false, budgetStart: 2))
         #expect(fixture.window.writes.isEmpty)
         fixture.window.fullScreen = true
-        #expect(try fixture.engine.leaveFullScreen(selection: fixture.selection))
+        let check = try fixture.engine.leaveFullScreen(.leftHalf, selection: fixture.selection)
+        #expect(check.leftFullScreen)
+        #expect(check.budgetStart > 2)
+        #expect(check.budgetStart == fixture.clock.now)
         #expect(fixture.window.writes == [.exitFullScreen])
+    }
+
+    @Test("The full screen check and the command share one frame deadline")
+    func fullScreenCheckSharesBudget() throws {
+        let fixture = fixture()
+        fixture.window.beforeCall = { timeout in fixture.clock.now += min(0.08, timeout) }
+        let check = try fixture.engine.leaveFullScreen(.leftHalf, selection: fixture.selection)
+        #expect(throws: WindowError.timedOut) {
+            try fixture.engine.perform(
+                .leftHalf, selection: fixture.selection, displays: displays, budgetStart: check.budgetStart)
+        }
+        #expect(fixture.clock.now <= 0.5)
     }
 
     @Test("A window that stays in full screen fails at the deadline with no frame writes")

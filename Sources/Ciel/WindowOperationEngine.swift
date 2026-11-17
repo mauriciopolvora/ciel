@@ -11,6 +11,11 @@ final class WindowSelection: Hashable, Sendable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
+struct FullScreenCheck: Equatable, Sendable {
+    let leftFullScreen: Bool
+    let budgetStart: TimeInterval
+}
+
 protocol WindowOperationClock {
     var now: TimeInterval { get }
     func sleep(for interval: TimeInterval)
@@ -38,6 +43,10 @@ final class WindowOperationEngine {
     private static let pollInterval: TimeInterval = 0.01
     private static let enhancedUIRestoreTimeout: TimeInterval = 0.05
 
+    private static func budget(for action: WindowAction) -> TimeInterval {
+        action == .minimize ? minimizeBudget : frameBudget
+    }
+
     init(accessibility: any WindowAccessibility, clock: (any WindowOperationClock)? = nil) {
         self.accessibility = accessibility
         self.clock = clock ?? SystemWindowClock()
@@ -57,20 +66,23 @@ final class WindowOperationEngine {
 
     func releaseCapture(_ id: UUID) { captures.removeAll { $0.selectionID == id } }
 
-    /// Returns true when the window was in full screen and has left it, so the caller reads the screens again.
-    func leaveFullScreen(selection: WindowSelection) throws -> Bool {
-        try leaveFullScreen(
-            window(for: selection), check: Budget(clock: clock, duration: FullScreenExit.budget))
+    /// Starts the command's budget. When the window left full screen, the caller reads the screens again and the budget starts over.
+    func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) throws -> FullScreenCheck {
+        let start = clock.now
+        let budget = Budget(clock: clock, duration: Self.budget(for: action), from: start)
+        let left = try leaveFullScreen(window(for: selection), check: budget)
+        return FullScreenCheck(leftFullScreen: left, budgetStart: left ? clock.now : start)
     }
 
     func perform(
-        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
+        _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot],
+        budgetStart: TimeInterval? = nil
     ) throws -> WindowOutcome {
         let window = try window(for: selection)
-        let duration = action == .minimize ? Self.minimizeBudget : Self.frameBudget
-        var budget = Budget(clock: clock, duration: duration)
+        let duration = Self.budget(for: action)
+        var budget = Budget(clock: clock, duration: duration, from: budgetStart ?? clock.now)
         let leftFullScreen = try leaveFullScreen(window, check: budget)
-        if leftFullScreen { budget = Budget(clock: clock, duration: duration) }
+        if leftFullScreen { budget = Budget(clock: clock, duration: duration, from: clock.now) }
         if action == .minimize {
             try minimize(window, budget: budget)
             return .applied
@@ -254,9 +266,9 @@ final class WindowOperationEngine {
         let clock: any WindowOperationClock
         let deadline: TimeInterval
 
-        init(clock: any WindowOperationClock, duration: TimeInterval) {
+        init(clock: any WindowOperationClock, duration: TimeInterval, from start: TimeInterval? = nil) {
             self.clock = clock
-            deadline = clock.now + duration
+            deadline = (start ?? clock.now) + duration
         }
         var remaining: TimeInterval { max(0, deadline - clock.now) }
         func timeout() throws -> TimeInterval {
