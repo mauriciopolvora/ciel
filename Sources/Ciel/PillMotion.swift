@@ -165,8 +165,8 @@ struct TranscriptLayout {
     var height: CGFloat { CGFloat(lines.count) * Self.lineHeight }
 
     /// Where a line starts so it sits centered in `space`. While the pill springs wider, a line can be wider
-    /// than the pill: it starts at the left edge and the right fade covers the overflow.
-    static func start(of width: CGFloat, in space: CGFloat) -> CGFloat { max((space - width) / 2, 0) }
+    /// than the pill: it stays centered and overflows both edges under the side fades.
+    static func start(of width: CGFloat, in space: CGFloat) -> CGFloat { (space - width) / 2 }
 }
 
 /// Sizes of the two pills. The transcript pill widens with its first line, then grows a line at a time up to

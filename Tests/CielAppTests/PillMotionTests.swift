@@ -123,7 +123,7 @@ struct PillMotionTests {
         let space = layout.width
         #expect(abs(TranscriptLayout.start(of: last, in: space) * 2 + last - space) < 0.001)
         #expect(TranscriptLayout.start(of: layout.widths[0], in: space) < 0.5)
-        #expect(TranscriptLayout.start(of: space, in: space - 40) == 0)
+        #expect(TranscriptLayout.start(of: space, in: space - 40) == -20)
     }
 
     @Test func aLongTranscriptWrapsAtTheWidthCapAndStopsGrowingAtThreeLines() {

@@ -321,7 +321,7 @@ final class PillView: NSView {
             - frame.height
         words.placement = TranscriptLayer.Placement(
             bottom: bottom, topFade: unit(hidden / TranscriptLayout.lineHeight),
-            endFade: unit((textWidth - words.bounds.width) / 12))
+            edgeFade: unit((textWidth - words.bounds.width) / 12))
         words.displayIfNeeded()
         CATransaction.commit()
     }
@@ -363,7 +363,7 @@ private final class TranscriptLayer: CALayer {
     struct Placement: Equatable {
         var bottom: CGFloat = 0
         var topFade: CGFloat = 0
-        var endFade: CGFloat = 0
+        var edgeFade: CGFloat = 0
     }
 
     var lines: [(CTLine, CGFloat)] = [] { didSet { setNeedsDisplay() } }
@@ -398,11 +398,13 @@ private final class TranscriptLayer: CALayer {
                 fade, start: CGPoint(x: 0, y: bounds.height - Self.fadeLength),
                 end: CGPoint(x: 0, y: bounds.height), options: [])
         }
-        if placement.endFade > 0 {
-            context.setAlpha(placement.endFade)
+        if placement.edgeFade > 0 {
+            context.setAlpha(placement.edgeFade)
             context.drawLinearGradient(
                 fade, start: CGPoint(x: bounds.width - Self.fadeLength, y: 0),
                 end: CGPoint(x: bounds.width, y: 0), options: [])
+            context.drawLinearGradient(
+                fade, start: CGPoint(x: Self.fadeLength, y: 0), end: .zero, options: [])
         }
     }
 
