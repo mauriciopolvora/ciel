@@ -18,7 +18,7 @@ Results appear after you type. Clearing the input returns to the empty box.
 
 ## Build and install
 
-Ciel is available as source. A notarized download is not available yet.
+Download the signed and notarized app from [Releases](https://github.com/mauriciopolvora/ciel/releases/latest), or build it from source.
 
 Requires an **Apple Silicon Mac** with **macOS 14 or later** and a **Swift 6 toolchain**. Apple's Command Line Tools are sufficient for local builds. Full Xcode is optional.
 
@@ -70,7 +70,7 @@ Center Three Fourths uses 75% of the usable width, with equal left and right mar
 
 Maximize fills the usable screen. It does not enter macOS full screen. A command on a full screen window first takes it out of full screen, then applies to the screen it returns to. Almost Maximize uses 90% of the usable width and height. Center preserves size unless the window exceeds the screen. Restore swaps the last two window bounds. Moving between displays preserves relative position and size. Displays are ordered left to right, then top to bottom.
 
-Some apps enforce minimum sizes or reject resizing. Ciel reports these limits. Full-screen windows and moving between Spaces are not supported.
+Some apps enforce minimum sizes or reject resizing. Ciel reports these limits. Moving windows between Spaces is not supported.
 
 If macOS shows access enabled but Ciel reports no access after a local rebuild, quit Ciel, remove the old launcher entry from Accessibility (Device Control and Data Access on newer macOS), add `~/Applications/Ciel.app`, enable it, and reopen Ciel. A stable Developer ID certificate avoids the ad-hoc identity change.
 
