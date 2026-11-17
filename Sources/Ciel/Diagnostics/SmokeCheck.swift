@@ -192,31 +192,130 @@ import UniformTypeIdentifiers
         NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 
+    /// Plays a scripted dictation through the pill: transcript passes every 0.5 s like the live engine, and levels
+    /// from a fixed speech-shaped curve, since the check has no microphone. Writes stills and a GIF of the run.
     private static func capturePillStates(output: String) {
         let pill = PillView()
-        pill.appearance = NSAppearance(named: .darkAqua)
-        pill.listen()
-        for level: Float in [0.02, 0.06, 0.12, 0.04, 0.09] { pill.level(level) }
-        captureLayer(of: pill, "pill-listening", output: output)
-        pill.text(
-            committed: "Send the quarterly report to Maria and ask her to", tentative: "check the numbers")
-        pill.setFrameSize(NSSize(width: pill.fittingWidth, height: PillView.size.height))
-        pill.layoutSubtreeIfNeeded()
-        let speaking = captureLayer(of: pill, "pill-speaking", output: output)
-        let bright = speaking.map { bitmap in
-            let points = stride(from: 160, to: bitmap.pixelsWide, by: 2).flatMap { x in
-                (0..<bitmap.pixelsHigh).map { (x, $0) }
+        let words =
+            ("Send the quarterly report to Maria and ask her to check the numbers before Friday, then book a room"
+            + " for the review with the whole team and share the notes afterwards so everyone knows what"
+            + " changed since last quarter and who owns each follow up").split(separator: " ")
+        let passes = [
+            (120, 0, 2), (170, 2, 5), (220, 5, 10), (270, 10, 17), (320, 17, 25), (370, 25, 33),
+            (420, 33, words.count),
+        ]
+        let stills = [100: "pill-listening", 215: "pill-short", 465: "pill-long"]
+        let block = 512.0 / 48_000
+        var heard = 0.0
+        var frames: [CGImage] = []
+        for step in 0...570 {
+            let time = Double(step) / 100
+            if step == 0 { pill.listen(reduceMotion: false) }
+            if let pass = passes.first(where: { $0.0 == step }) {
+                pill.text(
+                    committed: words[..<pass.1].joined(separator: " "),
+                    tentative: words[pass.1..<pass.2].joined(separator: " "))
             }
-            let lit = points.filter { (bitmap.colorAt(x: $0.0, y: $0.1)?.brightnessComponent ?? 0) > 0.5 }
-            return Double(lit.count) / Double(max(points.count, 1))
+            if step == 470 { pill.transcribe() }
+            if step == 520 { pill.text(committed: words.joined(separator: " "), tentative: "") }
+            if step == 530 { pill.hide() }
+            while heard + 8 * block <= time {
+                pill.hear((0..<8).map { speechLevel(at: heard + Double($0) * block) }, every: block)
+                heard += 8 * block
+            }
+            pill.advance(by: 0.01)
+            if step % 4 == 0, let frame = renderPill(pill)?.cgImage { frames.append(frame) }
+            guard let name = stills[step] else { continue }
+            for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                NSApp.appearance = NSAppearance(named: appearance)
+                guard let image = renderPill(pill), checkPill(pill, name, image) else {
+                    print("FAIL dictation pill \(name) in \(mode) appearance")
+                    exit(1)
+                }
+                try? image.representation(using: .png, properties: [:])?.write(
+                    to: URL(fileURLWithPath: output + "/" + name + "-" + mode + ".png"))
+            }
+            NSApp.appearance = NSAppearance(named: .darkAqua)
         }
-        guard let bright, bright > 0, bright < 0.25 else {
-            print("FAIL dictation pill words are missing or on a light box")
+        guard pill.visibility == 0, writeGIF(frames, delay: 0.04, to: output + "/pill-dictation.gif") else {
+            print("FAIL dictation pill animation")
             exit(1)
         }
-        pill.transcribe()
-        captureLayer(of: pill, "pill-transcribing", output: output)
         print("PASS dictation pill states")
+    }
+
+    /// A check fixture shaped like speech: syllable bursts under a slower phrase envelope, then silence.
+    private static func speechLevel(at time: Double) -> Float {
+        guard time < 4.7 else { return 0.003 }
+        return Float(
+            0.003 + 0.09 * abs(sin(2 * .pi * 2.3 * time)) * (0.55 + 0.45 * sin(2 * .pi * 0.4 * time)))
+    }
+
+    /// Bars must be lit while listening. The transcript must hold light words on its dark surface, one line when
+    /// short, and at the cap with older lines fading once it overflows.
+    private static func checkPill(_ pill: PillView, _ name: String, _ image: NSBitmapImageRep) -> Bool {
+        let canvas = PillLayout.canvas
+        let waveform = CGRect(
+            x: (canvas.width - PillLayout.waveform.width) / 2, y: PillLayout.margin,
+            width: PillLayout.waveform.width, height: PillLayout.waveform.height)
+        let bars = litFraction(image, in: waveform.insetBy(dx: 4, dy: 2))
+        let words = litFraction(image, in: pill.transcriptFrame.insetBy(dx: 4, dy: 2))
+        let height = pill.transcriptFrame.height
+        switch name {
+        case "pill-listening": return bars > 0.02 && !pill.showsTranscript
+        case "pill-short":
+            return bars > 0.02 && pill.lineCount == 1 && abs(height - 32) < 0.5 && words > 0 && words < 0.25
+        default:
+            return pill.lineCount > PillLayout.maxLines && abs(height - 64) < 0.5
+                && pill.olderLinesFade > 0.95
+                && words > 0 && words < 0.25
+        }
+    }
+
+    private static func litFraction(_ image: NSBitmapImageRep, in rect: CGRect) -> Double {
+        let height = PillLayout.canvas.height
+        var lit = 0
+        var total = 0
+        for x in stride(from: Int(rect.minX * 2), to: Int(rect.maxX * 2), by: 2) {
+            for y in stride(from: Int((height - rect.maxY) * 2), to: Int((height - rect.minY) * 2), by: 2) {
+                total += 1
+                if (image.colorAt(x: x, y: y)?.brightnessComponent ?? 0) > 0.5 { lit += 1 }
+            }
+        }
+        return Double(lit) / Double(max(total, 1))
+    }
+
+    /// The pill's layer tree at 2x over a gray backdrop, since the panel itself is clear.
+    private static func renderPill(_ pill: PillView) -> NSBitmapImageRep? {
+        let size = pill.bounds.size
+        guard let layer = pill.layer,
+            let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+            let context = NSGraphicsContext(bitmapImageRep: bitmap)
+        else { return nil }
+        let cg = context.cgContext
+        cg.scaleBy(x: 2, y: 2)
+        cg.setFillColor(Theme.cg(Theme.selection, in: pill))
+        cg.fill(CGRect(origin: .zero, size: size))
+        layer.render(in: cg)
+        return bitmap
+    }
+
+    private static func writeGIF(_ images: [CGImage], delay: Double, to path: String) -> Bool {
+        guard !images.isEmpty,
+            let gif = CGImageDestinationCreateWithURL(
+                URL(fileURLWithPath: path) as CFURL, UTType.gif.identifier as CFString, images.count, nil)
+        else { return false }
+        CGImageDestinationSetProperties(
+            gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+        for image in images {
+            CGImageDestinationAddImage(
+                gif, image,
+                [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay]] as CFDictionary)
+        }
+        return CGImageDestinationFinalize(gif)
     }
 
     private static func captureOnboarding(output: String) {
@@ -340,22 +439,9 @@ import UniformTypeIdentifiers
             trailLayer.render(in: cg)
             return bitmap.cgImage
         }
-        let url = URL(fileURLWithPath: output + "/onboarding-drag.gif") as CFURL
         guard images.count == count,
-            let gif = CGImageDestinationCreateWithURL(url, UTType.gif.identifier as CFString, count, nil)
+            writeGIF(images, delay: DragTrail.cycle / Double(count), to: output + "/onboarding-drag.gif")
         else {
-            print("FAIL drag hint frames")
-            exit(1)
-        }
-        let delay = DragTrail.cycle / Double(count)
-        CGImageDestinationSetProperties(
-            gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
-        for image in images {
-            CGImageDestinationAddImage(
-                gif, image,
-                [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: delay]] as CFDictionary)
-        }
-        guard CGImageDestinationFinalize(gif) else {
             print("FAIL drag hint GIF")
             exit(1)
         }
@@ -374,8 +460,8 @@ import UniformTypeIdentifiers
         }
     }
 
-    /// Renders the layer tree, since the pill draws its bars in sublayers that `cacheDisplay` skips, then draws the
-    /// subviews over it.
+    /// Renders the layer tree, since sublayers drawn outside `draw(_:)` are skipped by `cacheDisplay`, then draws
+    /// the subviews over it.
     @discardableResult
     private static func captureLayer(of view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
         guard let layer = view.layer,

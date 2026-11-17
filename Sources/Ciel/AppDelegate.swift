@@ -17,7 +17,8 @@ import CielCore
         onCancel: { [weak self] command in if command == .dictation { self?.dictation.cancel() } },
         onChange: { [weak self] in self?.updateToolTip() })
     private lazy var dictation = Dictation(
-        recorder: Microphone(onLevel: { [weak self] level in self?.pill.level(level) }),
+        recorder: Microphone(onLevel: { [weak self] rms, interval in self?.pill.level(rms, every: interval) }
+        ),
         transcriber: { [weak self] in
             guard let self else { throw DictationError.off }
             return try self.speechTranscriber()

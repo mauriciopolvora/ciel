@@ -203,6 +203,19 @@ struct DictationTests {
         try await waitUntil { delivered == ["hello there"] }
     }
 
+    @Test func theFinalTextShowsSettledJustBeforeItPastes() async throws {
+        let recorder = FakeRecorder(seconds: 3)
+        var events: [String] = []
+        let dictation = Dictation(
+            recorder: recorder, tapLimit: .zero, interval: .milliseconds(5),
+            transcriber: { FakeTranscriber(text: "hello there") }, deliver: { events.append("paste " + $0) },
+            fail: { Issue.record("Unexpected failure: \($0)") }, onText: { events.append("\($0)|\($1)") })
+        dictation.press()
+        dictation.release()
+        try await waitUntil { events.contains("paste hello there") }
+        #expect(events.suffix(2) == ["hello there|", "paste hello there"])
+    }
+
     @Test func thePasteComesFromTheFinalPassNotThePreview() async throws {
         let recorder = FakeRecorder(seconds: 3)
         var shown: [String] = []
