@@ -56,16 +56,19 @@ jobs:
             fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
           fi
           # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
-          latest_tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
-          if [[ -n "$latest_tag" ]]; then
-            IFS=. read -r a b c <<<"${latest_tag#v}"
-            IFS=. read -r x y z <<<"$version"
-            (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
-          fi
-          latest_build=$(curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml" 2>/dev/null |
-            sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p' || true)
-          if [[ -n "$latest_build" ]] && (( build <= latest_build )); then
-            fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
+          latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not read the latest release tag."
+          IFS=. read -r a b c <<<"${latest_tag#v}"
+          IFS=. read -r x y z <<<"$version"
+          (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
+          has_appcast=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '[.assets[].name] | index("appcast.xml") != null')
+          # Releases before 0.6.0 have no appcast, so there is no build to compare.
+          if [[ "$has_appcast" == true ]]; then
+            latest_build=$(gh release download "$latest_tag" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --output - |
+              sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p')
+            [[ "$latest_build" =~ ^[0-9]+$ ]] || fail "Could not read the build from the appcast of $latest_tag."
+            (( build > latest_build )) ||
+              fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
           fi
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
       - name: Build before any secret is on the runner
