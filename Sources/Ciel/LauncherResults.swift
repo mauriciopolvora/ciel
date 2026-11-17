@@ -73,6 +73,13 @@ final class ResultRow: NSTableRowView {
         hoverLayer.opacity = visible && !isSelected ? 1 : 0
         CATransaction.commit()
     }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        hoverLayer.opacity = 0
+        CATransaction.commit()
+    }
     override func mouseEntered(with event: NSEvent) { hover(true) }
     override func mouseExited(with event: NSEvent) { hover(false) }
     override func drawSelection(in dirtyRect: NSRect) {
