@@ -1,0 +1,122 @@
+name: Release Ciel
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on the chosen branch.
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      SIGN_IDENTITY: 'Developer ID Application: LX Launch, LDA (XKAA7G4U82)'
+      CIEL_ARCH: arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set the temporary paths
+        run: printf 'KEYCHAIN=%s\nSPARKLE_KEY_FILE=%s\n' "$RUNNER_TEMP/ciel-release.keychain-db" "$RUNNER_TEMP/ciel-sparkle.env" >> "$GITHUB_ENV"
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Check the version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then version="${GITHUB_REF_NAME#v}"; else version="$INPUT_VERSION"; fi
+          plist=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "$version" != "$plist" ]]; then
+            printf 'Version %s does not match CFBundleShortVersionString %s in Resources/Info.plist.\n' "$version" "$plist" >&2; exit 1
+          fi
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf 'Release v%s already exists.\n' "$version" >&2; exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY" "refs/tags/v$version" >/dev/null; then
+            printf 'Tag v%s already exists. Push the tag to release it, or pick a new version.\n' "$version" >&2; exit 1
+          fi
+          printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Import the Developer ID certificate into a temporary keychain
+        env:
+          P12_BASE64: ${{ secrets.CIEL_DEVID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.CIEL_DEVID_P12_PASSWORD }}
+        run: |
+          umask 077
+          keychain_password=$(openssl rand -hex 24)
+          printf '::add-mask::%s\n' "$keychain_password"
+          p12="$RUNNER_TEMP/devid.p12"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$p12"
+          security create-keychain -p "$keychain_password" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$keychain_password" "$KEYCHAIN"
+          security import "$p12" -k "$KEYCHAIN" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$p12"
+          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          # The .p12 may already hold the intermediate certificate.
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN" || printf 'The intermediate certificate is already in the keychain.\n'
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$KEYCHAIN" >/dev/null
+          # Runner keychain paths have no spaces, so xargs can strip the quotes.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | xargs)
+          if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -qF "\"$SIGN_IDENTITY\""; then
+            printf 'The certificate does not hold the identity %s.\n' "$SIGN_IDENTITY" >&2; exit 1
+          fi
+      - name: Write the update signing key
+        env:
+          SPARKLE_ENV: ${{ secrets.CIEL_SPARKLE_ENV }}
+        run: |
+          umask 077
+          printf '%s\n' "$SPARKLE_ENV" > "$SPARKLE_KEY_FILE"
+          chmod 600 "$SPARKLE_KEY_FILE"
+      - name: Build, sign, notarize and staple
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.CIEL_NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.CIEL_NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.CIEL_NOTARY_TEAM_ID }}
+        run: bash scripts/release.sh
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
+            --title "Ciel $VERSION" \
+            --notes 'Signed with Developer ID and notarized by Apple. Requires an Apple Silicon Mac. Download Ciel.zip, unzip, and move Ciel.app to Applications.' \
+            "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
+            dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml
+      - name: Check the download links
+        run: |
+          for asset in Ciel.zip appcast.xml; do
+            url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$asset"
+            code=$(curl -fsSL -o /dev/null -w "%{http_code}" --retry 10 --retry-delay 6 --retry-all-errors "$url" || true)
+            printf '%s %s\n' "$code" "$url"
+            [[ "$code" == 200 ]] || exit 1
+          done
+          check="$RUNNER_TEMP/published"
+          mkdir -p "$check"
+          curl -fsSL -o "$check/appcast.xml" "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml"
+          grep -qF "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" "$check/appcast.xml"
+          grep -qF "/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip" "$check/appcast.xml"
+          grep -qE 'sparkle:edSignature="[A-Za-z0-9+/=]{80,}"' "$check/appcast.xml"
+          printf 'The appcast lists %s with an EdDSA signature.\n' "$VERSION"
+          curl -fsSL -o "$check/Ciel.zip" "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/Ciel.zip"
+          ditto -x -k "$check/Ciel.zip" "$check"
+          xcrun stapler validate "$check/Ciel.app"
+          spctl --assess --type execute --verbose=2 "$check/Ciel.app"
+      - name: Delete the keychain and the key file
+        if: always()
+        run: |
+          if [[ -n "${KEYCHAIN:-}" ]]; then security delete-keychain "$KEYCHAIN" 2>/dev/null || true; fi
+          rm -f "${SPARKLE_KEY_FILE:-}" "$RUNNER_TEMP/devid.p12" "$RUNNER_TEMP/DeveloperIDG2CA.cer"
