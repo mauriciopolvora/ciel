@@ -155,7 +155,10 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         Task {
             do {
                 let text = transcript.finish(try await engine.transcribe(tail).words)
-                if !text.isEmpty { deliver(text) }
+                if !text.isEmpty {
+                    onText(text, "")
+                    deliver(text)
+                }
             } catch {
                 fail(error.localizedDescription)
             }
@@ -192,9 +195,12 @@ enum DictationError: LocalizedError, Equatable {
 @MainActor final class Microphone: AudioRecorder {
     private let engine = AVAudioEngine()
     private let samples = OSAllocatedUnfairLock<[Float]>(initialState: [])
-    private let onLevel: @MainActor @Sendable (Float) -> Void
+    private let onLevel: @MainActor @Sendable (_ rms: [Float], _ interval: Double) -> Void
 
-    init(onLevel: @escaping @MainActor @Sendable (Float) -> Void = { _ in }) { self.onLevel = onLevel }
+    /// `onLevel` gets the RMS of each 512-frame block of a buffer and how long one block lasts.
+    init(onLevel: @escaping @MainActor @Sendable (_ rms: [Float], _ interval: Double) -> Void = { _, _ in }) {
+        self.onLevel = onLevel
+    }
 
     func start() throws {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -210,15 +216,21 @@ enum DictationError: LocalizedError, Equatable {
             throw MicrophoneError.unavailable
         }
         samples.withLock { $0.removeAll() }
+        let block = 512
+        let interval = Double(block) / format.sampleRate
         // The tap runs on an audio thread, so it must not inherit the main actor.
         input.installTap(onBus: 0, bufferSize: 4096, format: format) {
             @Sendable [samples, onLevel, resampler] buffer, _ in
             guard let channel = buffer.floatChannelData?[0] else { return }
-            var level: Float = 0
-            vDSP_rmsqv(channel, 1, &level, vDSP_Length(buffer.frameLength))
-            let chunk = resampler.convert(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
+            let frames = Int(buffer.frameLength)
+            let levels = stride(from: 0, to: frames, by: block).map { start in
+                var level: Float = 0
+                vDSP_rmsqv(channel + start, 1, &level, vDSP_Length(min(block, frames - start)))
+                return level
+            }
+            let chunk = resampler.convert(UnsafeBufferPointer(start: channel, count: frames))
             samples.withLock { $0 += chunk }
-            Task { @MainActor [level] in onLevel(level) }
+            Task { @MainActor [levels] in onLevel(levels, interval) }
         }
         engine.prepare()
         do {
