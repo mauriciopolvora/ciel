@@ -8,6 +8,10 @@ on:
         description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on the chosen branch.
         required: true
         type: string
+      dry_run:
+        description: Build, sign, notarize and staple only. Create no tag or release.
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -16,6 +20,7 @@ concurrency:
 jobs:
   release:
     runs-on: macos-15
+    environment: release
     timeout-minutes: 60
     permissions:
       contents: write
@@ -38,6 +43,7 @@ jobs:
       - name: Check the version and the commit
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
           GH_TOKEN: ${{ github.token }}
         run: |
           fail() { printf '%s\n' "$1" >&2; exit 1; }
@@ -52,24 +58,28 @@ jobs:
           passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&status=success" \
             --jq '[.workflow_runs[] | select(.path == ".github/workflows/checks.yml" and .event == "push")] | length')
           [[ "$passed" -gt 0 ]] || fail "Check Ciel has not passed on $GITHUB_SHA."
-          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
-          if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
-            fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
-          fi
-          # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
-          latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
-          [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not read the latest release tag."
-          IFS=. read -r a b c <<<"${latest_tag#v}"
-          IFS=. read -r x y z <<<"$version"
-          (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
-          has_appcast=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '[.assets[].name] | index("appcast.xml") != null')
-          # Releases before 0.6.0 have no appcast, so there is no build to compare.
-          if [[ "$has_appcast" == true ]]; then
-            latest_build=$(gh release download "$latest_tag" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --output - |
-              sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p')
-            [[ "$latest_build" =~ ^[0-9]+$ ]] || fail "Could not read the build from the appcast of $latest_tag."
-            (( build > latest_build )) ||
-              fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
+          if [[ "$DRY_RUN" == true ]]; then
+            printf 'Dry run: v%s is not checked for a new version, and nothing is published.\n' "$version"
+          else
+            if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
+            if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+              fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
+            fi
+            # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
+            latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+            [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not read the latest release tag."
+            IFS=. read -r a b c <<<"${latest_tag#v}"
+            IFS=. read -r x y z <<<"$version"
+            (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
+            has_appcast=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '[.assets[].name] | index("appcast.xml") != null')
+            # Releases before 0.6.0 have no appcast, so there is no build to compare.
+            if [[ "$has_appcast" == true ]]; then
+              latest_build=$(gh release download "$latest_tag" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --output - |
+                sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p')
+              [[ "$latest_build" =~ ^[0-9]+$ ]] || fail "Could not read the build from the appcast of $latest_tag."
+              (( build > latest_build )) ||
+                fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
+            fi
           fi
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
       - name: Build before any step reads a secret
@@ -112,6 +122,7 @@ jobs:
           NOTARY_TEAM_ID: ${{ secrets.CIEL_NOTARY_TEAM_ID }}
         run: bash scripts/release.sh
       - name: Publish the release
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -121,6 +132,7 @@ jobs:
             "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
             dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml
       - name: Check the published release
+        if: ${{ !inputs.dry_run }}
         run: |
           check="$RUNNER_TEMP/published"
           mkdir -p "$check"

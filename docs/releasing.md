@@ -7,6 +7,8 @@
 - Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, merge, wait for `Check Ciel` to pass on the merge commit, then push the tag `v<version>` on it.
 - Run the workflow from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag on that commit.
 
+To test signing and notarization without a release, run `gh workflow run release.yml --ref main -f version=<current version> -f dry_run=true`. A dry run builds, signs, notarizes and staples, then stops. It creates no tag or release, so it skips the checks for a new version.
+
 Before it reads any secret, the workflow stops unless all of these hold:
 
 - The version matches `CFBundleShortVersionString`, and no release has it yet. A run from the Actions tab also needs a new tag.
@@ -23,7 +25,7 @@ The workflow then:
 5. Downloads `releases/latest/download/Ciel.zip`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app with `stapler validate` and Gatekeeper.
 6. Deletes the keychain and the key file, also when a step fails.
 
-It reads these repository secrets:
+The job runs in the `release` environment. Only runs from `main` and from `v*` tags can use it, and only that environment holds these secrets:
 
 | Secret | Use |
 | --- | --- |
@@ -98,7 +100,7 @@ The install script saves the old Ciel bundle under `.build/backups` before it re
 
 Ciel checks for updates with [Sparkle](https://sparkle-project.org). The app reads the feed at `https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml` and accepts only archives signed by the EdDSA key whose public half is `SUPublicEDKey` in `Resources/Info.plist`.
 
-The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key. The only copy in GitHub is the `CIEL_SPARKLE_ENV` secret, which only the release workflow reads.
+The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key. The only copy in GitHub is the `CIEL_SPARKLE_ENV` secret in the `release` environment, which only the release workflow reads.
 
 After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The script checks the signature against `SUPublicEDKey` first, and a key that does not match stops it before it writes the appcast. Attach `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml` to the GitHub release tagged `v<version>`.
 
