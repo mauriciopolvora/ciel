@@ -1,11 +1,9 @@
 name: Release Ciel
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on the chosen branch.
+        description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on main.
         required: true
         type: string
       dry_run:
@@ -47,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           fail() { printf '%s\n' "$1" >&2; exit 1; }
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then version="${GITHUB_REF_NAME#v}"; else version="$INPUT_VERSION"; fi
+          version="$INPUT_VERSION"
           plist=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
           build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$version" == "$plist" ]] ||
@@ -62,8 +60,8 @@ jobs:
             printf 'Dry run: v%s is not checked for a new version, and nothing is published.\n' "$version"
           else
             if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
-            if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
-              fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
+            if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+              fail "Tag v$version already exists. Pick a new version."
             fi
             # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
             latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)

@@ -2,16 +2,19 @@
 
 ## Release from GitHub
 
-`.github/workflows/release.yml` publishes a release on a macOS runner. No Mac is needed. To start it, do one of these:
+`.github/workflows/release.yml` publishes a release on a macOS runner. No Mac is needed. To start it:
 
-- Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, merge, wait for `Check Ciel` to pass on the merge commit, then push the tag `v<version>` on it.
-- Run the workflow from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag on that commit.
+1. Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist` and merge.
+2. Wait for `Check Ciel` to pass on the merge commit.
+3. Run the workflow on `main` from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag `v<version>` on that commit.
+
+Only a manual run on `main` starts a release. A pushed tag does not start it.
 
 To test signing and notarization without a release, run `gh workflow run release.yml --ref main -f version=<current version> -f dry_run=true`. A dry run builds, signs, notarizes and staples, then stops. It creates no tag or release, so it skips the checks for a new version.
 
 Before it reads any secret, the workflow stops unless all of these hold:
 
-- The version matches `CFBundleShortVersionString`, and no release has it yet. A run from the Actions tab also needs a new tag.
+- The version matches `CFBundleShortVersionString`, and no release or tag has it yet.
 - The commit is on `main`, and the `Check Ciel` workflow passed on it.
 - The version is newer than the latest release, and `CFBundleVersion` is higher than the build in the latest appcast, because Sparkle offers only a higher build.
 - The app builds.
@@ -25,7 +28,7 @@ The workflow then:
 5. Downloads `releases/latest/download/Ciel.zip`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app with `stapler validate` and Gatekeeper.
 6. Deletes the keychain and the key file, also when a step fails.
 
-The job runs in the `release` environment. Only runs from `main` and from `v*` tags can use it, and only that environment holds these secrets:
+The job runs in the `release` environment. Only runs from `main` can use it, and admins cannot bypass this rule. Only that environment holds these secrets:
 
 | Secret | Use |
 | --- | --- |
