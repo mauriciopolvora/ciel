@@ -109,7 +109,7 @@ mutate() {
             ;;
         M29)
             swap Sources/Ciel/WindowOperationEngine.swift \
-                's/_ = try leaveFullScreen\(window\)\n/if try window.isFullScreen(timeout: 0.25) { throw WindowError.fullScreen }\n/'
+                's/= try leaveFullScreen\(window, check: budget\)\n/= try { () throws -> Bool in if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }; return false }()\n/'
             ;;
     esac
 }

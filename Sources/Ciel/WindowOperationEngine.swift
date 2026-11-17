@@ -59,16 +59,18 @@ final class WindowOperationEngine {
 
     /// Returns true when the window was in full screen and has left it, so the caller reads the screens again.
     func leaveFullScreen(selection: WindowSelection) throws -> Bool {
-        try leaveFullScreen(window(for: selection))
+        try leaveFullScreen(
+            window(for: selection), check: Budget(clock: clock, duration: FullScreenExit.budget))
     }
 
     func perform(
         _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
     ) throws -> WindowOutcome {
         let window = try window(for: selection)
-        _ = try leaveFullScreen(window)
-        let budget = Budget(
-            clock: clock, duration: action == .minimize ? Self.minimizeBudget : Self.frameBudget)
+        let duration = action == .minimize ? Self.minimizeBudget : Self.frameBudget
+        var budget = Budget(clock: clock, duration: duration)
+        let leftFullScreen = try leaveFullScreen(window, check: budget)
+        if leftFullScreen { budget = Budget(clock: clock, duration: duration) }
         if action == .minimize {
             try minimize(window, budget: budget)
             return .applied
@@ -139,9 +141,10 @@ final class WindowOperationEngine {
         return window
     }
 
-    private func leaveFullScreen(_ window: any WindowAccess) throws -> Bool {
+    /// The full screen check spends the caller's budget. Only the exit wait gets its own.
+    private func leaveFullScreen(_ window: any WindowAccess, check: Budget) throws -> Bool {
+        guard try window.isFullScreen(timeout: check.timeout()) else { return false }
         let budget = Budget(clock: clock, duration: FullScreenExit.budget)
-        guard try window.isFullScreen(timeout: budget.timeout()) else { return false }
         try window.exitFullScreen(timeout: budget.timeout())
         var exit = FullScreenExit()
         var lastFullScreen = true
