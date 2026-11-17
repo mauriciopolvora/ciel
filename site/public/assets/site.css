@@ -250,8 +250,11 @@ kbd {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
   background: rgba(24, 24, 24, 0.6);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  /* The pill blurs the page under it again on every scroll frame. At 24px
+     with saturate() that alone dropped about 1 frame in 80; 8px looks
+     nearly the same and costs next to nothing */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
 }
 
@@ -483,9 +486,11 @@ main > section {
   gap: var(--s-200);
   height: 24px;
   padding: 0 var(--s-200);
-  background: rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  /* The sky behind the bar never moves, so the bar shows a still render of
+     backdrop-filter: blur(24px) instead of blurring again on every frame */
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.24)),
+    url("menubar-sky.jpg") 0 0 / 100% 100%;
   color: #ffffff;
   font-size: 12px;
   font-weight: 600;
@@ -1047,10 +1052,12 @@ main > .tagline {
   animation: guide 5600ms var(--ease) infinite;
 }
 
+/* Translate percentages use the box's own 48% by 16% size, so these move it
+   to left 34% and top 36% of the card without a layout on every frame */
 @keyframes snap {
-  0%, 12% { left: 34%; top: 36%; }
-  30%, 62% { left: 50%; top: 50%; }
-  80%, 100% { left: 34%; top: 36%; }
+  0%, 12% { transform: translate(-83.333%, -137.5%); }
+  30%, 62% { transform: translate(-50%, -50%); }
+  80%, 100% { transform: translate(-83.333%, -137.5%); }
 }
 
 @keyframes guide {
@@ -1478,6 +1485,13 @@ main > .final {
 
   .stage {
     aspect-ratio: 4 / 5;
+  }
+
+  /* The 4 by 5 stage shows only the middle of the sky */
+  .menubar {
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.24)),
+      url("menubar-sky-mobile.jpg") 0 0 / 100% 100%;
   }
 
   .launcher {
