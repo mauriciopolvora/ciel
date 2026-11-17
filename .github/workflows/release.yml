@@ -96,22 +96,32 @@ jobs:
             --notes 'Signed with Developer ID and notarized by Apple. Requires an Apple Silicon Mac. Download Ciel.zip, unzip, and move Ciel.app to Applications.' \
             "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
             dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml
-      - name: Check the download links
+      - name: Check the published release
         run: |
-          for asset in Ciel.zip appcast.xml; do
-            url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$asset"
-            code=$(curl -fsSL -o /dev/null -w "%{http_code}" --retry 10 --retry-delay 6 --retry-all-errors "$url" || true)
-            printf '%s %s\n' "$code" "$url"
-            [[ "$code" == 200 ]] || exit 1
-          done
           check="$RUNNER_TEMP/published"
           mkdir -p "$check"
-          curl -fsSL -o "$check/appcast.xml" "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml"
+          latest="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
+          enclosure="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip"
+          # The latest links can lag behind a new release for a few seconds, so each file gets ten tries to match this build.
+          fetch() {
+            local url="$1" output="$2" expected="$3" code
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+              code=$(curl -sSL -o "$output" -w "%{http_code}" "$url" || true)
+              if [[ "$code" == 200 ]] && cmp -s "$output" "$expected"; then
+                printf '200, matches this build: %s\n' "$url"; return 0
+              fi
+              sleep 6
+            done
+            printf 'HTTP %s, or the file does not match this build: %s\n' "$code" "$url" >&2; return 1
+          }
+          fetch "$latest/appcast.xml" "$check/appcast.xml" dist/appcast.xml
+          fetch "$latest/Ciel.zip" "$check/Ciel.zip" dist/Ciel.zip
+          fetch "$enclosure" "$check/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip"
           grep -qF "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" "$check/appcast.xml"
-          grep -qF "/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip" "$check/appcast.xml"
-          grep -qE 'sparkle:edSignature="[A-Za-z0-9+/=]{80,}"' "$check/appcast.xml"
-          printf 'The appcast lists %s with an EdDSA signature.\n' "$VERSION"
-          curl -fsSL -o "$check/Ciel.zip" "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/Ciel.zip"
+          grep -qF "<enclosure url=\"$enclosure\"" "$check/appcast.xml"
+          signature=$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' "$check/appcast.xml")
+          swift scripts/VerifyUpdate.swift "$(plutil -extract SUPublicEDKey raw Resources/Info.plist)" "$signature" "$check/Ciel-$VERSION-arm64.zip"
+          printf 'The appcast lists %s, and its EdDSA signature matches SUPublicEDKey.\n' "$VERSION"
           ditto -x -k "$check/Ciel.zip" "$check"
           xcrun stapler validate "$check/Ciel.app"
           spctl --assess --type execute --verbose=2 "$check/Ciel.app"

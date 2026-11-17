@@ -13,7 +13,7 @@ The version must match `CFBundleShortVersionString`, and the release must not ex
 2. Writes the update signing key to a temporary file with mode 600.
 3. Runs `scripts/release.sh`, which builds, signs, notarizes, staples and writes the five release files.
 4. Creates the release `v<version>` on the exact commit, with all five files.
-5. Checks that `releases/latest/download/Ciel.zip` and `appcast.xml` return 200. It also checks that the appcast lists the version with an EdDSA signature, and that the downloaded app passes `stapler validate` and Gatekeeper.
+5. Downloads `releases/latest/download/Ciel.zip`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app with `stapler validate` and Gatekeeper.
 6. Deletes the keychain and the key file, also when a step fails.
 
 It reads these repository secrets:
