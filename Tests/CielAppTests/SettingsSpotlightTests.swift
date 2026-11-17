@@ -122,15 +122,20 @@ struct SettingsSpotlightTests {
                 settings.refresh()
                 let content = settings.content
                 content.layoutSubtreeIfNeeded()
-                let button = settings.modelButton.convert(settings.modelButton.bounds, to: content)
-                let status = settings.modelStatus.convert(settings.modelStatus.bounds, to: content)
+                let button = Self.alignment(of: settings.modelButton, in: content)
+                let status = Self.alignment(of: settings.modelStatus, in: content)
                 let name = Self.labels(in: content).first { $0.stringValue == "Speech model" }
-                let nameFrame = name.map { $0.convert($0.bounds, to: content) } ?? .zero
-                #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "design \(design.letter)")
-                #expect(
-                    !status.intersects(nameFrame) && !status.intersects(button), "design \(design.letter)")
+                let nameFrame = name.map { Self.alignment(of: $0, in: content) } ?? .zero
+                let frames = "design \(design.letter): name \(nameFrame), status \(status), button \(button)"
+                #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "\(frames)")
+                #expect(status.minX >= nameFrame.maxX - 0.5 && status.maxX <= button.minX + 0.5, "\(frames)")
             }
         }
+    }
+
+    /// Bezeled buttons draw inside a frame wider than their visible shape, so rows lay out by alignment rect.
+    private static func alignment(of view: NSView, in content: NSView) -> NSRect {
+        view.superview?.convert(view.alignmentRect(forFrame: view.frame), to: content) ?? .zero
     }
 
     private static func labels(in view: NSView) -> [NSTextField] {
