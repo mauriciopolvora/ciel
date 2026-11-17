@@ -72,7 +72,15 @@ enum WindowOutcome: Equatable, Sendable {
         let worker = worker
         isBusy = true
         Task {
-            let result = await worker.perform(action, selection: target.selection.value, displays: displays)
+            let selection = await target.selection.value
+            let result: Result<WindowOutcome, Error>
+            switch await worker.leaveFullScreen(selection) {
+            case .failure(let error): result = .failure(error)
+            case .success(let left):
+                // A full screen Space hides the menu bar and Dock, so the screens are read again after the window leaves.
+                result = await worker.perform(
+                    action, selection: selection, displays: left ? DisplaySnapshot.current() : displays)
+            }
             isBusy = false
             completion(result)
         }
@@ -94,6 +102,10 @@ private actor WindowWorker {
     }
 
     private func releaseCapture(_ id: UUID) { engine.releaseCapture(id) }
+
+    func leaveFullScreen(_ selection: WindowSelection) -> Result<Bool, Error> {
+        Result { try engine.leaveFullScreen(selection: selection) }
+    }
 
     func perform(
         _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]

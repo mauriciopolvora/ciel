@@ -253,6 +253,16 @@ struct WindowOperationTests {
         #expect(fixture.window.writes == [.exitFullScreen, .minimize])
     }
 
+    @Test("Leaving full screen on its own reports whether the screens need a new read")
+    func leaveFullScreenReportsTheExit() throws {
+        let fixture = fixture()
+        #expect(try !fixture.engine.leaveFullScreen(selection: fixture.selection))
+        #expect(fixture.window.writes.isEmpty)
+        fixture.window.fullScreen = true
+        #expect(try fixture.engine.leaveFullScreen(selection: fixture.selection))
+        #expect(fixture.window.writes == [.exitFullScreen])
+    }
+
     @Test("A window that stays in full screen fails at the deadline with no frame writes")
     func stuckInFullScreen() throws {
         let fixture = fixture()

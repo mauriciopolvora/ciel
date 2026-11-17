@@ -57,18 +57,16 @@ final class WindowOperationEngine {
 
     func releaseCapture(_ id: UUID) { captures.removeAll { $0.selectionID == id } }
 
+    /// Returns true when the window was in full screen and has left it, so the caller reads the screens again.
+    func leaveFullScreen(selection: WindowSelection) throws -> Bool {
+        try leaveFullScreen(window(for: selection))
+    }
+
     func perform(
         _ action: WindowAction, selection: WindowSelection, displays: [DisplaySnapshot]
     ) throws -> WindowOutcome {
-        guard accessibility.isTrusted else { throw WindowError.permission }
-        guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
-            throw WindowError.noWindow
-        }
-        if captures[captureIndex].window == nil, let pid = captures[captureIndex].pid {
-            captures[captureIndex].window = accessibility.focusedWindow(pid: pid)
-        }
-        guard let window = captures[captureIndex].window else { throw WindowError.noWindow }
-        try leaveFullScreen(window)
+        let window = try window(for: selection)
+        _ = try leaveFullScreen(window)
         let budget = Budget(
             clock: clock, duration: action == .minimize ? Self.minimizeBudget : Self.frameBudget)
         if action == .minimize {
@@ -129,9 +127,21 @@ final class WindowOperationEngine {
     }
 
     /// A full-screen window first leaves full screen, so the command then lands on the screen it returns to.
-    private func leaveFullScreen(_ window: any WindowAccess) throws {
+    private func window(for selection: WindowSelection) throws -> any WindowAccess {
+        guard accessibility.isTrusted else { throw WindowError.permission }
+        guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
+            throw WindowError.noWindow
+        }
+        if captures[captureIndex].window == nil, let pid = captures[captureIndex].pid {
+            captures[captureIndex].window = accessibility.focusedWindow(pid: pid)
+        }
+        guard let window = captures[captureIndex].window else { throw WindowError.noWindow }
+        return window
+    }
+
+    private func leaveFullScreen(_ window: any WindowAccess) throws -> Bool {
         let budget = Budget(clock: clock, duration: FullScreenExit.budget)
-        guard try window.isFullScreen(timeout: budget.timeout()) else { return }
+        guard try window.isFullScreen(timeout: budget.timeout()) else { return false }
         try window.exitFullScreen(timeout: budget.timeout())
         var exit = FullScreenExit()
         var fullScreen: Bool? = true
@@ -140,12 +150,12 @@ final class WindowOperationEngine {
                 try budget.pause(FullScreenExit.pollInterval)
             } catch WindowError.timedOut {
                 // A window still animating out of full screen at the deadline takes the command anyway.
-                if fullScreen == false { return }
+                if fullScreen == false { return true }
                 throw WindowError.fullScreen
             }
             fullScreen = try? window.isFullScreen(timeout: budget.timeout())
             let frame = try? window.frame(timeout: budget.timeout())
-            if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return }
+            if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return true }
         }
     }
 
