@@ -38,11 +38,10 @@ import Sparkle
         return button
     }
 
-    /// Calls `change` on the main actor each time Sparkle's `canCheckForUpdates` changes.
+    /// Calls `change` each time Sparkle's `canCheckForUpdates` changes. Sparkle changes it on the main thread.
     func observeCanCheck(_ change: @escaping @MainActor @Sendable (Bool) -> Void) -> NSKeyValueObservation {
-        controller.updater.observe(\.canCheckForUpdates) { @Sendable updater, _ in
-            let can = updater.canCheckForUpdates
-            Task { @MainActor in change(can) }
+        controller.updater.observe(\.canCheckForUpdates) { updater, _ in
+            MainActor.assumeIsolated { change(updater.canCheckForUpdates) }
         }
     }
 }
