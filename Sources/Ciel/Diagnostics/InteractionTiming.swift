@@ -92,10 +92,15 @@ extension Interactions.Samples {
     private var link: CADisplayLink?
     private var generation = 0
 
+    /// A view's display link ticks only while its window is on screen, so a hidden panel waits on the main screen.
     func next(on view: NSView) async throws -> CFTimeInterval {
-        try await withCheckedThrowingContinuation { continuation in
+        let screen = view.window?.isVisible == true ? nil : NSScreen.main ?? NSScreen.screens.first
+        if view.window?.isVisible != true, screen == nil { throw FrameClockError.noFrame }
+        return try await withCheckedThrowingContinuation { continuation in
             waiting = continuation
-            let link = view.displayLink(target: self, selector: #selector(tick))
+            let link =
+                screen?.displayLink(target: self, selector: #selector(tick))
+                ?? view.displayLink(target: self, selector: #selector(tick))
             link.add(to: .main, forMode: .common)
             self.link = link
             generation += 1
