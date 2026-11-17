@@ -34,6 +34,7 @@ public enum CielApplication {
 @MainActor struct CheckHandles {
     let launcher: LauncherView
     let panel: LauncherPanel
+    let openLauncher: () -> Void
     let fieldEditor: MonochromeFieldEditor
     let catalog: AppCatalog
     let hotKeys: HotKeys

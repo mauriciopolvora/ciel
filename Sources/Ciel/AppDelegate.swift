@@ -313,7 +313,8 @@ import CielCore
         present()
         check(
             CheckHandles(
-                launcher: panel.launcher, panel: panel, fieldEditor: panel.fieldEditor, catalog: catalog,
+                launcher: panel.launcher, panel: panel, openLauncher: { [self] in present() },
+                fieldEditor: panel.fieldEditor, catalog: catalog,
                 hotKeys: hotKeys, speech: speech,
                 menu: statusItem.menu,
                 showSettings: { [self] in
