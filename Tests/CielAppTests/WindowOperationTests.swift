@@ -280,16 +280,14 @@ struct WindowOperationTests {
         var exit = FullScreenExit()
         let moving = CGRect(x: 400, y: 100, width: 800, height: 500)
         let settled = CGRect(x: 150, y: 160, width: 800, height: 500)
-        #expect(!exit.observe(fullScreen: true, frame: settled, at: 0))
-        #expect(!exit.observe(fullScreen: false, frame: moving, at: 0.03))
-        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.06))
-        #expect(!exit.observe(fullScreen: false, frame: settled.offsetBy(dx: 2, dy: 0), at: 0.12))
-        #expect(!exit.observe(fullScreen: nil, frame: settled, at: 0.15))
-        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.18))
-        #expect(!exit.observe(fullScreen: false, frame: nil, at: 0.21))
-        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.24))
-        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.23 + FrameSettle.settleInterval))
-        #expect(exit.observe(fullScreen: false, frame: settled, at: 0.25 + FrameSettle.settleInterval))
+        let observations: [(Bool?, CGRect?, TimeInterval)] = [
+            (true, settled, 0), (false, moving, 0.03), (false, settled, 0.06),
+            (false, settled.offsetBy(dx: 2, dy: 0), 0.12), (nil, settled, 0.15), (false, settled, 0.18),
+            (false, nil, 0.21), (false, settled, 0.24), (false, settled, 0.23 + FrameSettle.settleInterval),
+            (false, settled, 0.25 + FrameSettle.settleInterval),
+        ]
+        let done = observations.map { exit.observe(fullScreen: $0.0, frame: $0.1, at: $0.2) }
+        #expect(done == Array(repeating: false, count: observations.count - 1) + [true])
     }
 
     @Test("A nonresizable window can center, but cannot snap to a new size")
