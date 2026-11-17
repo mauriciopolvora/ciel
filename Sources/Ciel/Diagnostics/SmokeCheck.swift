@@ -1,6 +1,7 @@
 import AppKit
 import CielCore
 import ImageIO
+import Sparkle
 import UniformTypeIdentifiers
 
 @MainActor enum SmokeCheck {
@@ -29,9 +30,6 @@ import UniformTypeIdentifiers
                 NSApp.appearance = NSAppearance(named: appearance)
                 capture(launcher, "launcher-" + name, output: output)
             }
-            await captureLauncherDesigns(launcher, fieldEditor: fieldEditor, output: output)
-            launcher.searchField.stringValue = "half"
-            launcher.selectFilter(2)
             NSApp.appearance = NSAppearance(named: .darkAqua)
             let preferences = showSettings()
             guard windowShortcuts() == nil else {
@@ -76,7 +74,7 @@ import UniformTypeIdentifiers
                 }
                 NSApp.appearance = NSAppearance(named: .darkAqua)
             }
-            captureSettingsDesigns(preferences, speech: speech, output: output)
+            checkSettings(preferences, speech: speech, output: output)
             captureSpeechStates(preferences, speech: speech, output: output)
             capturePillStates(output: output)
             captureOnboarding(output: output)
@@ -99,28 +97,6 @@ import UniformTypeIdentifiers
     }
 
     /// Runs under the checks bundle id, so it changes only the checks defaults and never touches model files.
-    /// Writes launcher-design-<design>-<state>-<mode>.png. Only Graphite follows the system, so the A and C light
-    /// captures match their dark ones.
-    private static func captureLauncherDesigns(
-        _ launcher: LauncherView, fieldEditor: MonochromeFieldEditor, output: String
-    ) async {
-        for design in LauncherDesign.allCases {
-            for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-                NSApp.appearance = NSAppearance(named: appearance)
-                launcher.applyDesign(design, systemDark: appearance == .darkAqua)
-                launcher.selectFilter(0)
-                for (state, query) in [("empty", ""), ("results", "c"), ("none", "zzzzzzzzzzzz")] {
-                    launcher.searchField.stringValue = query
-                    launcher.updateResults()
-                    fieldEditor.setSelectedRange(NSRange(location: query.count, length: 0))
-                    await settleIcons(in: launcher)
-                    capture(launcher, "launcher-design-\(design.rawValue)-\(state)-\(mode)", output: output)
-                }
-            }
-        }
-        launcher.refreshDesign(force: true)
-    }
-
     private static func captureSpeechStates(
         _ settings: SettingsController, speech: SpeechModelStore, output: String
     ) {
@@ -142,54 +118,41 @@ import UniformTypeIdentifiers
         print("PASS speech settings states")
     }
 
-    /// Captures each Settings design as shipped, then with ⌘Space replacing Spotlight in an isolated controller.
-    private static func captureSettingsDesigns(
+    /// The check never starts the updater, so Sparkle reports that it cannot check and the button stays off.
+    /// Then ⌘Space replaces a free Spotlight in an isolated controller.
+    private static func checkSettings(
         _ settings: SettingsController, speech: SpeechModelStore, output: String
     ) {
-        let preview = DesignPreview()
-        let original = preview.settings
-        let suite = "ciel.checks.settings-design"
+        guard !settings.updateButton.isEnabled, settings.updateButton.window === settings.window,
+            settings.updateButton.action == #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+        else {
+            print(
+                "FAIL Check for Updates is enabled while the updater is stopped, or is not Sparkle's action")
+            exit(1)
+        }
+        let suite = "ciel.checks.settings-spotlight"
         let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
-        for design in SettingsDesign.allCases {
-            preview.settings = design
-            settings.show(design)
-            guard settings.design == design, settings.recorders[.launcher]?.window === settings.window else {
-                print("FAIL Settings did not switch to design \(design.letter)")
-                exit(1)
-            }
-            let name = "settings-design-" + design.rawValue
-            captureModes(settings.content, name, output: output)
-            defaults.removePersistentDomain(forName: suite)
-            let state = CheckSystemState()
-            state.symbolicHotKeys = ["64": ["enabled": false]]
-            let hotKeys = HotKeys(
-                defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
-            let replaced = SettingsController(
-                hotKeys: hotKeys, speech: speech, updater: Updater(),
-                spotlight: SpotlightShortcuts { state.symbolicHotKeys }, open: { state.opened.append($0) })
-            replaced.present()
-            replaced.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
-            guard replaced.design == design, replaced.spotlightGuide.replacement == .replaced,
-                hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
-            else {
-                print("FAIL Settings design \(design.letter) did not take ⌘Space from a free Spotlight")
-                exit(1)
-            }
-            captureModes(replaced.content, name + "-spotlight", output: output)
-            replaced.close()
+        let state = CheckSystemState()
+        state.symbolicHotKeys = ["64": ["enabled": false]]
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+        let replaced = SettingsController(
+            hotKeys: hotKeys, speech: speech, updater: Updater(),
+            spotlight: SpotlightShortcuts { state.symbolicHotKeys }, open: { state.opened.append($0) })
+        replaced.present()
+        replaced.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+        guard replaced.spotlightGuide.replacement == .replaced,
+            replaced.spotlightGuide.caption.stringValue == "Replaces Spotlight",
+            hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace
+        else {
+            print("FAIL Settings did not take ⌘Space from a free Spotlight")
+            exit(1)
         }
-        preview.settings = original
-        settings.show(original)
-        print("PASS settings designs")
-    }
-
-    private static func captureModes(_ view: NSView, _ name: String, output: String) {
-        for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-            NSApp.appearance = NSAppearance(named: appearance)
-            capture(view, name + "-" + mode, output: output)
-        }
-        NSApp.appearance = NSAppearance(named: .darkAqua)
+        capture(replaced.content, "settings-spotlight", output: output)
+        replaced.close()
+        print("PASS settings update button and Spotlight replacement")
     }
 
     /// Plays a scripted dictation through the pill: transcript passes every 0.5 s like the live engine, and levels

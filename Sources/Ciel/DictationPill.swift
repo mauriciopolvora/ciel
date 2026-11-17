@@ -171,7 +171,7 @@ final class PillView: NSView {
             scroll.shift(by: -min(max(grown, -limit), limit))
         }
         layout = next
-        words.lines = Array(next.lines.suffix(PillLayout.maxLines + 1))
+        words.lines = zip(next.lines, next.widths).suffix(PillLayout.maxLines + 1)
         let size = PillLayout.transcript(next)
         width.target = size.width
         height.target = size.height
@@ -315,14 +315,13 @@ final class PillView: NSView {
             x: PillLayout.padding.width, y: 0, width: max(frame.width - 2 * PillLayout.padding.width, 0),
             height: frame.height)
         let textWidth = min(layout.width, PillLayout.textWidth)
-        let origin = CGPoint(
-            x: max((words.bounds.width - textWidth) / 2, 0), y: PillLayout.padding.height + scroll.value)
+        let bottom = PillLayout.padding.height + scroll.value
         let hidden =
-            origin.y + CGFloat(words.lines.count) * TranscriptLayout.lineHeight + PillLayout.padding.height
+            bottom + CGFloat(words.lines.count) * TranscriptLayout.lineHeight + PillLayout.padding.height
             - frame.height
         words.placement = TranscriptLayer.Placement(
-            origin: origin, topFade: unit(hidden / TranscriptLayout.lineHeight),
-            endFade: unit((origin.x + textWidth - words.bounds.width) / 12))
+            bottom: bottom, topFade: unit(hidden / TranscriptLayout.lineHeight),
+            endFade: unit((textWidth - words.bounds.width) / 12))
         words.displayIfNeeded()
         CATransaction.commit()
     }
@@ -362,12 +361,12 @@ private func unit(_ value: some BinaryFloatingPoint) -> CGFloat { CGFloat(min(ma
 /// words, their placement or its size change.
 private final class TranscriptLayer: CALayer {
     struct Placement: Equatable {
-        var origin = CGPoint.zero
+        var bottom: CGFloat = 0
         var topFade: CGFloat = 0
         var endFade: CGFloat = 0
     }
 
-    var lines: [CTLine] = [] { didSet { setNeedsDisplay() } }
+    var lines: [(CTLine, CGFloat)] = [] { didSet { setNeedsDisplay() } }
     var placement = Placement() { didSet { if placement != oldValue { setNeedsDisplay() } } }
     var baseline: CGFloat = 0
     var fade: CGGradient? { didSet { setNeedsDisplay() } }
@@ -385,10 +384,10 @@ private final class TranscriptLayer: CALayer {
 
     override func draw(in context: CGContext) {
         context.textMatrix = .identity
-        for (index, line) in lines.reversed().enumerated() {
+        for (index, (line, width)) in lines.reversed().enumerated() {
             context.textPosition = CGPoint(
-                x: placement.origin.x,
-                y: placement.origin.y + CGFloat(index) * TranscriptLayout.lineHeight + baseline)
+                x: TranscriptLayout.start(of: width, in: bounds.width),
+                y: placement.bottom + CGFloat(index) * TranscriptLayout.lineHeight + baseline)
             CTLineDraw(line, context)
         }
         guard let fade else { return }

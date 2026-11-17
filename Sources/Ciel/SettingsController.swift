@@ -46,15 +46,11 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }
-    /// A row with a caption grows to two lines, with the caption under its label.
-    func rows(
-        _ rows: [(String, [NSView])], at y: CGFloat, in parent: NSView? = nil,
-        caption: (row: Int, view: NSView)? = nil
-    ) -> NSView {
-        let heights = rows.indices.map { $0 == caption?.row ? Theme.captionedRowHeight : Theme.rowHeight }
-        let box = group(NSRect(x: 20, y: y, width: 440, height: heights.reduce(0, +)), in: parent)
-        var top: CGFloat = 0
+    func rows(_ rows: [(String, [NSView])], at y: CGFloat, in parent: NSView? = nil) -> NSView {
+        let box = group(
+            NSRect(x: 20, y: y, width: 440, height: CGFloat(rows.count) * Theme.rowHeight), in: parent)
         for (index, (name, controls)) in rows.enumerated() {
+            let top = CGFloat(index) * Theme.rowHeight
             if index > 0 { box.addSubview(Divider(frame: NSRect(x: 16, y: top, width: 408, height: 1))) }
             let label = Theme.label(name, size: 14)
             let stack = NSStackView(views: controls)
@@ -63,28 +59,14 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
             for view in [label, stack] {
                 view.translatesAutoresizingMaskIntoConstraints = false
                 box.addSubview(view)
+                view.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + Theme.rowHeight / 2)
+                    .isActive = true
             }
             NSLayoutConstraint.activate([
-                stack.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + heights[index] / 2),
                 label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 16),
                 stack.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -16),
                 stack.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12),
             ])
-            if let caption, caption.row == index {
-                caption.view.translatesAutoresizingMaskIntoConstraints = false
-                box.addSubview(caption.view)
-                NSLayoutConstraint.activate([
-                    label.topAnchor.constraint(equalTo: box.topAnchor, constant: top + 12),
-                    caption.view.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 3),
-                    caption.view.leadingAnchor.constraint(equalTo: label.leadingAnchor),
-                    caption.view.trailingAnchor.constraint(
-                        lessThanOrEqualTo: stack.leadingAnchor, constant: -12),
-                ])
-            } else {
-                label.centerYAnchor.constraint(equalTo: box.topAnchor, constant: top + heights[index] / 2)
-                    .isActive = true
-            }
-            top += heights[index]
         }
         return box
     }
@@ -170,7 +152,6 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
 
 final class SettingsController: PreferencesController {
     static let controlWidth: CGFloat = 120
-    static let menuWidth: CGFloat = 256
     let permissionLabel = SettingsController.status()
     let permissionButton = NSButton(title: "Allow Access…", target: nil, action: nil)
     let login = MonochromeSwitch(frame: .zero)
@@ -182,11 +163,9 @@ final class SettingsController: PreferencesController {
     let modelButton = NSButton(title: "", target: nil, action: nil)
     let guideButton = NSButton(title: "Keyboard Guide…", target: nil, action: nil)
     let aboutButton = NSButton(title: "About Ciel…", target: nil, action: nil)
-    let settingsDesignMenu = NSPopUpButton(frame: .zero, pullsDown: false)
-    let launcherDesignMenu = NSPopUpButton(frame: .zero, pullsDown: false)
+    let updateButton: NSButton
     let dictationRecorder: ShortcutRecorder
-    private(set) var design: SettingsDesign?
-    private var designObserver: Cleanup?
+    private var canCheckObservation: NSKeyValueObservation?
     private let speech: SpeechModelStore
     private let updater: Updater
     let spotlightGuide: SpotlightGuide
@@ -208,6 +187,7 @@ final class SettingsController: PreferencesController {
         self.updater = updater
         spotlightGuide = SpotlightGuide(hotKeys: hotKeys, spotlight: spotlight, open: open)
         dictationRecorder = ShortcutRecorder(shortcut: hotKeys.shortcut(for: .dictation), onRecord: { _ in })
+        updateButton = updater.checkButton()
         super.init(title: "Ciel Settings", size: NSSize(width: 480, height: 696), hotKeys: hotKeys)
         spotlightGuide.owner = self
         for (toggle, name, action) in [
@@ -233,67 +213,41 @@ final class SettingsController: PreferencesController {
         }
         wire(dictationRecorder, .dictation, label: "Dictation shortcut")
         dictationRecorder.acceptsModifierKey = true
-        for control in [dictationRecorder, permissionButton, modelButton] {
+        let launcher = recorder(.launcher, label: "Launcher shortcut", style: MenuRecorder.self)
+        launcher.onRecord = { [weak self] shortcut in self?.spotlightGuide.choose(shortcut) }
+        for control in [launcher, dictationRecorder, permissionButton, modelButton] {
             control.widthAnchor.constraint(equalToConstant: Self.controlWidth).isActive = true
         }
-        for (menu, name, items, action) in [
-            (
-                settingsDesignMenu, "Settings design",
-                SettingsDesign.allCases.map { "\($0.letter): \($0.summary)" },
-                #selector(chooseSettingsDesign)
-            ),
-            (
-                launcherDesignMenu, "Launcher design",
-                LauncherDesign.allCases.map { "\($0.letter): \($0.summary)" },
-                #selector(chooseLauncherDesign)
-            ),
-        ] {
-            menu.addItems(withTitles: items)
-            menu.font = .systemFont(ofSize: 12)
-            menu.target = self
-            menu.action = action
-            menu.setAccessibilityLabel(name)
-            menu.widthAnchor.constraint(equalToConstant: Self.menuWidth).isActive = true
+        canCheckObservation = updater.observeCanCheck { [weak self] can in
+            self?.updateButton.isEnabled = can
         }
         buildSpotlightSheet()
-        designObserver = NotificationCenter.default.observe(.designPreviewChanged) { [weak self] in
-            self?.show(DesignPreview().settings)
-        }
-        show(DesignPreview().settings)
+        resize(toHeight: layout(launcher))
+        refresh()
         window?.center()
     }
     required init?(coder: NSCoder) { fatalError() }
     @objc private func openGuide() { onGuide?() }
     @objc private func openAbout() { onAbout?() }
-    @objc private func chooseSettingsDesign() {
-        DesignPreview().settings = SettingsDesign.allCases[settingsDesignMenu.indexOfSelectedItem]
-    }
-    @objc private func chooseLauncherDesign() {
-        DesignPreview().launcher = LauncherDesign.allCases[launcherDesignMenu.indexOfSelectedItem]
-    }
 
-    /// Rebuilds the content for a design and keeps the window's top edge where it was.
-    func show(_ design: SettingsDesign) {
-        settingsDesignMenu.selectItem(at: SettingsDesign.allCases.firstIndex(of: design) ?? 0)
-        launcherDesignMenu.selectItem(
-            at: LauncherDesign.allCases.firstIndex(of: DesignPreview().launcher) ?? 0)
-        guard design != self.design else { return }
-        self.design = design
-        for view in content.subviews where view !== errorLabel { view.removeFromSuperview() }
-        let height =
-            switch design {
-            case .a: buildGrouped()
-            case .b: buildKeycaps()
-            case .c: buildColumns()
-            }
-        resize(toHeight: height)
-        refresh()
-    }
-
-    func launcherRecorder(style: ShortcutRecorder.Type = ShortcutRecorder.self) -> ShortcutRecorder {
-        let launcher = recorder(.launcher, label: "Launcher shortcut", style: style)
-        launcher.onRecord = { [weak self] shortcut in self?.spotlightGuide.choose(shortcut) }
-        return launcher
+    private func layout(_ launcher: ShortcutRecorder) -> CGFloat {
+        var y: CGFloat = 20
+        column("Launcher shortcut", [launcher, spotlightGuide.caption], at: &y)
+        rule(at: &y)
+        column("General", [switchLine(login, "Launch at login")], at: &y)
+        column("", [switchLine(animations, "Animations")], at: &y)
+        column("", [switchLine(menuBarIcon, "Show menu bar icon")], at: &y)
+        column("", [switchLine(updateChecks, "Automatically check for updates")], at: &y)
+        column("", [updateButton], at: &y)
+        rule(at: &y)
+        column("Accessibility", [permissionLabel, permissionButton], at: &y)
+        rule(at: &y)
+        column("Dictation", [switchLine(speechSwitch, "Speech to text")], at: &y)
+        column("Shortcut", [dictationRecorder], at: &y)
+        column("Speech model", [modelStatus, modelButton], at: &y)
+        place(guideButton, x: 20, top: y + 20)
+        place(aboutButton, right: 460, top: y + 20)
+        return y + 61
     }
 
     private func buildSpotlightSheet() {

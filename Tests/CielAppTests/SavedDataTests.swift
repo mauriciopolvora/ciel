@@ -56,6 +56,18 @@ struct SavedDataTests {
         }
     }
 
+    @Test func aDesignChosenInAPrototypeBuildIsDropped() {
+        withEmptyDefaults { defaults in
+            defaults.set("b", forKey: "designPreview.settings")
+            defaults.set("c", forKey: "designPreview.launcher")
+            defaults.set(false, forKey: "animations")
+            Preferences(defaults: defaults).dropRetiredKeys()
+            #expect(defaults.object(forKey: "designPreview.settings") == nil)
+            #expect(defaults.object(forKey: "designPreview.launcher") == nil)
+            #expect(defaults.object(forKey: "animations") as? Bool == false)
+        }
+    }
+
     @Test(arguments: shippedShortcutKeys)
     func aShortcutSavedUnderAShippedKeyFiresItsCommand(key: String, command: HotKeyCommand) throws {
         try withEmptyDefaults { defaults in

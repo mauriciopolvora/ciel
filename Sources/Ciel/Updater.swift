@@ -26,6 +26,25 @@ import Sparkle
         item.target = controller
         return item
     }
+
+    /// Starts disabled when the updater cannot check. Pair it with `observeCanCheck` to keep it current.
+    func checkButton() -> NSButton {
+        let button = NSButton(
+            title: "Check for Updates…", target: controller,
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)))
+        button.bezelStyle = .rounded
+        button.font = .systemFont(ofSize: 12)
+        button.isEnabled = controller.updater.canCheckForUpdates
+        return button
+    }
+
+    /// Calls `change` on the main actor each time Sparkle's `canCheckForUpdates` changes.
+    func observeCanCheck(_ change: @escaping @MainActor @Sendable (Bool) -> Void) -> NSKeyValueObservation {
+        controller.updater.observe(\.canCheckForUpdates) { @Sendable updater, _ in
+            let can = updater.canCheckForUpdates
+            Task { @MainActor in change(can) }
+        }
+    }
 }
 
 /// Sparkle shows a scheduled update behind other apps for an app with no Dock icon, so Ciel joins the Dock

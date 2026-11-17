@@ -8,14 +8,13 @@ final class ActionIcon: NSView {
     var ink = Theme.text { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
-        let size = bounds.width
-        let screen = bounds.insetBy(dx: size * 0.07, dy: size * 0.18)
-        let border = NSBezierPath(roundedRect: screen, xRadius: size * 0.1, yRadius: size * 0.1)
+        let screen = bounds.insetBy(dx: 2, dy: 5)
+        let border = NSBezierPath(roundedRect: screen, xRadius: 3, yRadius: 3)
         line.setStroke()
-        border.lineWidth = size < 24 ? 1 : 1.2
+        border.lineWidth = 1.2
         border.stroke()
         if let unit = action?.unitRect {
-            let area = screen.insetBy(dx: size * 0.09, dy: size * 0.09)
+            let area = screen.insetBy(dx: 2.5, dy: 2.5)
             let part = CGRect(
                 x: area.minX + unit.minX * area.width, y: area.minY + unit.minY * area.height,
                 width: unit.width * area.width, height: unit.height * area.height)
@@ -32,35 +31,28 @@ final class ActionIcon: NSView {
                         : action == .minimize ? "chevron.down" : "rectangle.center.inset.filled"
             NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
                 .withSymbolConfiguration(.init(paletteColors: [ink]))?.draw(
-                    in: screen.insetBy(dx: size * 0.14, dy: size * 0.036))
+                    in: screen.insetBy(dx: 4, dy: 1))
         }
     }
 }
 
 final class ResultRow: NSTableRowView {
-    private let style: LauncherStyle
     private let hoverLayer = CAShapeLayer()
     private var tracking: NSTrackingArea?
-    init(style: LauncherStyle) {
-        self.style = style
-        super.init(frame: .zero)
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
         wantsLayer = true
+        hoverLayer.fillColor = Theme.cg(Theme.selection.withAlphaComponent(0.7), in: self)
         hoverLayer.opacity = 0
         layer?.addSublayer(hoverLayer)
     }
     required init?(coder: NSCoder) { fatalError() }
-    private var plate: NSRect {
-        switch style.selection {
-        case .inverse: bounds.insetBy(dx: 1, dy: 2)
-        case .raised: bounds.insetBy(dx: 2, dy: 3)
-        case .bar: bounds.insetBy(dx: 0, dy: 1)
-        }
-    }
     override func layout() {
         super.layout()
-        hoverLayer.fillColor = Theme.cg(style.palette.hover, in: self)
+        hoverLayer.fillColor = Theme.cg(Theme.selection.withAlphaComponent(0.7), in: self)
         hoverLayer.path = CGPath(
-            roundedRect: plate, cornerWidth: style.rowRadius, cornerHeight: style.rowRadius, transform: nil)
+            roundedRect: bounds.insetBy(dx: 1, dy: 2), cornerWidth: Theme.rowRadius,
+            cornerHeight: Theme.rowRadius, transform: nil)
     }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -76,8 +68,7 @@ final class ResultRow: NSTableRowView {
     }
     private func hover(_ visible: Bool) {
         CATransaction.begin()
-        CATransaction.setAnimationDuration(Theme.reduceMotion ? 0 : style.hoverDuration)
-        CATransaction.setDisableActions(style.hoverDuration == 0)
+        CATransaction.setAnimationDuration(Theme.reduceMotion ? 0 : Theme.hoverDuration)
         CATransaction.setAnimationTimingFunction(Theme.easeOut)
         hoverLayer.opacity = visible && !isSelected ? 1 : 0
         CATransaction.commit()
@@ -85,34 +76,17 @@ final class ResultRow: NSTableRowView {
     override func mouseEntered(with event: NSEvent) { hover(true) }
     override func mouseExited(with event: NSEvent) { hover(false) }
     override func drawSelection(in dirtyRect: NSRect) {
-        let palette = style.palette
-        let path = NSBezierPath(roundedRect: plate, xRadius: style.rowRadius, yRadius: style.rowRadius)
-        NSGraphicsContext.saveGraphicsState()
-        if let color = palette.selectionShadow {
-            let shadow = NSShadow()
-            shadow.shadowColor = color
-            shadow.shadowOffset = NSSize(width: 0, height: -1)
-            shadow.shadowBlurRadius = 3
-            shadow.set()
-        }
-        palette.selectionFill.setFill()
+        let path = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 1, dy: 2), xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
+        Theme.accent.setFill()
         path.fill()
-        NSGraphicsContext.restoreGraphicsState()
-        if let ring = palette.selectionRing {
-            let edge = NSBezierPath(
-                roundedRect: plate.insetBy(dx: 0.5, dy: 0.5), xRadius: style.rowRadius - 0.5,
-                yRadius: style.rowRadius - 0.5)
-            ring.setStroke()
-            edge.lineWidth = 1
-            edge.stroke()
-        }
-        if let bar = palette.bar {
-            bar.setFill()
-            NSBezierPath(
-                roundedRect: NSRect(x: plate.minX, y: plate.minY + 7, width: 2, height: plate.height - 14),
-                xRadius: 1, yRadius: 1
-            ).fill()
-        }
+        guard Theme.increaseContrast else { return }
+        let ring = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 1.5, dy: 2.5), xRadius: Theme.rowRadius - 0.5,
+            yRadius: Theme.rowRadius - 0.5)
+        Theme.border.setStroke()
+        ring.lineWidth = 1
+        ring.stroke()
     }
     override var isEmphasized: Bool {
         get { true }
@@ -123,16 +97,8 @@ final class ResultRow: NSTableRowView {
 final class ResultCell: NSTableCellView {
     let appIcon = NSImageView()
     let commandIcon = ActionIcon()
-    let titleLabel = Theme.label("", size: 15)
-    let hintLabel = Theme.label("", size: 12, color: Theme.secondary)
-    var style = LauncherStyle.make(.a, systemDark: true) {
-        didSet {
-            guard style.titleFont != oldValue.titleFont || style.iconSize != oldValue.iconSize else { return }
-            titleLabel.font = style.titleFont
-            hintLabel.font = style.hintFont
-            needsLayout = true
-        }
-    }
+    let titleLabel = Theme.label("", size: 15, weight: .medium)
+    let hintLabel = Theme.label("", size: 12, weight: .medium, color: Theme.secondary)
     private var representedID: String?
     private var currentIconPath: String?
     override var isFlipped: Bool { true }
@@ -141,28 +107,23 @@ final class ResultCell: NSTableCellView {
         for view in [appIcon, commandIcon, titleLabel, hintLabel] { addSubview(view) }
         appIcon.imageScaling = .scaleProportionallyUpOrDown
         hintLabel.alignment = .right
-        titleLabel.font = style.titleFont
-        hintLabel.font = style.hintFont
     }
     required init?(coder: NSCoder) { fatalError() }
     override func layout() {
         super.layout()
-        let icon = style.iconSize
-        let middle = bounds.height / 2
-        appIcon.frame = NSRect(x: 12, y: middle - (icon - 2) / 2, width: icon - 2, height: icon - 2)
-        commandIcon.frame = NSRect(x: 11, y: middle - icon / 2, width: icon, height: icon)
-        let titleX = 11 + icon + (icon < 24 ? 10 : 12)
-        titleLabel.frame = NSRect(x: titleX, y: middle - 10.5, width: bounds.width - titleX - 54, height: 21)
-        hintLabel.frame = NSRect(x: bounds.width - 48, y: middle - 9, width: 32, height: 18)
+        appIcon.frame = NSRect(x: 12, y: 9, width: 26, height: 26)
+        commandIcon.frame = NSRect(x: 11, y: 8, width: 28, height: 28)
+        titleLabel.frame = NSRect(x: 50, y: 12, width: bounds.width - 104, height: 21)
+        hintLabel.frame = NSRect(x: bounds.width - 48, y: 13, width: 32, height: 18)
     }
     func mark(index: Int, selected: Bool, showKeys: Bool) {
         hintLabel.stringValue = showKeys && index < 9 ? "⌘\(index + 1)" : selected ? "↵" : ""
-        let palette = style.palette
-        titleLabel.textColor = selected ? palette.selectedTitle : palette.title
-        hintLabel.textColor = selected ? palette.selectedMuted : palette.muted
-        appIcon.contentTintColor = selected ? palette.selectedMuted : palette.muted
-        commandIcon.line = selected ? palette.selectedMuted : palette.muted
-        commandIcon.ink = selected ? palette.selectedTitle : palette.title
+        let quiet = selected ? Theme.selectedSecondary : Theme.secondary
+        titleLabel.textColor = selected ? Theme.selectedText : Theme.text
+        hintLabel.textColor = quiet
+        appIcon.contentTintColor = quiet
+        commandIcon.line = quiet
+        commandIcon.ink = selected ? Theme.selectedText : Theme.text
     }
     func configure(_ entry: SearchEntry, index: Int, icons: IconCache, selected: Bool, showKeys: Bool) {
         representedID = entry.id

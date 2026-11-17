@@ -10,10 +10,11 @@ import QuartzCore
     static let surface = NSColor(white: 0.035, alpha: 1)
     static let group = NSColor(white: 0.075, alpha: 1)
     static let selection = NSColor(white: 0.14, alpha: 1)
+    static let selectedText = NSColor(white: 0.07, alpha: 1)
+    static let selectedSecondary = NSColor(white: 0.36, alpha: 1)
     static let border = NSColor(white: 0.30, alpha: 1)
     static let guide = NSColor.white
     static let rowHeight: CGFloat = 44
-    static let captionedRowHeight: CGFloat = 62
     static let panelRadius: CGFloat = 16
     static let groupRadius: CGFloat = 10
     static let statusRadius: CGFloat = 12
@@ -102,54 +103,6 @@ final class TextButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-/// Draws a shortcut as one key cap per modifier and key.
-final class KeycapRecorder: ShortcutRecorder {
-    private static let height: CGFloat = 40
-    private static let gap: CGFloat = 6
-    private var caps: [String] {
-        guard !recording, let shortcut else { return [title] }
-        if let key = shortcut.modifierKey { return [key.display] }
-        let display = shortcut.display
-        let modifiers = display.prefix { "⌃⌥⇧⌘".contains($0) }
-        return modifiers.map(String.init) + [String(display.dropFirst(modifiers.count))]
-    }
-    private func attributed(_ cap: String) -> NSAttributedString {
-        let color = recording || shortcut == nil ? Theme.secondary : Theme.text
-        return NSAttributedString(
-            string: cap,
-            attributes: [.font: NSFont.systemFont(ofSize: 18, weight: .medium), .foregroundColor: color])
-    }
-    private func widths() -> [CGFloat] {
-        caps.map { max(Self.height, ceil(attributed($0).size().width) + 24) }
-    }
-    override var title: String { didSet { invalidateIntrinsicContentSize() } }
-    override var intrinsicContentSize: NSSize {
-        let widths = widths()
-        return NSSize(width: widths.reduce(0, +) + Self.gap * CGFloat(widths.count - 1), height: Self.height)
-    }
-    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsets() }
-    override var focusRingMaskBounds: NSRect { bounds }
-    override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: bounds, xRadius: Theme.rowRadius, yRadius: Theme.rowRadius).fill()
-    }
-    override func draw(_ dirtyRect: NSRect) {
-        var x: CGFloat = 0
-        for (cap, width) in zip(caps, widths()) {
-            let frame = NSRect(x: x, y: 0, width: width, height: Self.height).insetBy(dx: 0.5, dy: 0.5)
-            let outline = NSBezierPath(roundedRect: frame, xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
-            (isHighlighted ? Theme.selection : Theme.group).setFill()
-            outline.fill()
-            Theme.hairline.setStroke()
-            outline.lineWidth = 1
-            outline.stroke()
-            let text = attributed(cap)
-            let size = text.size()
-            text.draw(at: NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2))
-            x += width + Self.gap
-        }
-    }
-}
-
 /// Opens a menu of shortcuts, with ⌘Space marked as the Spotlight replacement, and records a custom one on request.
 final class MenuRecorder: ShortcutRecorder {
     required init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
@@ -220,68 +173,4 @@ class SurfaceView: FlippedView {
 
 final class Divider: SurfaceView {
     override func refreshSurface() { layer?.backgroundColor = Theme.cg(Theme.hairline, in: self) }
-}
-
-/// The grays of one launcher design. Only Graphite has a light palette, since it is the design that follows the
-/// system appearance. Light hint grays stay at 0.42 or darker to keep 4.5:1 on the light surface.
-@MainActor struct LauncherPalette {
-    var surfaceTop: NSColor
-    var surfaceBottom: NSColor
-    var highlight: NSColor?
-    var ring: NSColor
-    var divider: NSColor
-    var title: NSColor
-    var selectedTitle: NSColor
-    var muted: NSColor
-    var selectedMuted: NSColor
-    var selectionFill: NSColor
-    var selectionRing: NSColor?
-    var selectionShadow: NSColor?
-    var bar: NSColor?
-    var hover: NSColor
-    var ink = Theme.text
-    var textHighlight = Theme.selection
-
-    static let inverse = LauncherPalette(
-        surfaceTop: Theme.surface, surfaceBottom: Theme.surface, ring: Theme.border.withAlphaComponent(0.55),
-        divider: Theme.border.withAlphaComponent(0.22), title: Theme.text,
-        selectedTitle: NSColor(white: 0.07, alpha: 1), muted: Theme.secondary,
-        selectedMuted: NSColor(white: 0.36, alpha: 1), selectionFill: Theme.accent,
-        hover: Theme.selection.withAlphaComponent(0.7))
-
-    static let graphiteDark = LauncherPalette(
-        surfaceTop: NSColor(white: 0.115, alpha: 1), surfaceBottom: NSColor(white: 0.078, alpha: 1),
-        highlight: NSColor(white: 1, alpha: 0.07), ring: NSColor(white: 1, alpha: 0.14),
-        divider: NSColor(white: 1, alpha: 0.07), title: NSColor(white: 0.86, alpha: 1),
-        selectedTitle: NSColor(white: 0.97, alpha: 1), muted: NSColor(white: 0.60, alpha: 1),
-        selectedMuted: NSColor(white: 0.70, alpha: 1), selectionFill: NSColor(white: 0.195, alpha: 1),
-        selectionRing: NSColor(white: 1, alpha: 0.09), selectionShadow: NSColor(white: 0, alpha: 0.45),
-        hover: NSColor(white: 0.15, alpha: 1), ink: NSColor(white: 0.97, alpha: 1),
-        textHighlight: NSColor(white: 0.30, alpha: 1))
-
-    static let graphiteLight = LauncherPalette(
-        surfaceTop: NSColor(white: 0.99, alpha: 1), surfaceBottom: NSColor(white: 0.95, alpha: 1),
-        ring: NSColor(white: 0, alpha: 0.13), divider: NSColor(white: 0, alpha: 0.08),
-        title: NSColor(white: 0.16, alpha: 1), selectedTitle: NSColor(white: 0.08, alpha: 1),
-        muted: NSColor(white: 0.42, alpha: 1), selectedMuted: NSColor(white: 0.38, alpha: 1),
-        selectionFill: NSColor(white: 1, alpha: 1), selectionRing: NSColor(white: 0, alpha: 0.08),
-        selectionShadow: NSColor(white: 0, alpha: 0.14), hover: NSColor(white: 0.915, alpha: 1),
-        ink: NSColor(white: 0.10, alpha: 1), textHighlight: NSColor(white: 0.80, alpha: 1))
-
-    static let console = LauncherPalette(
-        surfaceTop: NSColor(white: 0.012, alpha: 1), surfaceBottom: NSColor(white: 0.012, alpha: 1),
-        ring: Theme.border.withAlphaComponent(0.4), divider: Theme.border.withAlphaComponent(0.3),
-        title: Theme.secondary, selectedTitle: Theme.text, muted: NSColor(white: 0.50, alpha: 1),
-        selectedMuted: Theme.secondary, selectionFill: NSColor(white: 0.10, alpha: 1), bar: Theme.accent,
-        hover: NSColor(white: 0.055, alpha: 1))
-
-    /// Opaque edges for Increase Contrast.
-    func contrasted(dark: Bool) -> LauncherPalette {
-        var palette = self
-        let edge = dark ? Theme.border : NSColor(white: 0.45, alpha: 1)
-        palette.ring = edge
-        palette.divider = edge
-        palette.selectionRing = edge
-        return palette
-    }
 }

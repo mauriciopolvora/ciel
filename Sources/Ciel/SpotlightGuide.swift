@@ -3,26 +3,6 @@ import AppKit
 @MainActor final class SpotlightGuide: NSObject {
     enum Replacement { case offered, replaced, waiting }
 
-    /// The launcher shortcut line under or beside the recorder, so replacing Spotlight reads as part of the shortcut.
-    final class Caption: NSStackView {
-        let status = Theme.label("", size: 12, color: Theme.secondary)
-        let link: TextButton
-        let compact: Bool
-
-        init(compact: Bool, target: SpotlightGuide) {
-            self.compact = compact
-            link = TextButton(target: target, action: #selector(SpotlightGuide.act))
-            super.init(frame: .zero)
-            spacing = 6
-            alignment = .firstBaseline
-            setViews([status, link], in: .leading)
-        }
-        required init?(coder: NSCoder) { fatalError() }
-        override var firstBaselineOffsetFromTop: CGFloat {
-            (arrangedSubviews.first { !$0.isHidden } ?? status).firstBaselineOffsetFromTop
-        }
-    }
-
     var held: Shortcut?
     weak var owner: PreferencesController?
     let heading = Theme.label("", size: 20)
@@ -31,7 +11,8 @@ import AppKit
     private let spotlight: SpotlightShortcuts
     private let open: @MainActor (URL) -> Void
     private var rows: [(status: NSTextField, button: NSButton)] = []
-    private var captions: [Caption] = []
+    /// The state beside the launcher recorder. The recorder menu offers ⌘Space, so the caption only reports.
+    let caption = Theme.label("", size: 12, color: Theme.secondary)
 
     var replacement: Replacement {
         if held != nil { return .waiting }
@@ -57,13 +38,6 @@ import AppKit
         button.widthAnchor.constraint(equalToConstant: 120).isActive = true
         rows.append((status, button))
         return [status, button]
-    }
-
-    /// A compact caption shows only the state, for a recorder whose menu already offers ⌘Space.
-    func caption(compact: Bool = false) -> Caption {
-        let caption = Caption(compact: compact, target: self)
-        captions.append(caption)
-        return caption
     }
 
     func choose(_ shortcut: Shortcut?) {
@@ -106,23 +80,15 @@ import AppKit
             status.stringValue = held != nil ? "Used by Spotlight" : replaced ? "Replaced" : ""
             status.textColor = held == nil ? Theme.success : Theme.secondary
         }
-        captions.removeAll { $0.window == nil }
-        let offer = "Replace Spotlight with " + SpotlightShortcuts.commandSpace.display
-        for caption in captions {
-            caption.status.stringValue =
-                switch replacement {
-                case .offered: ""
-                case .replaced: "Replaces Spotlight"
-                case .waiting:
-                    caption.compact ? "Used by Spotlight" : "Spotlight still uses " + (held?.display ?? "")
-                }
-            caption.status.isHidden = replacement == .offered
-            caption.link.text = replacement == .waiting ? "Open Settings…" : offer
-            caption.link.isHidden = caption.compact || replaced
-        }
+        caption.stringValue =
+            switch replacement {
+            case .offered: ""
+            case .replaced: "Replaces Spotlight"
+            case .waiting: "Used by Spotlight"
+            }
     }
 
-    @objc fileprivate func act() {
+    @objc private func act() {
         if held == nil {
             choose(SpotlightShortcuts.commandSpace)
         } else {

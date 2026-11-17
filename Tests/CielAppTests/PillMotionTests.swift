@@ -113,6 +113,19 @@ struct PillMotionTests {
         #expect(size == CGSize(width: line.width + 2 * PillLayout.padding.width, height: 32))
     }
 
+    @Test func eachLineIsCenteredWithoutItsTrailingSpace() {
+        let words = Array(repeating: "check the numbers before Friday", count: 3).joined(separator: " ")
+        let layout = TranscriptLayout(Self.text(words), maxWidth: PillLayout.textWidth)
+        #expect(layout.lines.count == 2 && layout.widths.count == 2)
+        let last = layout.widths[1]
+        #expect(last < layout.widths[0])
+        #expect(layout.widths[0] <= layout.width && layout.width - layout.widths[0] < 1)
+        let space = layout.width
+        #expect(abs(TranscriptLayout.start(of: last, in: space) * 2 + last - space) < 0.001)
+        #expect(TranscriptLayout.start(of: layout.widths[0], in: space) < 0.5)
+        #expect(TranscriptLayout.start(of: space, in: space - 40) == 0)
+    }
+
     @Test func aLongTranscriptWrapsAtTheWidthCapAndStopsGrowingAtThreeLines() {
         let words = Array(repeating: "check the numbers before Friday", count: 12).joined(separator: " ")
         let layout = TranscriptLayout(Self.text(words), maxWidth: PillLayout.textWidth)

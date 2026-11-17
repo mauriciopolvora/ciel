@@ -91,24 +91,37 @@ struct SettingsSpotlightTests {
         }
     }
 
-    @Test func everyDesignWaitsForSpotlightBeforeItSavesTheLauncherShortcut() {
+    @Test func theCaptionBesideTheShortcutFollowsTheSpotlightState() {
         withSettings { settings, hotKeys, system in
-            for design in SettingsDesign.allCases {
-                settings.show(design)
-                settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
-                #expect(hotKeys.shortcut(for: .launcher) == .launcher)
-                #expect(settings.spotlightGuide.replacement == .waiting)
-                settings.cancelSpotlight()
-                #expect(settings.spotlightGuide.replacement == .offered)
-            }
+            #expect(settings.spotlightGuide.caption.stringValue == "")
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            #expect(hotKeys.shortcut(for: .launcher) == .launcher)
+            #expect(settings.spotlightGuide.caption.stringValue == "Used by Spotlight")
+            settings.cancelSpotlight()
+            #expect(settings.spotlightGuide.caption.stringValue == "")
             system.symbolicHotKeys = ["64": ["enabled": false]]
             settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
-            #expect(settings.spotlightGuide.replacement == .replaced)
+            #expect(settings.spotlightGuide.caption.stringValue == "Replaces Spotlight")
         }
     }
 
-    @Test func aLongDownloadErrorTruncatesInsideItsRowInEveryDesign() {
+    @Test func checkForUpdatesSitsUnderTheToggleAndIsOffWhileTheUpdaterIsStopped() {
+        withSettings { settings, _, _ in
+            let button = settings.updateButton
+            #expect(button.title == "Check for Updates…")
+            #expect(button.action == Selector(("checkForUpdates:")))
+            #expect(!button.isEnabled)
+            let content = settings.content
+            content.layoutSubtreeIfNeeded()
+            let toggle = Self.alignment(of: settings.updateChecks, in: content)
+            let frame = Self.alignment(of: button, in: content)
+            #expect(frame.minY > toggle.maxY, "toggle \(toggle), button \(frame)")
+            #expect(abs(frame.minX - toggle.minX) <= 0.5, "toggle \(toggle), button \(frame)")
+        }
+    }
+
+    @Test func aLongDownloadErrorTruncatesInsideItsRow() {
         withEmptyDefaults { defaults in
             let hotKeys = HotKeys(
                 defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
@@ -117,19 +130,16 @@ struct SettingsSpotlightTests {
                     path: "ciel-settings-" + UUID().uuidString))
             let settings = SettingsController(hotKeys: hotKeys, speech: speech, updater: Updater())
             speech.showForCheck(.failed(String(repeating: "The network connection was lost. ", count: 6)))
-            for design in SettingsDesign.allCases {
-                settings.show(design)
-                settings.refresh()
-                let content = settings.content
-                content.layoutSubtreeIfNeeded()
-                let button = Self.alignment(of: settings.modelButton, in: content)
-                let status = Self.alignment(of: settings.modelStatus, in: content)
-                let name = Self.labels(in: content).first { $0.stringValue == "Speech model" }
-                let nameFrame = name.map { Self.alignment(of: $0, in: content) } ?? .zero
-                let frames = "design \(design.letter): name \(nameFrame), status \(status), button \(button)"
-                #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "\(frames)")
-                #expect(status.minX >= nameFrame.maxX - 0.5 && status.maxX <= button.minX + 0.5, "\(frames)")
-            }
+            settings.refresh()
+            let content = settings.content
+            content.layoutSubtreeIfNeeded()
+            let button = Self.alignment(of: settings.modelButton, in: content)
+            let status = Self.alignment(of: settings.modelStatus, in: content)
+            let name = Self.labels(in: content).first { $0.stringValue == "Speech model" }
+            let nameFrame = name.map { Self.alignment(of: $0, in: content) } ?? .zero
+            let frames = "name \(nameFrame), status \(status), button \(button)"
+            #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "\(frames)")
+            #expect(status.minX >= nameFrame.maxX - 0.5 && status.maxX <= button.minX + 0.5, "\(frames)")
         }
     }
 
