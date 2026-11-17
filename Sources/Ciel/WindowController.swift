@@ -128,7 +128,7 @@ enum WindowError: LocalizedError, Equatable, Sendable {
         switch self {
         case .permission: return "Allow Accessibility access in Settings to move windows."
         case .noWindow: return "Focus an app window, then try again."
-        case .fullScreen: return "Exit macOS full screen before moving this window."
+        case .fullScreen: return "This window did not leave macOS full screen. Try again."
         case .noHistory: return "Move or resize this window first."
         case .oneDisplay: return "Connect another display to use this command."
         case .unsupported: return "This window does not support that action."

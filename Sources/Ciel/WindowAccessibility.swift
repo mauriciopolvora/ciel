@@ -17,6 +17,7 @@ protocol WindowAccess: AnyObject {
     func isSameWindow(as other: any WindowAccess) -> Bool
     func frame(timeout: TimeInterval) throws -> CGRect
     func isFullScreen(timeout: TimeInterval) throws -> Bool
+    func exitFullScreen(timeout: TimeInterval) throws
     func isSettable(_ attribute: WindowAttribute, timeout: TimeInterval) throws -> Bool
     func setSize(_ size: CGSize, timeout: TimeInterval) throws
     func setPosition(_ point: CGPoint, timeout: TimeInterval) throws
@@ -101,6 +102,24 @@ private final class SystemWindowAccess: WindowAccess {
 
     func isFullScreen(timeout: TimeInterval) throws -> Bool {
         try value(window, "AXFullScreen", timeout: timeout) as? Bool == true
+    }
+
+    /// Asks the window to leave full screen, and presses its green button when the app refuses the attribute.
+    func exitFullScreen(timeout: TimeInterval) throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
+        do {
+            try set(window, "AXFullScreen", value: kCFBooleanFalse, timeout: timeout)
+        } catch WindowError.rejected(_) {
+            guard
+                let button = try value(
+                    window, kAXFullScreenButtonAttribute,
+                    timeout: deadline - ProcessInfo.processInfo.systemUptime),
+                CFGetTypeID(button) == AXUIElementGetTypeID()
+            else { throw WindowError.fullScreen }
+            let element = button as! AXUIElement
+            try setTimeout(element, deadline - ProcessInfo.processInfo.systemUptime)
+            try check(AXUIElementPerformAction(element, kAXPressAction as CFString))
+        }
     }
 
     func isSettable(_ attribute: WindowAttribute, timeout: TimeInterval) throws -> Bool {

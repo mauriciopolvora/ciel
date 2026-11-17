@@ -68,7 +68,7 @@ Commands include halves, quarters, three fourths, maximize, almost maximize, cen
 
 Center Three Fourths uses 75% of the usable width, with equal left and right margins.
 
-Maximize fills the usable screen. It does not enter macOS full screen. Almost Maximize uses 90% of the usable width and height. Center preserves size unless the window exceeds the screen. Restore swaps the last two window bounds. Moving between displays preserves relative position and size. Displays are ordered left to right, then top to bottom.
+Maximize fills the usable screen. It does not enter macOS full screen. A command on a full screen window first takes it out of full screen, then applies to the screen it returns to. Almost Maximize uses 90% of the usable width and height. Center preserves size unless the window exceeds the screen. Restore swaps the last two window bounds. Moving between displays preserves relative position and size. Displays are ordered left to right, then top to bottom.
 
 Some apps enforce minimum sizes or reject resizing. Ciel reports these limits. Full-screen windows and moving between Spaces are not supported.
 

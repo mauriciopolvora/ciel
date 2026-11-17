@@ -201,19 +201,85 @@ struct WindowOperationTests {
         #expect(fixture.window.writes.last == .enhancedUI(true))
     }
 
-    @Test("Permission and full-screen errors perform no writes")
+    @Test("Permission errors perform no writes")
     func preconditions() throws {
         let fixture = fixture()
         fixture.accessibility.isTrusted = false
         #expect(throws: WindowError.permission) {
             try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
         }
-        fixture.accessibility.isTrusted = true
+        #expect(fixture.window.writes.isEmpty)
+    }
+
+    @Test("A full-screen window leaves full screen, settles, then snaps on the screen it lands on")
+    func leavesFullScreenFirst() throws {
+        let fixture = fixture()
+        let external = CGRect(x: 1200, y: 0, width: 1600, height: 900)
+        let displays = [
+            DisplaySnapshot(full: screen, visible: screen),
+            DisplaySnapshot(full: external, visible: external),
+        ]
+        var landed = false
         fixture.window.fullScreen = true
+        fixture.window.currentFrame = external
+        fixture.window.exitHandler = {}
+        fixture.window.fullScreenHandler = { fixture.clock.now < 0.2 }
+        fixture.window.readHandler = {
+            guard !landed else { return }
+            let now = fixture.clock.now
+            landed = now >= 0.45
+            fixture.window.currentFrame =
+                landed ? self.original : CGRect(x: 1600 - 900 * now, y: 100, width: 800, height: 500)
+        }
+        let outcome = try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        #expect(outcome == .applied)
+        let expected = WindowAction.leftHalf.frame(in: screen, current: original)
+        #expect(fixture.window.currentFrame == expected)
+        #expect(
+            fixture.window.writes == [
+                .exitFullScreen, .size(expected.size), .position(expected.origin), .size(expected.size),
+            ])
+        #expect(fixture.clock.now >= 0.45 + FrameSettle.settleInterval)
+        #expect(fixture.clock.now < FullScreenExit.budget)
+    }
+
+    @Test("Every command, minimize included, leaves full screen first")
+    func minimizeLeavesFullScreen() throws {
+        let fixture = fixture()
+        fixture.window.fullScreen = true
+        #expect(
+            try fixture.engine.perform(.minimize, selection: fixture.selection, displays: displays)
+                == .applied)
+        #expect(fixture.window.writes == [.exitFullScreen, .minimize])
+    }
+
+    @Test("A window that stays in full screen fails at the deadline with no frame writes")
+    func stuckInFullScreen() throws {
+        let fixture = fixture()
+        fixture.window.fullScreen = true
+        fixture.window.exitHandler = {}
         #expect(throws: WindowError.fullScreen) {
             try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
         }
-        #expect(fixture.window.writes.isEmpty)
+        #expect(fixture.window.writes == [.exitFullScreen])
+        #expect(fixture.clock.now <= FullScreenExit.budget)
+    }
+
+    @Test("Leaving full screen waits for the flag and a frame that holds still")
+    func fullScreenExitState() {
+        var exit = FullScreenExit()
+        let moving = CGRect(x: 400, y: 100, width: 800, height: 500)
+        let settled = CGRect(x: 150, y: 160, width: 800, height: 500)
+        #expect(!exit.observe(fullScreen: true, frame: settled, at: 0))
+        #expect(!exit.observe(fullScreen: false, frame: moving, at: 0.03))
+        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.06))
+        #expect(!exit.observe(fullScreen: false, frame: settled.offsetBy(dx: 2, dy: 0), at: 0.12))
+        #expect(!exit.observe(fullScreen: nil, frame: settled, at: 0.15))
+        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.18))
+        #expect(!exit.observe(fullScreen: false, frame: nil, at: 0.21))
+        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.24))
+        #expect(!exit.observe(fullScreen: false, frame: settled, at: 0.23 + FrameSettle.settleInterval))
+        #expect(exit.observe(fullScreen: false, frame: settled, at: 0.25 + FrameSettle.settleInterval))
     }
 
     @Test("A nonresizable window can center, but cannot snap to a new size")
@@ -392,10 +458,13 @@ private final class FakeWindow: WindowAccess {
         case position(CGPoint)
         case enhancedUI(Bool)
         case minimize
+        case exitFullScreen
     }
     var currentFrame: CGRect
     var writes: [Write] = []
     var fullScreen = false
+    var fullScreenHandler: (() -> Bool)?
+    var exitHandler: (() -> Void)?
     var resizable = true
     var movable = true
     var minimized = false
@@ -416,7 +485,12 @@ private final class FakeWindow: WindowAccess {
     }
     func isFullScreen(timeout: TimeInterval) throws -> Bool {
         beforeCall?(timeout)
-        return fullScreen
+        return fullScreenHandler?() ?? fullScreen
+    }
+    func exitFullScreen(timeout: TimeInterval) throws {
+        beforeCall?(timeout)
+        writes.append(.exitFullScreen)
+        if let exitHandler { exitHandler() } else { fullScreen = false }
     }
     func isSettable(_ attribute: WindowAttribute, timeout: TimeInterval) throws -> Bool {
         beforeCall?(timeout)

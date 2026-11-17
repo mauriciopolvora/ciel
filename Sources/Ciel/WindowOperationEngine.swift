@@ -68,9 +68,9 @@ final class WindowOperationEngine {
             captures[captureIndex].window = accessibility.focusedWindow(pid: pid)
         }
         guard let window = captures[captureIndex].window else { throw WindowError.noWindow }
+        try leaveFullScreen(window)
         let budget = Budget(
             clock: clock, duration: action == .minimize ? Self.minimizeBudget : Self.frameBudget)
-        if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }
         if action == .minimize {
             try minimize(window, budget: budget)
             return .applied
@@ -126,6 +126,27 @@ final class WindowOperationEngine {
         if !FrameSettle.matches(actual.size, desired.size) { return .sizeLimited }
         if !FrameSettle.matches(actual.origin, desired.origin) { return .positionLimited }
         return .applied
+    }
+
+    /// A full-screen window first leaves full screen, so the command then lands on the screen it returns to.
+    private func leaveFullScreen(_ window: any WindowAccess) throws {
+        let budget = Budget(clock: clock, duration: FullScreenExit.budget)
+        guard try window.isFullScreen(timeout: budget.timeout()) else { return }
+        try window.exitFullScreen(timeout: budget.timeout())
+        var exit = FullScreenExit()
+        var fullScreen: Bool? = true
+        while true {
+            do {
+                try budget.pause(FullScreenExit.pollInterval)
+            } catch WindowError.timedOut {
+                // A window still animating out of full screen at the deadline takes the command anyway.
+                if fullScreen == false { return }
+                throw WindowError.fullScreen
+            }
+            fullScreen = try? window.isFullScreen(timeout: budget.timeout())
+            let frame = try? window.frame(timeout: budget.timeout())
+            if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return }
+        }
     }
 
     private func withEnhancedUserInterfaceDisabled<T>(

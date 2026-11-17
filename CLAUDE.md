@@ -22,6 +22,7 @@
 | The bundle id lives only in `AppIdentity` and `Resources/Info.plist` | `SavedDataTests.bundleIdentifierMatchesInfoPlist`, mutant M8 |
 | Native checks run only under the checks bundle id, and an unknown flag never launches the app | `LaunchMode` and `LaunchModeTests`, the identity step in `check.sh` (exit 64), mutants M9 and M10 |
 | Window commands never target Ciel's own windows | `ForeignProcess` in `WindowController.swift`, `WindowOperationTests.ownProcessIsNeverATarget`, mutant M14 |
+| A window command on a full screen window first takes it out of full screen, waits up to 1.5 s for the flag to clear and the frame to hold, then applies on the screen it lands on | `WindowOperationTests.leavesFullScreenFirst` and `fullScreenExitState`, mutant M29 |
 | Window settle retries an unchanged window after 0.2 s, matches within 3 pt, settles as constrained only when the retry repeats, and never yields before the window responds | `FrameSettleTests`, `WindowOperationTests`, mutants M16 to M20 |
 | An invalidated icon load never delivers and never holds a load slot | `IconCacheTests`, whose waits fail after 3 s instead of hanging, mutants M21 and M22 |
 | Onboarding and Settings save a launcher shortcut only after Spotlight lets it go, through the shared `SpotlightGuide`, and read a Spotlight shortcut missing from the saved list as on | `OnboardingTests`, `SettingsSpotlightTests`, the onboarding and Settings Spotlight steps in `SmokeCheck`, mutants M24, M25 and M26 |

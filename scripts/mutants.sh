@@ -32,6 +32,7 @@ mutants=(
     "M26|Save a launcher shortcut from Settings that Spotlight still holds"
     "M27|Report a downloading speech model as not downloaded"
     "M28|Drop the default dictation key while it waits for access"
+    "M29|Refuse a full screen window instead of taking it out of full screen"
 )
 
 mutate() {
@@ -105,6 +106,10 @@ mutate() {
         M28)
             swap Sources/Ciel/HotKeys.swift \
                 's/do \{ try register\(command, shortcut\) \} catch HotKeyError\.needsAccess \{\}/try register(command, shortcut)/'
+            ;;
+        M29)
+            swap Sources/Ciel/WindowOperationEngine.swift \
+                's/try leaveFullScreen\(window\)\n/if try window.isFullScreen(timeout: 0.25) { throw WindowError.fullScreen }\n/'
             ;;
     esac
 }
