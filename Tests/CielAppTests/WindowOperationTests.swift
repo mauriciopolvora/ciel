@@ -275,6 +275,27 @@ struct WindowOperationTests {
         #expect(fixture.clock.now <= FullScreenExit.budget)
     }
 
+    @Test("A window that left full screen but still moves at the deadline takes the command")
+    func stillMovingAtTheDeadline() throws {
+        let fixture = fixture()
+        var reachedDeadline = false
+        fixture.window.fullScreen = true
+        fixture.window.exitHandler = {}
+        fixture.window.fullScreenHandler = { fixture.clock.now < 0.2 }
+        fixture.window.readHandler = {
+            reachedDeadline = reachedDeadline || fixture.clock.now >= FullScreenExit.budget - 0.03
+            if !reachedDeadline {
+                fixture.window.currentFrame = self.original.offsetBy(dx: 400 * fixture.clock.now, dy: 0)
+            }
+        }
+        #expect(throws: Never.self) {
+            try fixture.engine.perform(.leftHalf, selection: fixture.selection, displays: displays)
+        }
+        #expect(reachedDeadline)
+        #expect(fixture.window.writes.first == .exitFullScreen)
+        #expect(fixture.window.writes.count > 1)
+    }
+
     @Test("Leaving full screen waits for the flag and a frame that holds still")
     func fullScreenExitState() {
         var exit = FullScreenExit()

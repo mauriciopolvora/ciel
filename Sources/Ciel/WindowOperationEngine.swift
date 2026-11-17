@@ -144,16 +144,17 @@ final class WindowOperationEngine {
         guard try window.isFullScreen(timeout: budget.timeout()) else { return false }
         try window.exitFullScreen(timeout: budget.timeout())
         var exit = FullScreenExit()
-        var fullScreen: Bool? = true
+        var lastFullScreen = true
         while true {
             do {
                 try budget.pause(FullScreenExit.pollInterval)
             } catch WindowError.timedOut {
                 // A window still animating out of full screen at the deadline takes the command anyway.
-                if fullScreen == false { return true }
+                if !lastFullScreen { return true }
                 throw WindowError.fullScreen
             }
-            fullScreen = try? window.isFullScreen(timeout: budget.timeout())
+            let fullScreen = try? window.isFullScreen(timeout: budget.timeout())
+            if let fullScreen { lastFullScreen = fullScreen }
             let frame = try? window.frame(timeout: budget.timeout())
             if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return true }
         }
