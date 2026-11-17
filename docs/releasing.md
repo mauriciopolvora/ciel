@@ -1,10 +1,49 @@
 # Release Ciel
 
-## Release status
+## Release from GitHub
 
-Ciel 0.4.2 is prepared for local use. The local app is ad-hoc signed. It is not a notarized public release. Source is published at [mauriciopolvora/ciel](https://github.com/mauriciopolvora/ciel) under the MIT license. A notarized download is not available yet.
+`.github/workflows/release.yml` publishes a release on a macOS runner. No Mac is needed. To start it, do one of these:
 
-The workflow in `.github/workflows/checks.yml` checks the core, builds an Apple Silicon app, verifies its architecture and signature, and uploads a development archive. It does not sign with Developer ID or publish a release. See [GitHub Actions](https://github.com/mauriciopolvora/ciel/actions) for hosted build results.
+- Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist`, merge, wait for `Check Ciel` to pass on the merge commit, then push the tag `v<version>` on it.
+- Run the workflow from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag on that commit.
+
+Before it reads any secret, the workflow stops unless all of these hold:
+
+- The version matches `CFBundleShortVersionString`, and no release has it yet. A run from the Actions tab also needs a new tag.
+- The commit is on `main`, and the `Check Ciel` workflow passed on it.
+- The version is newer than the latest release, and `CFBundleVersion` is higher than the build in the latest appcast, because Sparkle offers only a higher build.
+- The app builds.
+
+The workflow then:
+
+1. Imports the Developer ID certificate into a temporary keychain.
+2. Writes the update signing key to a temporary file with mode 600.
+3. Runs `scripts/release.sh`, which builds, signs, notarizes, staples and writes the five release files.
+4. Creates the release `v<version>` on the exact commit, with all five files.
+5. Downloads `releases/latest/download/Ciel.zip`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app with `stapler validate` and Gatekeeper.
+6. Deletes the keychain and the key file, also when a step fails.
+
+It reads these repository secrets:
+
+| Secret | Use |
+| --- | --- |
+| `CIEL_DEVID_P12_BASE64` | Developer ID Application certificate and private key, as a base64 `.p12` |
+| `CIEL_DEVID_P12_PASSWORD` | Password of that `.p12` |
+| `CIEL_NOTARY_APPLE_ID` | Apple ID for `notarytool` |
+| `CIEL_NOTARY_PASSWORD` | App-specific password of that Apple ID |
+| `CIEL_NOTARY_TEAM_ID` | Team ID for `notarytool` |
+| `CIEL_SPARKLE_ENV` | Contents of `ciel-sparkle.env`, the line `SPARKLE_PRIVATE_ED_KEY=<key>` |
+
+The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad-hoc signed app and uploads it as a development archive. It does not publish anything.
+
+### Roll back
+
+A published release is live as soon as the workflow uploads it, even when the check after it fails. To stop new downloads and updates of a bad release, do one of these:
+
+- `gh release edit v<previous> --latest` points the download link and the appcast back to the previous release. Releases before 0.6.0 have no appcast, so after a rollback to one of them the update feed returns 404 and installed copies find no update.
+- `gh release delete v<bad> --cleanup-tag` removes the release and its tag. The workflow refuses to release a version whose release or tag exists, so delete both before you run it again for the same version.
+
+Sparkle never offers a lower or equal build, so copies that already updated stay on the bad build. To fix them, release a new version with a `CFBundleVersion` higher than every build ever published. After a rollback, the workflow compares only against the release marked Latest, so it cannot catch a reused build.
 
 ## Build architectures
 
@@ -18,9 +57,9 @@ The build copies `CTranscribe.framework` into `Contents/Frameworks`, keeps only 
 
 The build also copies `Sparkle.framework` and removes its XPC services, which Sparkle uses only in sandboxed apps. It signs Sparkle's `Autoupdate` and `Updater.app` before the framework, with the same identity and the same Team ID and hardened runtime checks as the rest of the app.
 
-## Sign and notarize
+## Sign and notarize on a Mac
 
-Install a **Developer ID Application** certificate and its private key in the macOS keychain. Create a `notarytool` keychain profile with Apple's notarization credentials. Keep credentials and certificates outside the repository.
+Install a **Developer ID Application** certificate and its private key in the macOS keychain. Create a `notarytool` keychain profile with Apple's notarization credentials. Instead of a profile, you can set `NOTARY_APPLE_ID`, `NOTARY_PASSWORD` and `NOTARY_TEAM_ID`, which is what the release workflow does. Keep credentials and certificates outside the repository.
 
 Run:
 
@@ -59,7 +98,7 @@ The install script saves the old Ciel bundle under `.build/backups` before it re
 
 Ciel checks for updates with [Sparkle](https://sparkle-project.org). The app reads the feed at `https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml` and accepts only archives signed by the EdDSA key whose public half is `SUPublicEDKey` in `Resources/Info.plist`.
 
-The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key or add it to CI.
+The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key. The only copy in GitHub is the `CIEL_SPARKLE_ENV` secret, which only the release workflow reads.
 
 After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The script checks the signature against `SUPublicEDKey` first, and a key that does not match stops it before it writes the appcast. Attach `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml` to the GitHub release tagged `v<version>`.
 

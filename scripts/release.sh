@@ -1,8 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# notarytool takes the Apple ID password as an argument, so this script never traces.
+{ set +x; } 2>/dev/null
 : "${SIGN_IDENTITY:?Set SIGN_IDENTITY to your Developer ID Application certificate.}"
-: "${NOTARY_PROFILE:?Set NOTARY_PROFILE to a notarytool keychain profile.}"
+if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+    notary=(--keychain-profile "$NOTARY_PROFILE")
+elif [[ -n "${NOTARY_APPLE_ID:-}" && -n "${NOTARY_PASSWORD:-}" && -n "${NOTARY_TEAM_ID:-}" ]]; then
+    notary=(--apple-id "$NOTARY_APPLE_ID" --password "$NOTARY_PASSWORD" --team-id "$NOTARY_TEAM_ID")
+else
+    printf 'Set NOTARY_PROFILE to a notarytool keychain profile, or set NOTARY_APPLE_ID, NOTARY_PASSWORD and NOTARY_TEAM_ID.\n' >&2; exit 1
+fi
 if [[ "$SIGN_IDENTITY" != 'Developer ID Application:'* ]]; then
     printf 'A Developer ID Application identity is required.\n' >&2; exit 1
 fi
@@ -18,9 +26,19 @@ app_path="$PWD/dist/Ciel.app"
 version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app_path/Contents/Info.plist")
 archive="$PWD/dist/Ciel-${version}-${CIEL_ARCH}.zip"
 submission="$PWD/dist/Ciel-notary-submission.zip"
-trap 'rm -f "$submission"' EXIT
+notary_result="$PWD/dist/notary-result.json"
+trap 'rm -f "$submission" "$notary_result"' EXIT
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$submission"
-xcrun notarytool submit "$submission" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun notarytool submit "$submission" "${notary[@]}" --wait --output-format json >"$notary_result" || true
+notary_status=$(plutil -extract status raw "$notary_result" 2>/dev/null || printf 'missing')
+if [[ "$notary_status" != Accepted ]]; then
+    printf 'Notarization status: %s\n' "$notary_status" >&2
+    if notary_id=$(plutil -extract id raw "$notary_result" 2>/dev/null); then
+        xcrun notarytool log "$notary_id" "${notary[@]}" >&2 || true
+    fi
+    exit 1
+fi
+printf 'Notarization accepted.\n'
 xcrun stapler staple "$app_path"
 xcrun stapler validate "$app_path"
 codesign --verify --strict --deep "$app_path"

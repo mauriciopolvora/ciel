@@ -1,0 +1,156 @@
+name: Release Ciel
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on the chosen branch.
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      SIGN_IDENTITY: 'Developer ID Application: LX Launch, LDA (XKAA7G4U82)'
+      CIEL_ARCH: arm64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set the temporary paths
+        run: printf 'KEYCHAIN=%s\nSPARKLE_KEY_FILE=%s\n' "$RUNNER_TEMP/ciel-release.keychain-db" "$RUNNER_TEMP/ciel-sparkle.env" >> "$GITHUB_ENV"
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Check the version and the commit
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fail() { printf '%s\n' "$1" >&2; exit 1; }
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then version="${GITHUB_REF_NAME#v}"; else version="$INPUT_VERSION"; fi
+          plist=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
+          build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$version" == "$plist" ]] ||
+            fail "Version $version does not match CFBundleShortVersionString $plist in Resources/Info.plist."
+          [[ "$build" =~ ^[0-9]+$ ]] || fail "CFBundleVersion $build is not a whole number."
+          git fetch -q --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || fail "$GITHUB_SHA is not on main. Release only merged commits."
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&status=success" \
+            --jq '[.workflow_runs[] | select(.path == ".github/workflows/checks.yml" and .event == "push")] | length')
+          [[ "$passed" -gt 0 ]] || fail "Check Ciel has not passed on $GITHUB_SHA."
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then fail "Release v$version already exists."; fi
+          if [[ "$GITHUB_EVENT_NAME" != push ]] && git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            fail "Tag v$version already exists. Push the tag to release it, or pick a new version."
+          fi
+          # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
+          latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not read the latest release tag."
+          IFS=. read -r a b c <<<"${latest_tag#v}"
+          IFS=. read -r x y z <<<"$version"
+          (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
+          has_appcast=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '[.assets[].name] | index("appcast.xml") != null')
+          # Releases before 0.6.0 have no appcast, so there is no build to compare.
+          if [[ "$has_appcast" == true ]]; then
+            latest_build=$(gh release download "$latest_tag" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --output - |
+              sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p')
+            [[ "$latest_build" =~ ^[0-9]+$ ]] || fail "Could not read the build from the appcast of $latest_tag."
+            (( build > latest_build )) ||
+              fail "CFBundleVersion $build is not higher than build $latest_build in the latest appcast, so Sparkle would not offer it."
+          fi
+          printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Build before any step reads a secret
+        run: swift build -c release --product Ciel --arch arm64
+      - name: Import the Developer ID certificate into a temporary keychain
+        env:
+          P12_BASE64: ${{ secrets.CIEL_DEVID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.CIEL_DEVID_P12_PASSWORD }}
+        run: |
+          umask 077
+          keychain_password=$(openssl rand -hex 24)
+          printf '::add-mask::%s\n' "$keychain_password"
+          p12="$RUNNER_TEMP/devid.p12"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$p12"
+          security create-keychain -p "$keychain_password" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$keychain_password" "$KEYCHAIN"
+          security import "$p12" -k "$KEYCHAIN" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$p12"
+          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          # The .p12 may already hold the intermediate certificate.
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN" || printf 'The intermediate certificate is already in the keychain.\n'
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$KEYCHAIN" >/dev/null
+          # Runner keychain paths have no spaces, so xargs can strip the quotes.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | xargs)
+          if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -qF "\"$SIGN_IDENTITY\""; then
+            printf 'The certificate does not hold the identity %s.\n' "$SIGN_IDENTITY" >&2; exit 1
+          fi
+      - name: Write the update signing key
+        env:
+          SPARKLE_ENV: ${{ secrets.CIEL_SPARKLE_ENV }}
+        run: |
+          umask 077
+          printf '%s\n' "$SPARKLE_ENV" > "$SPARKLE_KEY_FILE"
+          chmod 600 "$SPARKLE_KEY_FILE"
+      - name: Build, sign, notarize and staple
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.CIEL_NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.CIEL_NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.CIEL_NOTARY_TEAM_ID }}
+        run: bash scripts/release.sh
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
+            --title "Ciel $VERSION" \
+            --notes 'Signed with Developer ID and notarized by Apple. Requires an Apple Silicon Mac. Download Ciel.zip, unzip, and move Ciel.app to Applications.' \
+            "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
+            dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml
+      - name: Check the published release
+        run: |
+          check="$RUNNER_TEMP/published"
+          mkdir -p "$check"
+          latest="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
+          enclosure="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip"
+          # The latest links can lag behind a new release for a few seconds, so each file gets ten tries to match this build.
+          fetch() {
+            local url="$1" output="$2" expected="$3" code
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+              code=$(curl -sSL -o "$output" -w "%{http_code}" "$url" || true)
+              if [[ "$code" == 200 ]] && cmp -s "$output" "$expected"; then
+                printf '200, matches this build: %s\n' "$url"; return 0
+              fi
+              sleep 6
+            done
+            printf 'HTTP %s, or the file does not match this build: %s\n' "$code" "$url" >&2; return 1
+          }
+          fetch "$latest/appcast.xml" "$check/appcast.xml" dist/appcast.xml
+          fetch "$latest/Ciel.zip" "$check/Ciel.zip" dist/Ciel.zip
+          fetch "$enclosure" "$check/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip"
+          grep -qF "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" "$check/appcast.xml"
+          grep -qF "<enclosure url=\"$enclosure\"" "$check/appcast.xml"
+          signature=$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' "$check/appcast.xml")
+          swift scripts/VerifyUpdate.swift "$(plutil -extract SUPublicEDKey raw Resources/Info.plist)" "$signature" "$check/Ciel-$VERSION-arm64.zip"
+          printf 'The appcast lists %s, and its EdDSA signature matches SUPublicEDKey.\n' "$VERSION"
+          ditto -x -k "$check/Ciel.zip" "$check"
+          xcrun stapler validate "$check/Ciel.app"
+          spctl --assess --type execute --verbose=2 "$check/Ciel.app"
+      - name: Delete the keychain and the key file
+        if: always()
+        run: |
+          if [[ -n "${KEYCHAIN:-}" ]]; then security delete-keychain "$KEYCHAIN" 2>/dev/null || true; fi
+          rm -f "${SPARKLE_KEY_FILE:-}" "$RUNNER_TEMP/devid.p12" "$RUNNER_TEMP/DeveloperIDG2CA.cer"
