@@ -101,8 +101,12 @@ extension SettingsController {
         tracked(title, at: y)
         for (index, (name, controls)) in rows.enumerated() {
             let center = y + 22 + CGFloat(index) * 36 + 18
-            place(Theme.label(name, size: 13), x: 36, centerY: center)
-            place(stack(controls), right: 444, centerY: center)
+            let label = Theme.label(name, size: 13)
+            let line = stack(controls)
+            place(label, x: 36, centerY: center)
+            place(line, right: 444, centerY: center)
+            line.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 12).isActive =
+                true
         }
         return y + 22 + CGFloat(rows.count) * 36 + 14
     }
@@ -117,6 +121,8 @@ extension SettingsController {
         let line = stack(controls)
         line.alignment = .firstBaseline
         place(line, x: 188, centerY: center)
+        line.trailingAnchor.constraint(lessThanOrEqualTo: content.leadingAnchor, constant: 444).isActive =
+            true
         y += height
     }
 

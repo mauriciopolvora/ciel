@@ -108,6 +108,35 @@ struct SettingsSpotlightTests {
         }
     }
 
+    @Test func aLongDownloadErrorTruncatesInsideItsRowInEveryDesign() {
+        withEmptyDefaults { defaults in
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
+            let speech = SpeechModelStore(
+                folder: FileManager.default.temporaryDirectory.appending(
+                    path: "ciel-settings-" + UUID().uuidString))
+            let settings = SettingsController(hotKeys: hotKeys, speech: speech, updater: Updater())
+            speech.showForCheck(.failed(String(repeating: "The network connection was lost. ", count: 6)))
+            for design in SettingsDesign.allCases {
+                settings.show(design)
+                settings.refresh()
+                let content = settings.content
+                content.layoutSubtreeIfNeeded()
+                let button = settings.modelButton.convert(settings.modelButton.bounds, to: content)
+                let status = settings.modelStatus.convert(settings.modelStatus.bounds, to: content)
+                let name = Self.labels(in: content).first { $0.stringValue == "Speech model" }
+                let nameFrame = name.map { $0.convert($0.bounds, to: content) } ?? .zero
+                #expect(button.minX >= 0 && button.maxX <= content.bounds.width, "design \(design.letter)")
+                #expect(
+                    !status.intersects(nameFrame) && !status.intersects(button), "design \(design.letter)")
+            }
+        }
+    }
+
+    private static func labels(in view: NSView) -> [NSTextField] {
+        view.subviews.flatMap { ($0 as? NSTextField).map { [$0] } ?? labels(in: $0) }
+    }
+
     @Test func aFreeShortcutIsSavedAtOnce() {
         withSettings { settings, hotKeys, system in
             settings.recorders[.launcher]?.accept(shiftCommandSpace)
