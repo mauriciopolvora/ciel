@@ -21,34 +21,28 @@ import Foundation
     private(set) var results: [SearchEntry] = []
     private(set) var selectedIndex: Int?
     private var entries: [SearchEntry] = []
-    private var usage: [String: Int] = [:]
-    private var lastUsed: [String: Double] = [:]
+    private var usage = Usage()
 
     var hasQuery: Bool { !SearchEngine.tokens(in: query).isEmpty }
     var selectedEntry: SearchEntry? { selectedIndex.map { results[$0] } }
 
     @discardableResult
-    func update(
-        entries: [SearchEntry], usage: [String: Int], lastUsed: [String: Double]
-    ) -> Change {
-        guard self.entries != entries || self.usage != usage || self.lastUsed != lastUsed else {
-            return Change()
-        }
+    func update(entries: [SearchEntry], usage: Usage) -> Change {
+        guard self.entries != entries || self.usage != usage else { return Change() }
         return transition(preserveSelection: true) {
             self.entries = entries
             self.usage = usage
-            self.lastUsed = lastUsed
         }
     }
 
     @discardableResult
-    func updateUsage(_ usage: [String: Int], lastUsed: [String: Double]) -> Change {
-        update(entries: entries, usage: usage, lastUsed: lastUsed)
+    func updateUsage(_ usage: Usage) -> Change {
+        update(entries: entries, usage: usage)
     }
 
     @discardableResult
     func updateEntries(_ entries: [SearchEntry]) -> Change {
-        update(entries: entries, usage: usage, lastUsed: lastUsed)
+        update(entries: entries, usage: usage)
     }
 
     @discardableResult
@@ -106,7 +100,7 @@ import Foundation
         results =
             hasQuery
             ? PerformanceTrace.measure("Search") {
-                SearchEngine.search(query, entries: entries, kind: filter, usage: usage, lastUsed: lastUsed)
+                SearchEngine.search(query, entries: entries, kind: filter, usage: usage)
             }
             : []
         selectedIndex =

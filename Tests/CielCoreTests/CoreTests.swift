@@ -21,7 +21,8 @@ struct SearchTests {
             id: "safari-tech", title: "Safari Technology Preview", subtitle: "Application", kind: .application
         )
         #expect(
-            SearchEngine.search("safari", entries: apps + [other], usage: [other.id: 1000]).first?.id
+            SearchEngine.search("safari", entries: apps + [other], usage: Usage(counts: [other.id: 1000]))
+                .first?.id
                 == "safari")
     }
     @Test
@@ -59,15 +60,14 @@ struct SearchTests {
     @Test
     func testHistoryAndLimit() {
         #expect(
-            SearchEngine.search("notes", entries: notes, usage: ["beta": 5], limit: 1).map(\.id) == ["beta"])
+            SearchEngine.search("notes", entries: notes, usage: Usage(counts: ["beta": 5]), limit: 1).map(
+                \.id) == ["beta"])
         #expect(SearchEngine.search("notes", entries: notes, limit: 0).isEmpty)
     }
     @Test
     func testRecentUseBreaksFrequencyTies() {
-        let usage = ["alpha": 3, "beta": 3]
-        let dates = ["alpha": 100.0, "beta": 200.0]
-        #expect(
-            SearchEngine.search("notes", entries: notes, usage: usage, lastUsed: dates).first?.id == "beta")
+        let usage = Usage(counts: ["alpha": 3, "beta": 3], lastUsed: ["alpha": 100, "beta": 200])
+        #expect(SearchEngine.search("notes", entries: notes, usage: usage).first?.id == "beta")
     }
     @Test
     func testMinimizeSearch() {
@@ -75,7 +75,7 @@ struct SearchTests {
     }
     @Test
     func testEmptyAndUnicodeQueries() {
-        #expect(SearchEngine.search("", entries: apps, usage: ["code": 5]).isEmpty)
+        #expect(SearchEngine.search("", entries: apps, usage: Usage(counts: ["code": 5])).isEmpty)
         #expect(SearchEngine.search("   ", entries: apps).isEmpty)
         #expect(SearchEngine.search("🚀", entries: apps).isEmpty)
         #expect(SearchEngine.search("anything", entries: []).isEmpty)
@@ -258,22 +258,136 @@ struct CatalogTests {
 }
 
 @Suite
+struct LearnedRankingTests {
+    let entries =
+        SearchEntry.commands + [
+            SearchEntry(id: "finder", title: "Finder", subtitle: "Application", kind: .application),
+            SearchEntry(id: "facetime", title: "FaceTime", subtitle: "Application", kind: .application),
+        ]
+    let firstThreeFourths = WindowAction.firstThreeFourths.id
+
+    func top(_ query: String, _ picks: [(String, String)]) -> String? {
+        let usage = Usage(picks: picks.map { Usage.Pick(query: $0.0, id: $0.1) })
+        return SearchEngine.search(query, entries: entries, usage: usage).first?.id
+    }
+
+    @Test
+    func aPickRanksFirstForEveryStartOfTheQueryItWasPickedFor() {
+        #expect(top("f", []) != firstThreeFourths)
+        #expect(top("f", [("first t", firstThreeFourths)]) == firstThreeFourths)
+        #expect(top("fir", [("first t", firstThreeFourths)]) == firstThreeFourths)
+        #expect(top("first t", [("first t", firstThreeFourths)]) == firstThreeFourths)
+    }
+
+    @Test
+    func aPickRecordedThroughHistoryRanksForTheTypedText() {
+        let suite = "ciel.history.test." + UUID().uuidString
+        defer { UserDefaults(suiteName: suite)!.removePersistentDomain(forName: suite) }
+        let history = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
+        history.record(firstThreeFourths, query: " First  T")
+        #expect(
+            SearchEngine.search("F", entries: entries, usage: history.usage).first?.id == firstThreeFourths)
+    }
+
+    @Test
+    func aPickDoesNotRankForAQueryItDoesNotStartWith() {
+        #expect(top("fa", [("first t", firstThreeFourths)]) == "facetime")
+    }
+
+    @Test
+    func theEntryPickedMoreOftenForTheTypedTextWins() {
+        let picks = [
+            ("fin", "finder"), ("fin", "finder"), ("fin", "finder"), ("first", firstThreeFourths),
+        ]
+        #expect(top("f", picks) == "finder")
+        #expect(top("fir", picks) == firstThreeFourths)
+    }
+
+    @Test
+    func anExactTitleOutranksALearnedEntry() {
+        let entries = [
+            SearchEntry(id: "codex", title: "Codex", subtitle: "Application", kind: .application),
+            SearchEntry(id: "code", title: "Code", subtitle: "Application", kind: .application),
+        ]
+        let usage = Usage(picks: [Usage.Pick(query: "codex", id: "codex")])
+        #expect(SearchEngine.search("code", entries: entries, usage: usage).map(\.id) == ["code", "codex"])
+        #expect(SearchEngine.search("cod", entries: entries, usage: usage).first?.id == "codex")
+        let spaced = [
+            SearchEntry(id: "plus", title: "Quick  Notes Plus", subtitle: "Application", kind: .application),
+            SearchEntry(id: "quick", title: "Quick  Notes", subtitle: "Application", kind: .application),
+        ]
+        let picked = Usage(picks: [Usage.Pick(query: "quick notes plus", id: "plus")])
+        #expect(SearchEngine.search("Quick  Notes", entries: spaced, usage: picked).first?.id == "quick")
+    }
+
+    @Test
+    func aLearnedEntryThatNoLongerMatchesTheTextIsNotReturned() {
+        let renamed = SearchEntry(id: "finder", title: "Photos", subtitle: "Application", kind: .application)
+        let usage = Usage(picks: [Usage.Pick(query: "fin", id: "finder")])
+        #expect(SearchEngine.search("fin", entries: [renamed], usage: usage).isEmpty)
+    }
+}
+
+@Suite
 struct UsageHistoryTests {
+    func withDefaults(_ body: (String) -> Void) {
+        let suite = "ciel.history.test." + UUID().uuidString
+        defer { UserDefaults(suiteName: suite)!.removePersistentDomain(forName: suite) }
+        body(suite)
+    }
+
     @Test
     func testPersistenceAndLegacyCounts() {
-        let suite = "ciel.history.test." + UUID().uuidString
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(["safari": 3], forKey: "usage")
-        let history = UsageHistory(defaults: defaults)
-        #expect(history.counts["safari"] == 3)
-        #expect(history.lastUsed.isEmpty)
-        history.record("window.centerThreeFourths", at: Date(timeIntervalSince1970: 200))
-        history.record("safari", at: Date(timeIntervalSince1970: 100))
-        let reopened = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
-        #expect(reopened.counts["safari"] == 4)
-        #expect(reopened.counts["window.centerThreeFourths"] == 1)
-        #expect(reopened.lastUsed["window.centerThreeFourths"] == 200)
-        #expect(reopened.lastUsed["safari"] == 100)
+        withDefaults { suite in
+            let defaults = UserDefaults(suiteName: suite)!
+            defaults.set(["safari": 3], forKey: "usage")
+            let history = UsageHistory(defaults: defaults)
+            #expect(history.usage.counts["safari"] == 3)
+            #expect(history.usage.lastUsed.isEmpty)
+            history.record("window.centerThreeFourths", at: Date(timeIntervalSince1970: 200))
+            history.record("safari", at: Date(timeIntervalSince1970: 100))
+            let reopened = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
+            #expect(reopened.usage.counts["safari"] == 4)
+            #expect(reopened.usage.counts["window.centerThreeFourths"] == 1)
+            #expect(reopened.usage.lastUsed["window.centerThreeFourths"] == 200)
+            #expect(reopened.usage.lastUsed["safari"] == 100)
+            #expect(reopened.usage.picks.isEmpty)
+        }
+    }
+
+    @Test
+    func picksPersistNormalizedAndBlankQueriesStoreNone() {
+        withDefaults { suite in
+            let history = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
+            history.record("window.firstThreeFourths", query: "  First   T ")
+            history.record("safari", query: "   ")
+            history.record("safari", query: "")
+            history.record("safari")
+            let reopened = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
+            #expect(reopened.usage.picks == [Usage.Pick(query: "first t", id: "window.firstThreeFourths")])
+            #expect(reopened.usage.counts["safari"] == 3)
+        }
+    }
+
+    @Test
+    func picksKeepOnlyTheNewestFiveHundred() {
+        withDefaults { suite in
+            let history = UsageHistory(defaults: UserDefaults(suiteName: suite)!)
+            for index in 0...UsageHistory.pickLimit { history.record("app\(index)", query: "a") }
+            let picks = UsageHistory(defaults: UserDefaults(suiteName: suite)!).usage.picks
+            #expect(picks.count == 500)
+            #expect(picks.first?.id == "app1")
+            #expect(picks.last?.id == "app500")
+        }
+    }
+
+    @Test
+    func storedPicksReadBackAndMalformedRowsAreSkipped() {
+        withDefaults { suite in
+            let defaults = UserDefaults(suiteName: suite)!
+            defaults.set(
+                [["query": "f", "id": "x"], ["query": "g"], ["query": 1, "id": "y"], "z"], forKey: "picks")
+            #expect(UsageHistory(defaults: defaults).usage.picks == [Usage.Pick(query: "f", id: "x")])
+        }
     }
 }

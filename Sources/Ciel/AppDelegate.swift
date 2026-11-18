@@ -50,7 +50,7 @@ import CielCore
         NSApp.appearance = NSAppearance(named: .darkAqua)
         NSApp.setActivationPolicy(.accessory)
         setupMenu()
-        panel.launcher.onExecute = { [weak self] entry in self?.execute(entry) }
+        panel.launcher.onExecute = { [weak self] entry, query in self?.execute(entry, query: query) }
         panel.onSettings = { [weak self] in self?.showSettings() }
         catalog.onUpdate = { [weak self] update in self?.catalogUpdated(update) }
         speech.onChange = { [weak self] in self?.speechChanged() }
@@ -212,12 +212,12 @@ import CielCore
 
     private func reloadEntries() {
         let entries = catalog.entries + SearchEntry.commands + SearchEntry.utilities
-        panel.launcher.update(entries: entries, usage: history.counts, lastUsed: history.lastUsed)
+        panel.launcher.update(entries: entries, usage: history.usage)
     }
 
-    private func recordUsage(_ id: SearchEntry.ID) {
-        history.record(id)
-        panel.launcher.updateUsage(history.counts, lastUsed: history.lastUsed)
+    private func recordUsage(_ id: SearchEntry.ID, query: String? = nil) {
+        history.record(id, query: query)
+        panel.launcher.updateUsage(history.usage)
     }
 
     @objc private func menuOpen() { open() }
@@ -228,9 +228,9 @@ import CielCore
         panel.present()
     }
 
-    private func execute(_ entry: SearchEntry) {
+    private func execute(_ entry: SearchEntry, query: String) {
         if let action = entry.action {
-            run(action)
+            run(action, query: query)
             return
         }
         if let path = entry.path {
@@ -246,11 +246,12 @@ import CielCore
                         self?.hud.show(error.localizedDescription, error: true)
                         self?.catalog.refresh()
                     } else {
-                        self?.recordUsage(entry.id)
+                        self?.recordUsage(entry.id, query: query)
                     }
                 }
             }
         } else if let utility = entry.utility {
+            recordUsage(entry.id, query: query)
             switch utility {
             case .settings: showSettings()
             case .rescan:
@@ -260,7 +261,7 @@ import CielCore
         }
     }
 
-    private func run(_ action: WindowAction) {
+    private func run(_ action: WindowAction, query: String? = nil) {
         guard !windows.isBusy else { return }
         guard WindowController.isTrusted else {
             panel.dismiss()
@@ -275,7 +276,7 @@ import CielCore
             guard let self else { return }
             switch result {
             case .success(let outcome):
-                self.recordUsage(action.id)
+                self.recordUsage(action.id, query: query)
                 if let notice = outcome.notice { self.hud.show(notice) }
             case .failure(let error): self.hud.show(error.localizedDescription, error: true)
             }

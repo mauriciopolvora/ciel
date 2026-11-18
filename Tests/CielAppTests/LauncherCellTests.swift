@@ -69,7 +69,7 @@ struct LauncherCellTests {
         view.onHeightChange = { [weak window] in
             window?.setContentSize(NSSize(width: LauncherView.width, height: $0))
         }
-        view.update(entries: SearchEntry.utilities + SearchEntry.commands, usage: [:], lastUsed: [:])
+        view.update(entries: SearchEntry.utilities + SearchEntry.commands, usage: Usage())
         view.searchField.stringValue = query
         view.updateResults()
         #expect(Array(view.results.map(\.title).prefix(titles.count)) == titles)
@@ -107,7 +107,7 @@ struct LauncherCellTests {
         view.onHeightChange = { [weak window] in
             window?.setContentSize(NSSize(width: LauncherView.width, height: $0))
         }
-        view.update(entries: SearchEntry.utilities, usage: [:], lastUsed: [:])
+        view.update(entries: SearchEntry.utilities, usage: Usage())
         view.searchField.stringValue = "ci"
         view.updateResults()
         view.layoutSubtreeIfNeeded()

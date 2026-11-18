@@ -36,6 +36,7 @@ mutants=(
     "M30|Let the selected row style recolor result icons"
     "M31|Open Keyboard settings without the Spotlight anchor"
     "M32|Never show the Spotlight card under System Settings"
+    "M33|Match a pick only when its query equals the typed query"
 )
 
 mutate() {
@@ -120,6 +121,7 @@ mutate() {
             ;;
         M31) swap Sources/Ciel/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
         M32) swap Sources/Ciel/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
+        M33) swap Sources/CielCore/Search.swift 's/where pick\.query\.hasPrefix\(key\)/where pick.query == key/' ;;
     esac
 }
 

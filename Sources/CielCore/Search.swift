@@ -75,21 +75,29 @@ public enum SearchEngine {
             minScore: 0.3,
             algorithm: .editDistance(EditDistanceConfig(maxEditDistance: 1, longQueryMaxEditDistance: 2))))
 
+    /// The form a query is matched and remembered in, so a pick recorded for a query is found again by it.
+    public static func queryKey(_ query: String) -> String {
+        tokens(in: query).joined(separator: " ")
+    }
+
     public static func search(
-        _ query: String, entries: [SearchEntry], kind: SearchEntry.Kind? = nil,
-        usage: [String: Int] = [:], lastUsed: [String: Double] = [:], limit: Int = 60
+        _ query: String, entries: [SearchEntry], kind: SearchEntry.Kind? = nil, usage: Usage = Usage(),
+        limit: Int = 60
     ) -> [SearchEntry] {
         let tokens = tokens(in: query)
         guard limit > 0, !tokens.isEmpty else { return [] }
-        let q = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = queryKey(query)
+        let trimmed = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
+        var learned: [String: Int] = [:]
+        for pick in usage.picks where pick.query.hasPrefix(key) { learned[pick.id, default: 0] += 1 }
         let prepared = tokens.map { token in
             let matcher = token.count < 4 ? strict : tolerant
             return (token, matcher, matcher.prepare(token))
         }
         var buffer = tolerant.makeBuffer()
-        return entries.compactMap { entry -> (SearchEntry, Int)? in
+        return entries.compactMap { entry -> Ranked? in
             if let kind, entry.kind != kind { return nil }
-            let history = min(max(0, usage[entry.id, default: 0]), 30)
+            let history = min(max(0, usage.counts[entry.id, default: 0]), 30)
             var score = 0
             for (token, matcher, query) in prepared {
                 if entry.normalizedTitle == token {
@@ -106,14 +114,25 @@ public enum SearchEngine {
                     return nil
                 }
             }
-            if entry.normalizedTitle == q { score += 500 }
-            return (entry, score + history)
+            let exact = entry.normalizedTitle == key || entry.normalizedTitle == trimmed
+            if exact { score += 500 }
+            return Ranked(
+                entry: entry, exact: exact, learned: learned[entry.id, default: 0], score: score + history,
+                lastUsed: usage.lastUsed[entry.id, default: 0])
         }.sorted {
-            if $0.1 != $1.1 { return $0.1 > $1.1 }
-            let a = lastUsed[$0.0.id, default: 0]
-            let b = lastUsed[$1.0.id, default: 0]
-            if a != b { return a > b }
-            return $0.0.title.localizedStandardCompare($1.0.title) == .orderedAscending
-        }.prefix(limit).map(\.0)
+            if $0.exact != $1.exact { return $0.exact }
+            if $0.learned != $1.learned { return $0.learned > $1.learned }
+            if $0.score != $1.score { return $0.score > $1.score }
+            if $0.lastUsed != $1.lastUsed { return $0.lastUsed > $1.lastUsed }
+            return $0.entry.title.localizedStandardCompare($1.entry.title) == .orderedAscending
+        }.prefix(limit).map(\.entry)
+    }
+
+    private struct Ranked {
+        let entry: SearchEntry
+        let exact: Bool
+        let learned: Int
+        let score: Int
+        let lastUsed: Double
     }
 }
