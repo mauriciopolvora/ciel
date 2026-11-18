@@ -8,7 +8,7 @@
 - `bash scripts/check.sh --unit-only` runs everything before the app build and opens no windows.
 - `bash scripts/mutants.sh` reapplies each recorded past mistake to a scratch copy and fails if the tests miss one.
 - Run tests with `bash scripts/test.sh`, not bare `swift test`. Some Command Line Tools builds omit the Swift Testing macro plugin, and the wrapper loads it.
-- Format before checking: `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift`.
+- Format before checking: `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/GenerateDMGBackground.swift scripts/VerifyUpdate.swift Package.swift`.
 
 ## Rules and what enforces them
 
