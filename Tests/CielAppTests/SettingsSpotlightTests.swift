@@ -15,7 +15,13 @@ struct SettingsSpotlightTests {
             settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             #expect(settings.spotlightGuide.held == SpotlightShortcuts.commandSpace)
-            #expect(system.opened == [SpotlightShortcuts.keyboardSettings])
+            #expect(
+                system.opened.map(\.absoluteString) == [
+                    "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Spotlight"
+                ])
+            #expect(
+                settings.spotlightGuide.shownCard
+                    == .turnOff(action: "Show Spotlight search", shortcut: "⌘Space"))
             #expect(settings.spotlightGuide.heading.stringValue == "Free ⌘Space from Spotlight")
             #expect(
                 settings.spotlightGuide.note.stringValue
@@ -28,6 +34,9 @@ struct SettingsSpotlightTests {
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
             #expect(settings.recorders[.launcher]?.shortcut == SpotlightShortcuts.commandSpace)
             #expect(settings.spotlightGuide.held == nil)
+            #expect(settings.spotlightGuide.shownCard == .freed(shortcut: "⌘Space"))
+            settings.close()
+            #expect(settings.spotlightGuide.shownCard == nil)
         }
     }
 
@@ -35,6 +44,9 @@ struct SettingsSpotlightTests {
         withSettings { settings, hotKeys, system in
             settings.recorders[.launcher]?.accept(optionCommandSpace)
             #expect(settings.spotlightGuide.held == optionCommandSpace)
+            #expect(
+                settings.spotlightGuide.shownCard
+                    == .turnOff(action: "Show Finder search window", shortcut: "⌥⌘Space"))
             #expect(settings.spotlightGuide.heading.stringValue == "Free ⌥⌘Space from Spotlight")
             #expect(
                 settings.spotlightGuide.note.stringValue
@@ -56,6 +68,9 @@ struct SettingsSpotlightTests {
             ]
             settings.recorders[.launcher]?.accept(shiftCommandSpace)
             #expect(settings.spotlightGuide.held == shiftCommandSpace)
+            #expect(
+                settings.spotlightGuide.shownCard
+                    == .turnOff(action: "Show Spotlight search", shortcut: "⇧⌘Space"))
             #expect(settings.spotlightGuide.heading.stringValue == "Free ⇧⌘Space from Spotlight")
             #expect(
                 settings.spotlightGuide.note.stringValue
@@ -72,6 +87,7 @@ struct SettingsSpotlightTests {
             settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
             settings.windowWillClose(Notification(name: NSWindow.willCloseNotification))
             #expect(settings.spotlightGuide.held == nil)
+            #expect(settings.spotlightGuide.shownCard == nil)
             system.symbolicHotKeys = ["64": ["enabled": false]]
             settings.spotlightGuide.tick()
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
@@ -83,6 +99,7 @@ struct SettingsSpotlightTests {
             settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
             settings.cancelSpotlight()
             #expect(settings.spotlightGuide.held == nil)
+            #expect(settings.spotlightGuide.shownCard == nil)
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             #expect(settings.errorLabel.stringValue == "Kept ⌃⌥Space. ⌘Space is still used by Spotlight.")
             system.symbolicHotKeys = ["64": ["enabled": false]]
@@ -158,20 +175,67 @@ struct SettingsSpotlightTests {
             #expect(hotKeys.shortcut(for: .launcher) == shiftCommandSpace)
             #expect(settings.spotlightGuide.held == nil)
             #expect(system.opened.isEmpty)
+            #expect(settings.spotlightGuide.shownCard == nil)
+        }
+    }
+
+    @Test func theCardSaysTheShortcutIsFreeThenCloses() async throws {
+        try await withSettingsAsync { settings, hotKeys, system in
+            settings.spotlightGuide.hold = .zero
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            system.symbolicHotKeys = ["64": ["enabled": false]]
+            settings.spotlightGuide.tick()
+            #expect(settings.spotlightGuide.shownCard == .freed(shortcut: "⌘Space"))
+            await settings.spotlightGuide.holding?.value
+            #expect(settings.spotlightGuide.shownCard == nil)
+            #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
+        }
+    }
+
+    @Test func choosingAgainDuringTheHoldReplacesTheCard() async throws {
+        try await withSettingsAsync { settings, hotKeys, system in
+            settings.spotlightGuide.hold = .zero
+            settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
+            system.symbolicHotKeys = ["64": ["enabled": false]]
+            settings.spotlightGuide.tick()
+            let ended = settings.spotlightGuide.holding
+            settings.recorders[.launcher]?.accept(optionCommandSpace)
+            await ended?.value
+            #expect(
+                settings.spotlightGuide.shownCard
+                    == .turnOff(action: "Show Finder search window", shortcut: "⌥⌘Space"))
+            settings.recorders[.launcher]?.accept(shiftCommandSpace)
+            #expect(settings.spotlightGuide.shownCard == nil)
+            #expect(hotKeys.shortcut(for: .launcher) == shiftCommandSpace)
         }
     }
 
     private func withSettings(_ body: (SettingsController, HotKeys, FakeSystem) -> Void) {
         withEmptyDefaults { defaults in
-            let system = FakeSystem()
-            let hotKeys = HotKeys(
-                defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
-            let folder = FileManager.default.temporaryDirectory.appending(
-                path: "ciel-settings-" + UUID().uuidString)
-            let settings = SettingsController(
-                hotKeys: hotKeys, speech: SpeechModelStore(folder: folder), updater: Updater(),
-                spotlight: SpotlightShortcuts { system.symbolicHotKeys }, open: { system.opened.append($0) })
+            let (settings, hotKeys, system) = Self.settings(defaults)
             body(settings, hotKeys, system)
         }
+    }
+
+    private func withSettingsAsync(
+        _ body: (SettingsController, HotKeys, FakeSystem) async throws -> Void
+    ) async throws {
+        let suite = "ciel.saved-data.test." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let (settings, hotKeys, system) = Self.settings(defaults)
+        try await body(settings, hotKeys, system)
+    }
+
+    private static func settings(_ defaults: UserDefaults) -> (SettingsController, HotKeys, FakeSystem) {
+        let system = FakeSystem()
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: FakeHotKeyRegistrar(), onPress: { _ in }, onChange: {})
+        let folder = FileManager.default.temporaryDirectory.appending(
+            path: "ciel-settings-" + UUID().uuidString)
+        let settings = SettingsController(
+            hotKeys: hotKeys, speech: SpeechModelStore(folder: folder), updater: Updater(),
+            spotlight: SpotlightShortcuts { system.symbolicHotKeys }, open: { system.opened.append($0) })
+        return (settings, hotKeys, system)
     }
 }

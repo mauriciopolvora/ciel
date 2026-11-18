@@ -9,6 +9,8 @@ import CielCore
         "ciel-check-" + UUID().uuidString)
     private var steps: [(WindowAction, CGRect)] = []
     private var failures = 0
+    /// Set when the Spotlight guide step started System Settings, so every exit quits it.
+    private var launchedSettings = false
     private var enhancedFixture: (any WindowAccess)?
     private var minimumSizeFixture = false
     private var dictationKey: Cleanup?
@@ -23,7 +25,7 @@ import CielCore
             print("SKIP: the test process has no Accessibility access")
             exit(2)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in self?.finish(timeout: true) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 40) { [weak self] in self?.finish(timeout: true) }
         NSApp.activate(ignoringOtherApps: true)
         startFixture()
     }
@@ -290,14 +292,139 @@ import CielCore
                     print(
                         "\(matches ? "PASS" : "FAIL") Minimum size: actual=\(actual), original=\(original), reachable=\(reachable(actual)), command=\(Int(elapsed * 1000)) ms, outcome=\(outcome)"
                     )
-                    finish()
+                    if child.isRunning { child.terminate() }
+                    checkSpotlightGuide { [self] in finish() }
                 }
             }
         }
     }
 
+    /// Opens the real System Settings through the guide with Spotlight on its shipped shortcuts, so ⌘Space is held.
+    private func checkSpotlightGuide(then body: @escaping () -> Void) {
+        let suite = "ciel.checks.window-spotlight"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let spotlight = SpotlightState()
+        let hotKeys = HotKeys(
+            defaults: defaults, registrar: AcceptingRegistrar(), onPress: { _ in }, onChange: {})
+        let guide = SpotlightGuide(
+            hotKeys: hotKeys, spotlight: SpotlightShortcuts { spotlight.symbolicHotKeys },
+            open: { _ = NSWorkspace.shared.open($0) })
+        launchedSettings =
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: SettingsCompanion.systemSettings
+            ).isEmpty
+        let done = { [self] (passed: Bool, detail: String) in
+            if !passed { failures += 1 }
+            print("\(passed ? "PASS" : "FAIL") Spotlight guide: \(detail)")
+            guide.dismiss()
+            defaults.removePersistentDomain(forName: suite)
+            body()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        guide.choose(SpotlightShortcuts.commandSpace)
+        poll(
+            { Self.cardPlacement(guide.companion) }, within: 10, until: { $0?.placed == true },
+            then: { [self] placement in
+                guard let placement, placement.placed else {
+                    return done(
+                        false,
+                        "card not on screen under System Settings, frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"), window=\(placement.map { "\($0.window)" } ?? "none"), card=\(guide.companion.panel.frame), visible=\(guide.companion.panel.isVisible)"
+                    )
+                }
+                let action = "Show Spotlight search"
+                poll(
+                    { Self.settingsShows(action) }, within: 5, until: { $0 },
+                    then: { [self] found in
+                        let version = ProcessInfo.processInfo.operatingSystemVersion
+                        let english = Locale.preferredLanguages.first?.hasPrefix("en") == true
+                        let os = "macOS \(version.majorVersion).\(version.minorVersion)"
+                        if version.majorVersion >= 27, english, !found {
+                            return done(false, "the ?Spotlight anchor did not show \(action) on \(os)")
+                        }
+                        print("INFO Spotlight anchor on \(os): \(action) \(found ? "found" : "not found")")
+                        if found,
+                            SettingsCompanion.settingsWindow(front: true)
+                                == SettingsCompanion.settingsWindow()
+                        {
+                            return done(
+                                false, "\(action) is showing, but no sheet is the front window to follow")
+                        }
+                        spotlight.symbolicHotKeys = ["64": ["enabled": false]]
+                        guide.tick()
+                        guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
+                            guide.shownCard == .freed(shortcut: SpotlightShortcuts.commandSpace.display)
+                        else {
+                            return done(
+                                false,
+                                "after Spotlight let go, launcher=\(hotKeys.shortcut(for: .launcher)?.display ?? "none"), card=\(String(describing: guide.shownCard))"
+                            )
+                        }
+                        poll(
+                            { guide.shownCard == nil && !guide.companion.panel.isVisible }, within: 4,
+                            until: { $0 },
+                            then: { closed in
+                                done(
+                                    closed,
+                                    "card at \(placement.window.debugDescription) placement, freed then \(closed ? "closed" : "still open") after the hold"
+                                )
+                            })
+                    })
+            })
+    }
+
+    /// The System Settings window the card follows, and whether the card panel is on screen at its placement.
+    private static func cardPlacement(_ companion: SettingsCompanion) -> (window: CGRect, placed: Bool)? {
+        guard let window = SettingsCompanion.settingsWindow(front: true), let frame = companion.placement()
+        else { return nil }
+        let panel = companion.panel
+        let windows =
+            CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        let onScreen = windows.contains { $0[kCGWindowNumber as String] as? Int == panel.windowNumber }
+        return (window, onScreen && panel.frame == frame)
+    }
+
+    /// Searches the System Settings accessibility tree for an element with this title, value or description.
+    private static func settingsShows(_ name: String) -> Bool {
+        guard
+            let pid = NSRunningApplication.runningApplications(
+                withBundleIdentifier: SettingsCompanion.systemSettings
+            ).first?.processIdentifier
+        else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        let deadline = ProcessInfo.processInfo.systemUptime + 2
+        var queue = [app]
+        var index = 0
+        while index < queue.count, index < 6000, ProcessInfo.processInfo.systemUptime < deadline {
+            let element = queue[index]
+            index += 1
+            for attribute in [kAXTitleAttribute, kAXValueAttribute, kAXDescriptionAttribute] {
+                var value: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+                    value as? String == name
+                {
+                    return true
+                }
+            }
+            var children: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children)
+                == .success,
+                let list = children as? [AXUIElement]
+            {
+                queue += list
+            }
+        }
+        return false
+    }
+
     private func finish(timeout: Bool = false) {
         if child.isRunning { child.terminate() }
+        if launchedSettings {
+            for app in NSRunningApplication.runningApplications(
+                withBundleIdentifier: SettingsCompanion.systemSettings)
+            { app.terminate() }
+        }
         if timeout {
             failures += 1
             print("FAIL fixture timed out")
@@ -306,6 +433,10 @@ import CielCore
         print("Window integration: \(failures) failures")
         exit(failures == 0 ? 0 : 1)
     }
+}
+
+@MainActor private final class SpotlightState {
+    var symbolicHotKeys: [String: Any]?
 }
 
 @MainActor private final class SilentRecorder: AudioRecorder {
