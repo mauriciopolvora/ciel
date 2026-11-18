@@ -3,7 +3,7 @@ width = int(defines["width"])
 height = int(defines["height"])
 icon_y = int(defines["icon_y"])
 
-format = "ULFO"
+format = "UDZO"
 files = [defines["app"]]
 symlinks = {"Applications": "/Applications"}
 background = defines["background"]

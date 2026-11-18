@@ -7,7 +7,7 @@ if [[ -z "$urls" ]]; then
 fi
 dead=0
 while IFS= read -r url; do
-    code=$(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 120 "$url" || true)
+    code=$(curl -sS -L -o /dev/null -w '%{http_code}' --max-time 120 "$url") || code="$code, and the download failed"
     if [[ "$code" == 200 ]]; then
         printf '200 %s\n' "$url"
     else

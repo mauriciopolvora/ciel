@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# With CDPATH set, cd prints the directory and corrupts the paths read from it.
+unset CDPATH
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 if [[ $# -ne 2 ]]; then fail 'Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg'; fi
 [[ -d "$1" && "$(basename "$1")" == Ciel.app ]] || fail "$1 is not a Ciel.app bundle."
@@ -61,9 +63,20 @@ source_hash="$(cdhash "$app")"
     fail 'Ciel.app in the disk image has a different CDHash from the source app.'
 [[ -L "$mountpoint/Applications" && "$(readlink "$mountpoint/Applications")" == /Applications ]] ||
     fail 'Applications in the disk image is not a symlink to /Applications.'
-[[ -f "$mountpoint/.background.tiff" && -f "$mountpoint/.DS_Store" ]] ||
-    fail 'The disk image has no background or no .DS_Store, so Finder shows a plain window.'
-contents="$(cd "$mountpoint" && find . -mindepth 1 -maxdepth 1 | sort | tr '\n' ' ')"
+[[ "$(sips -g pixelWidth "$mountpoint/.background.tiff" 2>/dev/null | awk '/pixelWidth/ { print $2 }')" == "$width" ]] ||
+    fail "The background in the disk image is not a $width point wide picture."
+"$venv/bin/python" - "$mountpoint/.DS_Store" "$app_x" "$applications_x" "$icon_y" <<'PYTHON' ||
+import sys
+from ds_store import DSStore
+
+app_x, applications_x, icon_y = map(int, sys.argv[2:])
+with DSStore.open(sys.argv[1], "r") as store:
+    placed = store["Ciel.app"]["Iloc"] == (app_x, icon_y) and store["Applications"]["Iloc"] == (applications_x, icon_y)
+    pictured = store["."]["icvp"]["backgroundType"] == 2
+sys.exit(not (placed and pictured))
+PYTHON
+    fail 'The .DS_Store in the disk image does not place both icons on the background picture.'
+contents="$(cd "$mountpoint" && find . -mindepth 1 -maxdepth 1 | LC_ALL=C sort | tr '\n' ' ')"
 [[ "$contents" == './.DS_Store ./.background.tiff ./Applications ./Ciel.app ' ]] ||
     fail "The disk image holds unexpected files: $contents"
 hdiutil detach "$mountpoint" -quiet
