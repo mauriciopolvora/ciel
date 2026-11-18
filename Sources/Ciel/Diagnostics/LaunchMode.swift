@@ -71,7 +71,8 @@ enum AppCheck: Equatable {
     @MainActor func run(_ app: CheckHandles) {
         switch self {
         case .launcher:
-            LauncherCheck.run(launcher: app.launcher, panel: app.panel, entries: app.catalog.entries)
+            LauncherCheck.run(
+                launcher: app.launcher, panel: app.panel, entries: app.catalog.entries, hud: app.hud)
         case .smoke:
             SmokeCheck.run(
                 launcher: app.launcher, fieldEditor: app.fieldEditor, catalog: app.catalog,

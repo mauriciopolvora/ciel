@@ -320,7 +320,7 @@ import CielCore
             CheckHandles(
                 launcher: panel.launcher, panel: panel, openLauncher: { [self] in present() },
                 fieldEditor: panel.fieldEditor, catalog: catalog,
-                hotKeys: hotKeys, speech: speech,
+                hotKeys: hotKeys, speech: speech, hud: hud,
                 menu: statusItem.menu,
                 showSettings: { [self] in
                     showSettings()

@@ -39,6 +39,7 @@ public enum CielApplication {
     let catalog: AppCatalog
     let hotKeys: HotKeys
     let speech: SpeechModelStore
+    let hud: StatusHUD
     let menu: NSMenu?
     let showSettings: () -> SettingsController?
     let windowShortcuts: () -> WindowShortcutsController?
