@@ -1,108 +1,40 @@
 import AppKit
-import CielCore
 
 @MainActor final class AccessibilityHelper {
     static let settingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-    private static let systemSettings = "com.apple.systempreferences"
     let card = DragCard(frame: NSRect(origin: .zero, size: DragCard.size))
     let trail = DragTrail(
         frame: NSRect(x: 0, y: 0, width: DragCard.iconFrame.width, height: DragTrail.height))
-    private let cardPanel: NSPanel
+    private let companion: SettingsCompanion
     private let trailPanel: NSPanel
-    private var follow: Task<Void, Never>?
-    var isShown: Bool { follow != nil }
+    var isShown: Bool { companion.isShown }
 
     init() {
-        cardPanel = Self.panel(card)
-        trailPanel = Self.panel(trail)
+        companion = SettingsCompanion(card: card)
+        trailPanel = SettingsCompanion.panel(trail)
         trailPanel.ignoresMouseEvents = true
+        companion.onPlace = { [weak self] cardFrame in self?.placeTrail(above: cardFrame) }
     }
 
-    func show() {
-        guard follow == nil else { return }
-        follow = Task { [weak self] in
-            while !Task.isCancelled {
-                self?.place()
-                try? await Task.sleep(for: .milliseconds(200))
-            }
+    func show() { companion.show() }
+
+    func close() { companion.close() }
+
+    private func placeTrail(above cardFrame: NSRect?) {
+        guard let cardFrame else {
+            trail.stop()
+            trailPanel.orderOut(nil)
+            return
         }
-    }
-
-    func close() {
-        follow?.cancel()
-        follow = nil
-        hide()
-    }
-
-    private func hide() {
-        trail.stop()
-        cardPanel.orderOut(nil)
-        trailPanel.orderOut(nil)
-    }
-
-    private func place() {
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.systemSettings,
-            let window = Self.settingsWindow()
-        else { return hide() }
-        let screen = NSScreen.screens.first { $0.frame.intersects(window) }?.visibleFrame ?? window
-        let size = DragCard.size
-        let x = min(
-            max(window.minX + window.width * 0.62 - size.width / 2, screen.minX + 8),
-            screen.maxX - size.width - 8)
-        let below = window.minY - 16 - size.height
-        let cardFrame = NSRect(
-            origin: NSPoint(x: x, y: below >= screen.minY + 8 ? below : window.minY + 16), size: size)
         let icon = DragCard.iconFrame
         let trailFrame = NSRect(
             x: cardFrame.minX + icon.minX, y: cardFrame.maxY - icon.maxY, width: icon.width,
             height: DragTrail.height)
-        if cardPanel.frame != cardFrame { cardPanel.setFrame(cardFrame, display: true) }
         if trailPanel.frame != trailFrame { trailPanel.setFrame(trailFrame, display: true) }
-        guard !cardPanel.isVisible else { return }
-        cardPanel.orderFrontRegardless()
+        guard !trailPanel.isVisible else { return }
         trailPanel.orderFrontRegardless()
         trail.start()
-    }
-
-    private static func settingsWindow() -> NSRect? {
-        guard
-            let pid = NSRunningApplication.runningApplications(withBundleIdentifier: systemSettings).first?
-                .processIdentifier,
-            let windows = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-                as? [[String: Any]]
-        else { return nil }
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        return
-            windows
-            .filter {
-                ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
-                    && ($0[kCGWindowLayer as String] as? Int) == 0
-            }
-            .compactMap {
-                ($0[kCGWindowBounds as String] as? NSDictionary).flatMap {
-                    CGRect(dictionaryRepresentation: $0)
-                }
-            }
-            .max { $0.width * $0.height < $1.width * $1.height }
-            .map { WindowGeometry.accessibilityRect($0, primaryHeight: primaryHeight) }
-    }
-
-    private static func panel(_ view: NSView) -> NSPanel {
-        let panel = NSPanel(
-            contentRect: view.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
-            defer: true)
-        panel.appearance = NSAppearance(named: .darkAqua)
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = view is DragCard
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
-        panel.contentView = view
-        return panel
     }
 }
 
