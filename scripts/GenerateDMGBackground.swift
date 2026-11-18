@@ -67,9 +67,12 @@ func blurred(_ image: NSImage, sigma: Double) -> NSImage {
         fatalError("The painting cannot be read as an image.")
     }
     let soft = source.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: source.extent)
-    let result = NSImage(size: image.size)
-    result.addRepresentation(NSCIImageRep(ciImage: soft))
-    return result
+    // Without the software renderer, a machine with no GPU access draws nothing and reports no error.
+    let context = CIContext(options: [.useSoftwareRenderer: true])
+    guard let rendered = context.createCGImage(soft, from: source.extent) else {
+        fatalError("Core Image could not blur the painting.")
+    }
+    return NSImage(cgImage: rendered, size: image.size)
 }
 let sky = blurred(painting, sigma: 10)
 

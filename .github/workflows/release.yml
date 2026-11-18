@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release, such as 0.6.0. It must match CFBundleShortVersionString on main.
+        description: Version to release, in the form x.y.z. It must match CFBundleShortVersionString on main.
         required: true
         type: string
       dry_run:
