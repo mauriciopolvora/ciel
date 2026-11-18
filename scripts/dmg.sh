@@ -88,8 +88,15 @@ placed() {
     name_hex="$(printf '%s' "$1" | iconv -f UTF-8 -t UTF-16BE | xxd -p | tr -d '\n')"
     [[ "$layout_hex" == *"${name_hex}496c6f63626c6f6200000010$(printf '%08x%08x' "$2" "$icon_y")"* ]]
 }
+# The icon view settings: icvp, blob, a 4-byte length, then a binary property list.
+settings_at="$(grep -abo icvpblob "$layout" | cut -d: -f1)"
+[[ "$settings_at" =~ ^[0-9]+$ ]] || fail "$layout does not hold one set of icon view settings."
+tail -c "+$((settings_at + 13))" "$layout" | head -c "$((16#$(xxd -s "$((settings_at + 8))" -l 4 -p "$layout")))" >"$work/icvp.plist"
+setting() { plutil -extract "$1" raw "$work/icvp.plist"; }
 if ! placed Ciel.app "$app_x" || ! placed Applications "$applications_x" ||
-    ! grep -aqF "{$width, $window_height}" "$layout"; then
+    ! grep -aqF "{$width, $window_height}" "$layout" ||
+    [[ "$(setting iconSize)" != "$(printf '%.6f' "$icon_size")" || "$(setting textSize)" != "$(printf '%.6f' "$text_size")" ]] ||
+    [[ "$(setting backgroundType)" != 2 ]] || ! setting backgroundImageAlias | base64 -D | grep -aqF 'Ciel:.background.tiff'; then
     fail "$layout does not match the geometry in scripts/dmg.sh. Run bash scripts/dmg.sh --layout."
 fi
 
