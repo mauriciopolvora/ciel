@@ -50,7 +50,8 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
             await previous?.value
             do {
                 try await ModelDownload.fetch(model, to: fileURL, session: session, chunks: chunks) {
-                    [weak self] fraction in await self?.apply(.progress(fraction))
+                    fraction in
+                    await self.apply(.progress(fraction))
                 }
                 apply(.verified)
             } catch is CancellationError {
