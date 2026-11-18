@@ -14,7 +14,7 @@ struct LauncherStateTests {
     @Test(arguments: ["", "   ", "\n\t", " \u{301}"])
     func blankQueryHasNoSuggestions(_ query: String) {
         let state = LauncherState()
-        state.update(entries: applications + SearchEntry.commands, usage: ["calculator": 8], lastUsed: [:])
+        state.update(entries: applications + SearchEntry.commands, usage: Usage(counts: ["calculator": 8]))
         state.setQuery(query)
         state.selectFilter(1)
         #expect(!state.hasQuery)
@@ -108,22 +108,23 @@ struct LauncherStateTests {
         state.updateEntries(applications)
         state.setQuery("cal")
         state.select(index: state.results.firstIndex { $0.id == "calendar" })
-        let change = state.updateUsage(["calibre": 10], lastUsed: ["calibre": 100])
+        let change = state.updateUsage(Usage(counts: ["calibre": 10], lastUsed: ["calibre": 100]))
         #expect(change.resultsChanged)
         #expect(state.results.first?.id == "calibre")
         #expect(state.selectedEntry?.id == "calendar")
-        #expect(state.updateUsage(["calibre": 10], lastUsed: ["calibre": 100]).isEmpty)
+        #expect(state.updateUsage(Usage(counts: ["calibre": 10], lastUsed: ["calibre": 100])).isEmpty)
         let unrelated = state.updateUsage(
-            ["calibre": 10, "unmatched": 2], lastUsed: ["calibre": 100, "unmatched": 200])
+            Usage(counts: ["calibre": 10, "unmatched": 2], lastUsed: ["calibre": 100, "unmatched": 200]))
         #expect(unrelated.isEmpty)
     }
 
     @Test func recencyBreaksEqualUsageTiesWithoutLosingSelection() {
         let state = LauncherState()
-        state.update(entries: applications, usage: ["calendar": 5, "calibre": 5], lastUsed: [:])
+        state.update(entries: applications, usage: Usage(counts: ["calendar": 5, "calibre": 5]))
         state.setQuery("cal")
         state.select(index: state.results.firstIndex { $0.id == "calendar" })
-        state.updateUsage(["calendar": 5, "calibre": 5], lastUsed: ["calendar": 10, "calibre": 20])
+        state.updateUsage(
+            Usage(counts: ["calendar": 5, "calibre": 5], lastUsed: ["calendar": 10, "calibre": 20]))
         #expect(state.results.first?.id == "calibre")
         #expect(state.selectedEntry?.id == "calendar")
     }

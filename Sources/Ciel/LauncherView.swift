@@ -7,7 +7,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
 {
     static let width: CGFloat = 640
     static let initialHeight: CGFloat = 68
-    var onExecute: ((SearchEntry) -> Void)?
+    var onExecute: ((SearchEntry, String) -> Void)?
     var onDismiss: (() -> Void)?
     var onHeightChange: ((CGFloat) -> Void)?
     private let state = LauncherState()
@@ -118,11 +118,11 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         updateHints()
         window?.makeFirstResponder(searchField)
     }
-    func update(entries: [SearchEntry], usage: [String: Int], lastUsed: [String: Double]) {
-        render(state.update(entries: entries, usage: usage, lastUsed: lastUsed))
+    func update(entries: [SearchEntry], usage: Usage) {
+        render(state.update(entries: entries, usage: usage))
     }
-    func updateUsage(_ usage: [String: Int], lastUsed: [String: Double]) {
-        render(state.updateUsage(usage, lastUsed: lastUsed))
+    func updateUsage(_ usage: Usage) {
+        render(state.updateUsage(usage))
     }
     func updateEntries(_ entries: [SearchEntry]) {
         render(state.updateEntries(entries))
@@ -141,13 +141,13 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
     }
     @objc private func clicked() {
         guard results.indices.contains(table.clickedRow) else { return }
-        onExecute?(results[table.clickedRow])
+        onExecute?(results[table.clickedRow], state.query)
     }
     func executeSelected() {
         guard let entry = state.selectedEntry else { return }
-        onExecute?(entry)
+        onExecute?(entry, state.query)
     }
-    func execute(at index: Int) { if let entry = state.entry(at: index) { onExecute?(entry) } }
+    func execute(at index: Int) { if let entry = state.entry(at: index) { onExecute?(entry, state.query) } }
     func controlTextDidBeginEditing(_ obj: Notification) {
         if let editor = searchField.currentEditor() as? NSTextView {
             editor.allowsUndo = true

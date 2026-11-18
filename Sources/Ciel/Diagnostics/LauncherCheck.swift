@@ -13,7 +13,7 @@ import CielCore
         }
         let originalExecute = launcher.onExecute
         var ranEmptyResult = false
-        launcher.onExecute = { _ in ranEmptyResult = true }
+        launcher.onExecute = { _, _ in ranEmptyResult = true }
         launcher.executeSelected()
         launcher.execute(at: 0)
         launcher.onExecute = originalExecute
@@ -141,7 +141,7 @@ import CielCore
         launcher.onExecute?(
             SearchEntry(
                 id: "ciel-check-missing", title: "Missing", subtitle: "", kind: .application,
-                path: "/var/empty/Ciel Check Missing.app"))
+                path: "/var/empty/Ciel Check Missing.app"), "")
         Task { @MainActor in
             let deadline = ProcessInfo.processInfo.systemUptime + 10
             while hud.panel?.isVisible != true {
