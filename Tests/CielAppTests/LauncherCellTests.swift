@@ -96,6 +96,39 @@ struct LauncherCellTests {
             }
         }
     }
+
+    @Test func aHoveredRowSelectedFromTheKeyboardKeepsItsSelectionFill() throws {
+        let view = LauncherView(
+            frame: NSRect(x: 0, y: 0, width: LauncherView.width, height: LauncherView.initialHeight))
+        let window = NSWindow(
+            contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        view.onHeightChange = { [weak window] in
+            window?.setContentSize(NSSize(width: LauncherView.width, height: $0))
+        }
+        view.update(entries: SearchEntry.utilities, usage: [:], lastUsed: [:])
+        view.searchField.stringValue = "ci"
+        view.updateResults()
+        view.layoutSubtreeIfNeeded()
+        let row = try #require(view.table.rowView(atRow: 1, makeIfNecessary: false))
+        let entered = try #require(
+            NSEvent.enterExitEvent(
+                with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0,
+                userData: nil))
+        row.mouseEntered(with: entered)
+        _ = view.control(
+            view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.moveDown(_:)))
+        #expect(row.isSelected)
+        let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
+        let rect = row.convert(row.bounds, to: view)
+        let fill = try #require(bitmap.colorAt(x: Int(rect.midX * scale), y: Int((rect.minY + 6) * scale)))
+        #expect(
+            gray(fill) > (gray(Theme.accent) + gray(Theme.selection)) / 2, "selected fill is \(gray(fill))")
+    }
 }
 
 /// The darkest and brightest gray in each row's visible icon, sampled from an offscreen render.
