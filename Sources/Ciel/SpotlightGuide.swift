@@ -30,7 +30,7 @@ import AppKit
         self.hotKeys = hotKeys
         self.spotlight = spotlight
         self.open = open
-        companion = SettingsCompanion(card: card)
+        companion = SettingsCompanion(card: card, followsSheet: true)
         super.init()
         note.lineBreakMode = .byWordWrapping
         note.maximumNumberOfLines = 2

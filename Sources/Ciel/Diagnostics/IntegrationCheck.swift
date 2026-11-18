@@ -366,18 +366,15 @@ import CielCore
             })
     }
 
-    /// The System Settings window and whether the card panel is on screen at its placement under that window.
+    /// The System Settings window the card follows, and whether the card panel is on screen at its placement.
     private static func cardPlacement(_ companion: SettingsCompanion) -> (window: CGRect, placed: Bool)? {
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == SettingsCompanion.systemSettings,
-            let window = SettingsCompanion.settingsWindow()
+        guard let window = SettingsCompanion.settingsWindow(front: true), let frame = companion.placement()
         else { return nil }
         let panel = companion.panel
         let windows =
             CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         let onScreen = windows.contains { $0[kCGWindowNumber as String] as? Int == panel.windowNumber }
-        return (
-            window, onScreen && panel.frame == SettingsCompanion.frame(of: panel.frame.size, under: window)
-        )
+        return (window, onScreen && panel.frame == frame)
     }
 
     /// Searches the System Settings accessibility tree for an element with this title, value or description.

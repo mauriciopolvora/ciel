@@ -8,9 +8,12 @@ import CielCore
     /// Receives the card frame after each placement, or nil when the card hides.
     var onPlace: ((NSRect?) -> Void)?
     private var follow: Task<Void, Never>?
+    /// A sheet is where the user acts, so a card that explains a sheet sits under it, not under its window.
+    private let followsSheet: Bool
     var isShown: Bool { follow != nil }
 
-    init(card: NSView) {
+    init(card: NSView, followsSheet: Bool = false) {
+        self.followsSheet = followsSheet
         panel = Self.panel(card)
         panel.hasShadow = true
     }
@@ -38,27 +41,34 @@ import CielCore
     }
 
     private func place() {
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.systemSettings,
-            let window = Self.settingsWindow()
-        else { return hide() }
-        let frame = Self.frame(of: panel.frame.size, under: window)
+        guard let frame = placement() else { return hide() }
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
         onPlace?(frame)
     }
 
-    /// Below the window, or inside its bottom edge when the screen has no room below.
+    /// Where the card belongs now, or nil while System Settings is not frontmost or has no window.
+    func placement() -> NSRect? {
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.systemSettings,
+            let window = Self.settingsWindow(front: followsSheet)
+        else { return nil }
+        return Self.frame(of: panel.frame.size, under: window)
+    }
+
+    /// Below the window, or inside its bottom edge when the screen has no room below. Whole points, since a
+    /// panel rounds its frame.
     static func frame(of size: NSSize, under window: NSRect) -> NSRect {
         let screen = NSScreen.screens.first { $0.frame.intersects(window) }?.visibleFrame ?? window
         let x = min(
             max(window.minX + window.width * 0.62 - size.width / 2, screen.minX + 8),
             screen.maxX - size.width - 8)
         let below = window.minY - 16 - size.height
-        return NSRect(
-            origin: NSPoint(x: x, y: below >= screen.minY + 8 ? below : window.minY + 16), size: size)
+        let y = below >= screen.minY + 8 ? below : window.minY + 16
+        return NSRect(origin: NSPoint(x: x.rounded(), y: y.rounded()), size: size)
     }
 
-    static func settingsWindow() -> NSRect? {
+    /// The largest System Settings window, or with `front` its frontmost one, which is the sheet when one is open.
+    static func settingsWindow(front: Bool = false) -> NSRect? {
         guard
             let pid = NSRunningApplication.runningApplications(withBundleIdentifier: systemSettings).first?
                 .processIdentifier,
@@ -67,7 +77,7 @@ import CielCore
                 as? [[String: Any]]
         else { return nil }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        return
+        let frames =
             windows
             .filter {
                 ($0[kCGWindowOwnerPID as String] as? pid_t) == pid
@@ -78,7 +88,7 @@ import CielCore
                     CGRect(dictionaryRepresentation: $0)
                 }
             }
-            .max { $0.width * $0.height < $1.width * $1.height }
+        return (front ? frames.first : frames.max { $0.width * $0.height < $1.width * $1.height })
             .map { WindowGeometry.accessibilityRect($0, primaryHeight: primaryHeight) }
     }
 
