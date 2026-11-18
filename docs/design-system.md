@@ -17,7 +17,7 @@ Ciel opens as one empty black input box. There is no visible text or symbol unti
 | Text | 0.94 | Search input and result names |
 | Guide | 1.0 | Placement guide lines during a drag |
 | Selected text | 0.07 | Result name on the selected row |
-| Selected secondary | 0.36 | Key hint, app icon tint and window symbol on the selected row (5.6:1 on Accent) |
+| Selected secondary | 0.36 | Key hint, utility symbol and window symbol on the selected row (5.6:1 on Accent) |
 
 These colors have equal red, green, and blue values. App icons retain their source colors. Errors use system red with an explicit message. Enabled access uses white text. Settings switches use gray tracks and white thumbs, with native button keyboard and accessibility behavior.
 
