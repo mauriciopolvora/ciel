@@ -117,6 +117,7 @@ final class OnboardingController: PreferencesController {
         poll?.cancel()
         poll = nil
         helper.close()
+        spotlightGuide.dismiss()
         onFinish?()
     }
 }

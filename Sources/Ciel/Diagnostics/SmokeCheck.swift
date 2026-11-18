@@ -319,7 +319,7 @@ import UniformTypeIdentifiers
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
         guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
-            state.opened == [SpotlightShortcuts.keyboardSettings]
+            state.opened == [SpotlightShortcuts.settingsURL]
         else {
             print("FAIL onboarding did not take ⌘Space after Spotlight let go")
             exit(1)
@@ -358,7 +358,7 @@ import UniformTypeIdentifiers
         state.symbolicHotKeys = ["64": ["enabled": false]]
         settings.spotlightGuide.tick()
         guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
-            state.opened == [SpotlightShortcuts.keyboardSettings], settings.spotlightGuide.held == nil
+            state.opened == [SpotlightShortcuts.settingsURL], settings.spotlightGuide.held == nil
         else {
             print("FAIL Settings did not take ⌘Space after Spotlight let go")
             exit(1)

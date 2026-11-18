@@ -32,13 +32,25 @@ struct OnboardingTests {
             onboarding.spotlightGuide.choose(SpotlightShortcuts.commandSpace)
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             #expect(onboarding.spotlightGuide.held == SpotlightShortcuts.commandSpace)
-            #expect(system.opened == [SpotlightShortcuts.keyboardSettings])
+            #expect(system.opened == [SpotlightShortcuts.settingsURL])
+            #expect(
+                onboarding.spotlightGuide.shownCard
+                    == .turnOff(action: "Show Spotlight search", shortcut: "⌘Space"))
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == .launcher)
             system.symbolicHotKeys = ["64": ["enabled": false]]
             onboarding.tick()
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
             #expect(onboarding.spotlightGuide.held == nil)
+            #expect(onboarding.spotlightGuide.shownCard == .freed(shortcut: "⌘Space"))
+        }
+    }
+
+    @Test func closingOnboardingClosesTheCard() {
+        withOnboarding { onboarding, _, _ in
+            onboarding.spotlightGuide.choose(SpotlightShortcuts.commandSpace)
+            onboarding.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+            #expect(onboarding.spotlightGuide.shownCard == nil)
         }
     }
 
@@ -48,6 +60,7 @@ struct OnboardingTests {
             #expect(hotKeys.shortcut(for: .launcher) == shiftCommandSpace)
             #expect(onboarding.spotlightGuide.held == nil)
             #expect(system.opened.isEmpty)
+            #expect(onboarding.spotlightGuide.shownCard == nil)
         }
     }
 

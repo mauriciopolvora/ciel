@@ -19,7 +19,8 @@ import CielCore
         guard follow == nil else { return }
         follow = Task { [weak self] in
             while !Task.isCancelled {
-                self?.place()
+                guard let self else { return }
+                place()
                 try? await Task.sleep(for: .milliseconds(200))
             }
         }

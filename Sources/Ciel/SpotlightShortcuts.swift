@@ -5,8 +5,9 @@ import Carbon
 /// registers but never fires.
 struct SpotlightShortcuts {
     static let commandSpace = Shortcut(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey))
-    static let keyboardSettings = URL(
-        string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
+    /// Opens Keyboard Shortcuts with Spotlight selected. A macOS that does not know the anchor opens Keyboard.
+    static let settingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Spotlight")!
     private static let shipped = [
         "64": (action: "Show Spotlight search", shortcut: commandSpace),
         "65": (
