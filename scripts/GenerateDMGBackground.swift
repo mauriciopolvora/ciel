@@ -1,6 +1,7 @@
 import AppKit
+import CoreImage
 
-// The disk image window: the painting behind the black launcher panel, with the app and Applications on it.
+// The disk image window: the blurred painting behind the black launcher panel, with the app and Applications on it.
 let arguments = CommandLine.arguments
 let numbers = arguments.dropFirst(3).compactMap { Double($0) }.map { CGFloat($0) }
 guard arguments.count == 9, numbers.count == 6, let painting = NSImage(contentsOfFile: arguments[1]) else {
@@ -60,9 +61,21 @@ func arrow() {
     path.stroke()
 }
 
+// The blur keeps the sky soft, so the sharp app icon stands out from the painting it is made of.
+func blurred(_ image: NSImage, sigma: Double) -> NSImage {
+    guard let data = image.tiffRepresentation, let source = CIImage(data: data) else {
+        fatalError("The painting cannot be read as an image.")
+    }
+    let soft = source.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: source.extent)
+    let result = NSImage(size: image.size)
+    result.addRepresentation(NSCIImageRep(ciImage: soft))
+    return result
+}
+let sky = blurred(painting, sigma: 10)
+
 func draw() {
     let bounds = NSRect(x: 0, y: 0, width: width, height: height)
-    painting.draw(
+    sky.draw(
         in: coverRect(for: painting.size, in: bounds, anchorY: 0.45), from: .zero, operation: .sourceOver,
         fraction: 1)
     let panelTop = iconY - iconSize / 2 - panelPadding

@@ -66,7 +66,7 @@ Use native text editing, scrolling, focus behavior, and accessibility labels. Th
 
 ## Disk image
 
-`scripts/dmg.sh` builds `Ciel.dmg`. The geometry lives in the variables at its top, and `bash scripts/dmg.sh --layout` writes it into the Finder layout `Resources/DiskImage.DS_Store`. The Finder window is 640 by 380 points with no toolbar, sidebar or status bar. The cloud painting fills the background. On it sits the black launcher panel: Surface gray, radius 16, 60 points in from each side, with a soft shadow. `Ciel.app` and the Applications link sit on the panel at 128 points, with a Secondary gray arrow between them on their center line.
+`scripts/dmg.sh` builds `Ciel.dmg`. The geometry lives in the variables at its top, and `bash scripts/dmg.sh --layout` writes it into the Finder layout `Resources/DiskImage.DS_Store`. The Finder window is 640 by 380 points with no toolbar, sidebar or status bar. The cloud painting fills the background, softened with a 10 pixel Gaussian blur so the sharp app icon stands out from it. On it sits the black launcher panel: Surface gray, radius 16, 60 points in from each side, with a soft shadow. `Ciel.app` and the Applications link sit on the panel at 128 points, with a Secondary gray arrow between them on their center line.
 
 Under each icon is an Accent pill, 120 by 26 points with radius 8. Finder draws icon labels in black on any custom background, in light and dark appearance (measured on macOS 27.0.1), so the labels need a light surface to stay readable. `scripts/GenerateDMGBackground.swift` draws the background at 1x and 2x.
 
@@ -95,6 +95,7 @@ Applied [Emil Kowalski’s design engineering skill](https://github.com/emilkowa
 | Grouped Settings rows with section headers | Two columns, names on the left and controls on the right | Picked by the operator from three prototypes |
 | Gray selected row with a faint ring, 21-point input, divider under the input | Near-white selected row, 24-point input, no divider | Picked by the operator from three prototypes |
 | Left-aligned transcript lines | Centered transcript lines | Keep the text on the pill's center line as it grows |
+| A zip with no install step | A disk image window: blurred sky, black panel, labels on light pills | Picked by the operator from three prototypes |
 
 ## Validation
 
