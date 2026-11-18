@@ -59,6 +59,27 @@ jobs:
           test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
           lipo dist/Ciel.app/Contents/Frameworks/Sparkle.framework/Sparkle -verify_arch arm64
           codesign --verify --strict --deep dist/Ciel.app
+      - name: Build and check the disk image
+        timeout-minutes: 5
+        run: bash scripts/dmg.sh dist/Ciel.app dist/Ciel-development.dmg
+      - name: Capture the disk image window
+        timeout-minutes: 2
+        run: |
+          attached=$(hdiutil attach dist/Ciel-development.dmg -readonly -noautoopen)
+          device=$(awk '$1 ~ /^\/dev\// { print $1; exit }' <<<"$attached")
+          trap 'hdiutil detach "$device" -quiet || hdiutil detach "$device" -force -quiet' EXIT
+          mount=$(awk -F '\t' '$NF ~ /^\// { print $NF }' <<<"$attached")
+          open "$mount"
+          sleep 5
+          screencapture -x dist/dmg-window.png
+      - name: Archive the disk image window
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-disk-image-window
+          path: dist/dmg-window.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Launch the built app
         timeout-minutes: 1
         run: |
