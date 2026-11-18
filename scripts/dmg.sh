@@ -2,6 +2,8 @@
 set -euo pipefail
 # With CDPATH set, cd prints the directory and corrupts the paths read from it.
 unset CDPATH
+# The checks compare sorted names and formatted numbers, and both follow the locale.
+export LC_ALL=C
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 usage='Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg, or bash scripts/dmg.sh --layout'
 case $# in
@@ -81,22 +83,27 @@ if [[ $# -eq 1 ]]; then
 fi
 
 [[ -f "$layout" ]] || fail "There is no $layout. Run bash scripts/dmg.sh --layout."
+hex() { xxd -p | tr -d '\n'; }
 # An icon position record: the file name in UTF-16, then Iloc, blob, the length 16, x and y.
-layout_hex="$(xxd -p "$layout" | tr -d '\n')"
+layout_hex="$(hex <"$layout")"
 placed() {
     local name_hex
-    name_hex="$(printf '%s' "$1" | iconv -f UTF-8 -t UTF-16BE | xxd -p | tr -d '\n')"
+    name_hex="$(printf '%s' "$1" | iconv -f UTF-8 -t UTF-16BE | hex)"
     [[ "$layout_hex" == *"${name_hex}496c6f63626c6f6200000010$(printf '%08x%08x' "$2" "$icon_y")"* ]]
 }
 # The icon view settings: icvp, blob, a 4-byte length, then a binary property list.
-settings_at="$(grep -abo icvpblob "$layout" | cut -d: -f1)"
-[[ "$settings_at" =~ ^[0-9]+$ ]] || fail "$layout does not hold one set of icon view settings."
+settings_at="$(grep -abo icvpblob "$layout" | cut -d: -f1 || true)"
+[[ "$settings_at" =~ ^[0-9]+$ ]] ||
+    fail "$layout does not hold one set of icon view settings. Run bash scripts/dmg.sh --layout."
 tail -c "+$((settings_at + 13))" "$layout" | head -c "$((16#$(xxd -s "$((settings_at + 8))" -l 4 -p "$layout")))" >"$work/icvp.plist"
 setting() { plutil -extract "$1" raw "$work/icvp.plist"; }
+# The background reference holds its target as a length, the path, and a zero byte of padding.
+background_path='Ciel:.background.tiff'
+background_hex="$(printf '%04x' "${#background_path}")$(printf '%s' "$background_path" | hex)00"
 if ! placed Ciel.app "$app_x" || ! placed Applications "$applications_x" ||
     ! grep -aqF "{$width, $window_height}" "$layout" ||
     [[ "$(setting iconSize)" != "$(printf '%.6f' "$icon_size")" || "$(setting textSize)" != "$(printf '%.6f' "$text_size")" ]] ||
-    [[ "$(setting backgroundType)" != 2 ]] || ! setting backgroundImageAlias | base64 -D | grep -aqF 'Ciel:.background.tiff'; then
+    [[ "$(setting backgroundType)" != 2 || "$(setting backgroundImageAlias | base64 -D | hex)" != *"$background_hex"* ]]; then
     fail "$layout does not match the geometry in scripts/dmg.sh. Run bash scripts/dmg.sh --layout."
 fi
 
@@ -119,7 +126,7 @@ source_hash="$(cdhash "$app")"
 cmp -s "$mountpoint/.background.tiff" "$work/background.tiff" ||
     fail 'The background in the disk image is not the picture this build drew.'
 cmp -s "$mountpoint/.DS_Store" "$layout" || fail "The .DS_Store in the disk image is not $layout."
-contents="$(cd "$mountpoint" && find . -mindepth 1 -maxdepth 1 | LC_ALL=C sort | tr '\n' ' ')"
+contents="$(cd "$mountpoint" && find . -mindepth 1 -maxdepth 1 | sort | tr '\n' ' ')"
 [[ "$contents" == './.DS_Store ./.background.tiff ./Applications ./Ciel.app ' ]] ||
     fail "The disk image holds unexpected files: $contents"
 detach

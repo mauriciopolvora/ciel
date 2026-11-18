@@ -45,8 +45,10 @@ The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad
 
 A published release is live as soon as the workflow uploads it, even when the check after it fails. To stop new downloads and updates of a bad release, do one of these:
 
-- `gh release edit v<previous> --latest` points the download link and the appcast back to the previous release. Releases before 0.6.0 have no appcast, so after a rollback to one of them the update feed returns 404 and installed copies find no update. Releases up to 0.6.0 have no `Ciel.dmg`, so after a rollback to one of them the site download buttons return 404. Then change the links and the install answer in `site/public/index.html` back to `Ciel.zip` and deploy the site, or publish a fixed release.
+- `gh release edit v<previous> --latest` points the download link and the appcast back to the previous release. Releases before 0.6.0 have no appcast, so after a rollback to one of them the update feed returns 404 and installed copies find no update.
 - `gh release delete v<bad> --cleanup-tag` removes the release and its tag. The workflow refuses to release a version whose release or tag exists, so delete both before you run it again for the same version.
+
+Releases up to 0.6.0 have no `Ciel.dmg`. When either step leaves one of them as the latest release, the site download buttons return 404. Then change the links and the install answer in `site/public/index.html` back to `Ciel.zip` and deploy the site, or publish a fixed release.
 
 Sparkle never offers a lower or equal build, so copies that already updated stay on the bad build. To fix them, release a new version with a `CFBundleVersion` higher than every build ever published. After a rollback, the workflow compares only against the release marked Latest, so it cannot catch a reused build.
 
