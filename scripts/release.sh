@@ -28,17 +28,21 @@ archive="$PWD/dist/Ciel-${version}-${CIEL_ARCH}.zip"
 submission="$PWD/dist/Ciel-notary-submission.zip"
 notary_result="$PWD/dist/notary-result.json"
 trap 'rm -f "$submission" "$notary_result"' EXIT
-ditto -c -k --sequesterRsrc --keepParent "$app_path" "$submission"
-xcrun notarytool submit "$submission" "${notary[@]}" --wait --output-format json >"$notary_result" || true
-notary_status=$(plutil -extract status raw "$notary_result" 2>/dev/null || printf 'missing')
-if [[ "$notary_status" != Accepted ]]; then
-    printf 'Notarization status: %s\n' "$notary_status" >&2
-    if notary_id=$(plutil -extract id raw "$notary_result" 2>/dev/null); then
-        xcrun notarytool log "$notary_id" "${notary[@]}" >&2 || true
+notarize() {
+    xcrun notarytool submit "$1" "${notary[@]}" --wait --output-format json >"$notary_result" || true
+    local notary_status notary_id
+    notary_status=$(plutil -extract status raw "$notary_result" 2>/dev/null || printf 'missing')
+    if [[ "$notary_status" != Accepted ]]; then
+        printf 'Notarization status: %s\n' "$notary_status" >&2
+        if notary_id=$(plutil -extract id raw "$notary_result" 2>/dev/null); then
+            xcrun notarytool log "$notary_id" "${notary[@]}" >&2 || true
+        fi
+        exit 1
     fi
-    exit 1
-fi
-printf 'Notarization accepted.\n'
+    printf 'Notarization accepted.\n'
+}
+ditto -c -k --sequesterRsrc --keepParent "$app_path" "$submission"
+notarize "$submission"
 xcrun stapler staple "$app_path"
 xcrun stapler validate "$app_path"
 codesign --verify --strict --deep "$app_path"
@@ -48,7 +52,17 @@ shasum -a 256 "$archive" > "$archive.sha256"
 cp "$archive" dist/Ciel.zip
 (cd dist && shasum -a 256 Ciel.zip > Ciel.zip.sha256)
 bash scripts/appcast.sh "$app_path/Contents/Info.plist" "$archive" "$sparkle_key" "$PWD/dist/appcast.xml"
-printf 'Review the signed app, then publish all five files under tag v%s with:\n\n' "$version"
+disk_image="$PWD/dist/Ciel.dmg"
+# dmg.sh runs third-party Python, so it never sees the notary credentials.
+env -u NOTARY_APPLE_ID -u NOTARY_PASSWORD -u NOTARY_TEAM_ID bash scripts/dmg.sh "$app_path" "$disk_image"
+codesign --force --sign "$SIGN_IDENTITY" --timestamp "$disk_image"
+notarize "$disk_image"
+xcrun stapler staple "$disk_image"
+xcrun stapler validate "$disk_image"
+spctl --assess --type open --context context:primary-signature --verbose=2 "$disk_image"
+(cd dist && shasum -a 256 Ciel.dmg > Ciel.dmg.sha256)
+printf 'Review the signed app, then publish all seven files under tag v%s with:\n\n' "$version"
 printf '    gh release create %q' "v$version"
-printf ' %q' "$archive" "$archive.sha256" "$PWD/dist/Ciel.zip" "$PWD/dist/Ciel.zip.sha256" "$PWD/dist/appcast.xml"
+printf ' %q' "$archive" "$archive.sha256" "$PWD/dist/Ciel.zip" "$PWD/dist/Ciel.zip.sha256" "$PWD/dist/appcast.xml" \
+    "$disk_image" "$disk_image.sha256"
 printf '\n'

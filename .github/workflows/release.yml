@@ -126,9 +126,9 @@ jobs:
         run: |
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
             --title "Ciel $VERSION" \
-            --notes 'Signed with Developer ID and notarized by Apple. Requires an Apple Silicon Mac. Download Ciel.zip, unzip, and move Ciel.app to Applications.' \
+            --notes 'Signed with Developer ID and notarized by Apple. Requires an Apple Silicon Mac. Download Ciel.dmg, open it, and drag Ciel to Applications.' \
             "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
-            dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml
+            dist/Ciel.zip dist/Ciel.zip.sha256 dist/appcast.xml dist/Ciel.dmg dist/Ciel.dmg.sha256
       - name: Check the published release
         if: ${{ !inputs.dry_run }}
         run: |
@@ -150,6 +150,7 @@ jobs:
           }
           fetch "$latest/appcast.xml" "$check/appcast.xml" dist/appcast.xml
           fetch "$latest/Ciel.zip" "$check/Ciel.zip" dist/Ciel.zip
+          fetch "$latest/Ciel.dmg" "$check/Ciel.dmg" dist/Ciel.dmg
           fetch "$enclosure" "$check/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip"
           grep -qF "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" "$check/appcast.xml"
           grep -qF "<enclosure url=\"$enclosure\"" "$check/appcast.xml"
@@ -159,6 +160,8 @@ jobs:
           ditto -x -k "$check/Ciel.zip" "$check"
           xcrun stapler validate "$check/Ciel.app"
           spctl --assess --type execute --verbose=2 "$check/Ciel.app"
+          xcrun stapler validate "$check/Ciel.dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$check/Ciel.dmg"
       - name: Delete the keychain and the key file
         if: always()
         run: |
