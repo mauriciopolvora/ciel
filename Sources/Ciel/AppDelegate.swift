@@ -251,6 +251,7 @@ import CielCore
                 }
             }
         } else if let utility = entry.utility {
+            recordUsage(entry.id, query: query)
             switch utility {
             case .settings: showSettings()
             case .rescan:

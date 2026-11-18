@@ -87,6 +87,7 @@ public enum SearchEngine {
         let tokens = tokens(in: query)
         guard limit > 0, !tokens.isEmpty else { return [] }
         let key = queryKey(query)
+        let trimmed = normalize(query).trimmingCharacters(in: .whitespacesAndNewlines)
         var learned: [String: Int] = [:]
         for pick in usage.picks where pick.query.hasPrefix(key) { learned[pick.id, default: 0] += 1 }
         let prepared = tokens.map { token in
@@ -113,7 +114,7 @@ public enum SearchEngine {
                     return nil
                 }
             }
-            let exact = entry.normalizedTitle == key
+            let exact = entry.normalizedTitle == key || entry.normalizedTitle == trimmed
             if exact { score += 500 }
             return Ranked(
                 entry: entry, exact: exact, learned: learned[entry.id, default: 0], score: score + history,

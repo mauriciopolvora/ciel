@@ -272,7 +272,7 @@ struct LearnedRankingTests {
     }
 
     @Test
-    func aPickRanksFirstForEveryQueryThatStartsItsQuery() {
+    func aPickRanksFirstForEveryStartOfTheQueryItWasPickedFor() {
         #expect(top("f", []) != firstThreeFourths)
         #expect(top("f", [("first t", firstThreeFourths)]) == firstThreeFourths)
         #expect(top("fir", [("first t", firstThreeFourths)]) == firstThreeFourths)
@@ -312,6 +312,12 @@ struct LearnedRankingTests {
         let usage = Usage(picks: [Usage.Pick(query: "codex", id: "codex")])
         #expect(SearchEngine.search("code", entries: entries, usage: usage).map(\.id) == ["code", "codex"])
         #expect(SearchEngine.search("cod", entries: entries, usage: usage).first?.id == "codex")
+        let spaced = [
+            SearchEntry(id: "plus", title: "Quick  Notes Plus", subtitle: "Application", kind: .application),
+            SearchEntry(id: "quick", title: "Quick  Notes", subtitle: "Application", kind: .application),
+        ]
+        let picked = Usage(picks: [Usage.Pick(query: "quick notes plus", id: "plus")])
+        #expect(SearchEngine.search("Quick  Notes", entries: spaced, usage: picked).first?.id == "quick")
     }
 
     @Test
