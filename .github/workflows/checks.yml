@@ -53,7 +53,7 @@ jobs:
         run: |
           attached=$(hdiutil attach dist/Ciel-development.dmg -readonly -noautoopen)
           device=$(awk '$1 ~ /^\/dev\// { print $1; exit }' <<<"$attached")
-          trap 'osascript -e "tell application \"Finder\" to close every window" || true; hdiutil detach "$device" -quiet || hdiutil detach "$device" -force -quiet' EXIT
+          trap 'hdiutil detach "$device" -quiet || hdiutil detach "$device" -force -quiet' EXIT
           mount=$(awk -F '\t' '$NF ~ /^\// { print $NF }' <<<"$attached")
           open "$mount"
           sleep 5
