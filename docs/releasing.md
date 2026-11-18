@@ -23,9 +23,9 @@ The workflow then:
 
 1. Imports the Developer ID certificate into a temporary keychain.
 2. Writes the update signing key to a temporary file with mode 600.
-3. Runs `scripts/release.sh`, which builds, signs, notarizes, staples and writes the five release files.
-4. Creates the release `v<version>` on the exact commit, with all five files.
-5. Downloads `releases/latest/download/Ciel.zip`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app with `stapler validate` and Gatekeeper.
+3. Runs `scripts/release.sh`, which builds, signs, notarizes, staples and writes the seven release files.
+4. Creates the release `v<version>` on the exact commit, with all seven files.
+5. Downloads `releases/latest/download/Ciel.zip`, `Ciel.dmg`, `appcast.xml` and the versioned zip, and checks that each returns 200 and matches the build byte for byte. It then checks that the appcast lists the version, verifies its EdDSA signature against `SUPublicEDKey`, and checks the downloaded app and disk image with `stapler validate` and Gatekeeper.
 6. Deletes the keychain and the key file, also when a step fails.
 
 The job runs in the `release` environment. Only runs from `main` can use it, and admins cannot bypass this rule. Only that environment holds these secrets:
@@ -39,7 +39,7 @@ The job runs in the `release` environment. Only runs from `main` can use it, and
 | `CIEL_NOTARY_TEAM_ID` | Team ID for `notarytool` |
 | `CIEL_SPARKLE_ENV` | Contents of `ciel-sparkle.env`, the line `SPARKLE_PRIVATE_ED_KEY=<key>` |
 
-The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad-hoc signed app and uploads it as a development archive. It does not publish anything.
+The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad-hoc signed app and uploads it as a development archive. It also builds and checks a development disk image with `scripts/dmg.sh`, opens it in Finder and uploads a screenshot of the window as `Ciel-disk-image-window`. It does not publish anything.
 
 ### Roll back
 
@@ -76,9 +76,13 @@ bash scripts/release.sh
 
 The release script builds an Apple Silicon app with hardened runtime and a secure timestamp. It submits the archive to Apple's notarization service and waits for the result. It then staples and validates the ticket, checks Gatekeeper acceptance, creates a fresh ZIP, and writes a SHA-256 checksum. A failed step stops the script.
 
-The final files are `dist/Ciel-0.6.0-arm64.zip`, its `.sha256` file, a copy of the same archive named `dist/Ciel.zip` with `dist/Ciel.zip.sha256`, and `dist/appcast.xml`. Review the signed app before you publish. The release script does not publish anything. It prints the `gh release create` command that uploads all five files.
+After the appcast, it builds the disk image `dist/Ciel.dmg` from the stapled app with `scripts/dmg.sh`. It signs the image with the same Developer ID and a secure timestamp, submits it for notarization a second time, staples and validates the ticket, checks it with `spctl --assess --type open`, and writes `dist/Ciel.dmg.sha256`. So each release makes two notarization submissions: the app, then the disk image.
 
-Every GitHub release must use the tag `v<version>`, such as `v0.6.0`, and attach all five files with these exact names: `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml`. The site download button links to `https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.zip`, so it works only when the latest release has `Ciel.zip`. The appcast points installed copies to `https://github.com/mauriciopolvora/ciel/releases/download/v<version>/Ciel-<version>-arm64.zip`, so they update only when that tag and file exist.
+`scripts/dmg.sh` needs Python 3.11 or later as `python3`, because the pinned `ds-store` and `mac-alias` need it. It installs `dmgbuild` and its two dependencies into `.build/dmg-venv` from the wheel hashes in `scripts/dmg-requirements.txt`, and reinstalls only when that file or the Python version changes. It runs without the `NOTARY_*` variables, because it runs third-party Python. Before it writes the image, it mounts it read-only at a private mount point and checks that `Ciel.app` passes `codesign --verify --strict --deep` with the same CDHash as the source app, that `Applications` links to `/Applications`, that the background and `.DS_Store` exist, and that nothing else is at the top level. A failed check leaves no image.
+
+The final files are `dist/Ciel-0.6.0-arm64.zip`, its `.sha256` file, a copy of the same archive named `dist/Ciel.zip` with `dist/Ciel.zip.sha256`, `dist/appcast.xml`, and `dist/Ciel.dmg` with `dist/Ciel.dmg.sha256`. Review the signed app before you publish. The release script does not publish anything. It prints the `gh release create` command that uploads all seven files.
+
+Every GitHub release must use the tag `v<version>`, such as `v0.6.0`, and attach all seven files with these exact names: `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256`, `appcast.xml`, `Ciel.dmg` and `Ciel.dmg.sha256`. The site download buttons link to `https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.dmg`, so they work only when the latest release has `Ciel.dmg`. Deploy the site only after the first release that has it. `npm run deploy` in `site/` first runs `site/check-downloads.sh`, which stops the deploy unless every `releases/latest/download` link in `site/public/index.html` returns 200. The appcast points installed copies to `https://github.com/mauriciopolvora/ciel/releases/download/v<version>/Ciel-<version>-arm64.zip`, so they update only when that tag and file exist.
 
 See [Apple's notarization documentation](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [notarytool guidance](https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool).
 
@@ -105,7 +109,7 @@ Ciel checks for updates with [Sparkle](https://sparkle-project.org). The app rea
 
 The release script needs the private key. Copy `~/.config/secrets/ciel-sparkle.env` from mauriciovps to the same path on the Mac, then run `chmod 600` on it. Set `SPARKLE_KEY_FILE` to use another path. The script stops before it builds when the file is missing. Never commit the key. The only copy in GitHub is the `CIEL_SPARKLE_ENV` secret in the `release` environment, which only the release workflow reads.
 
-After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The script checks the signature against `SUPublicEDKey` first, and a key that does not match stops it before it writes the appcast. Attach `Ciel-<version>-arm64.zip`, `Ciel-<version>-arm64.zip.sha256`, `Ciel.zip`, `Ciel.zip.sha256` and `appcast.xml` to the GitHub release tagged `v<version>`.
+After it writes `Ciel.zip`, the release script signs the versioned archive and writes `dist/appcast.xml` with `scripts/appcast.sh`. The script checks the signature against `SUPublicEDKey` first, and a key that does not match stops it before it writes the appcast. Attach all seven files to the GitHub release tagged `v<version>`.
 
 CI checks the appcast script with a throwaway key on each run: `scripts/check-appcast.sh` signs a test archive, then validates the XML, its version, length and minimum system fields, and the signature. It also checks that the script refuses a key that does not match `SUPublicEDKey`, and that a malformed key never reaches its output under `bash -x`.
 

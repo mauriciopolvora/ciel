@@ -29,6 +29,7 @@
 | A speech model counts as ready only after its size and SHA-256 match the pinned values | `SpeechModelStoreTests`, mutant M23 |
 | Ad-hoc builds sign without hardened runtime. Developer ID builds sign app and framework with hardened runtime, one Team ID and library validation on | The signature check at the end of `scripts/build.sh`, and the launch step in `.github/workflows/checks.yml` |
 | `scripts/appcast.sh` writes an appcast only for a signature that matches `SUPublicEDKey`, and `sign_update` output never reaches a log or a `bash -x` trace | The wrong-key and `bash -x` malformed key cases in `scripts/check-appcast.sh` |
+| The disk image holds the signed app unchanged, an Applications link and the window layout, and nothing else | The checks in `scripts/dmg.sh`, which `checks.yml` runs on each push |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |
 | Colors, labels, switches and the About panel come from `Sources/Ciel/DesignSystem.swift` | `scripts/lint-colors.sh` in `check.sh`. Its error names the token to use |

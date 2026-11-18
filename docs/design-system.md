@@ -64,6 +64,14 @@ Pointer hover uses a 120 ms opacity transition and the curve `(0.23, 1, 0.32, 1)
 
 Use native text editing, scrolling, focus behavior, and accessibility labels. The input retains its spoken search label even though it has no visible placeholder. Full result names remain available to accessibility and tooltips.
 
+## Disk image
+
+`scripts/dmg.sh` builds `Ciel.dmg`, and the geometry lives in the variables at its top. The Finder window is 640 by 380 points with no toolbar, sidebar or status bar. The cloud painting fills the background. On it sits the black launcher panel: Surface gray, radius 16, 60 points in from each side, with a soft shadow. `Ciel.app` and the Applications link sit on the panel at 128 points, with a Secondary gray arrow between them on their center line.
+
+Under each icon is an Accent pill, 120 by 26 points with radius 8. Finder draws icon labels in black on any custom background, in light and dark appearance (measured on macOS 27.0.1), so the labels need a light surface to stay readable. `scripts/GenerateDMGBackground.swift` draws the background at 1x and 2x.
+
+![The Ciel disk image window](dmg-window.png)
+
 ## Design review
 
 Applied [Emil Kowalski’s design engineering skill](https://github.com/emilkowalski/skills/tree/main/skills/emil-design-eng). Keep frequent keyboard actions immediate and use motion only for useful pointer feedback.
