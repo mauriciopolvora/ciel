@@ -33,6 +33,7 @@ mutants=(
     "M27|Report a downloading speech model as not downloaded"
     "M28|Drop the default dictation key while it waits for access"
     "M29|Refuse a full screen window instead of taking it out of full screen"
+    "M30|Let the selected row style recolor result icons"
 )
 
 mutate() {
@@ -110,6 +111,10 @@ mutate() {
         M29)
             swap Sources/Ciel/WindowOperationEngine.swift \
                 's/= try leaveFullScreen\(window, check: budget\)\n/= try { () throws -> Bool in if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }; return false }()\n/'
+            ;;
+        M30)
+            swap Sources/Ciel/LauncherResults.swift \
+                's/\n\s+override var interiorBackgroundStyle: NSView\.BackgroundStyle \{ \.normal \}//'
             ;;
     esac
 }

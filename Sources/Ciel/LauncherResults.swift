@@ -66,22 +66,26 @@ final class ResultRow: NSTableRowView {
             rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
         addTrackingArea(tracking!)
     }
-    private func hover(_ visible: Bool) {
+    private func hover(_ visible: Bool, animated: Bool) {
+        let animate = animated && !Theme.reduceMotion
         CATransaction.begin()
-        CATransaction.setAnimationDuration(Theme.reduceMotion ? 0 : Theme.hoverDuration)
+        CATransaction.setDisableActions(!animate)
+        CATransaction.setAnimationDuration(Theme.hoverDuration)
         CATransaction.setAnimationTimingFunction(Theme.easeOut)
+        // A fade still in flight would keep the overlay on screen over the selection fill.
+        if !animate { hoverLayer.removeAllAnimations() }
         hoverLayer.opacity = visible && !isSelected ? 1 : 0
         CATransaction.commit()
     }
+    override var isSelected: Bool {
+        didSet { if isSelected { hover(false, animated: false) } }
+    }
     override func prepareForReuse() {
         super.prepareForReuse()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        hoverLayer.opacity = 0
-        CATransaction.commit()
+        hover(false, animated: false)
     }
-    override func mouseEntered(with event: NSEvent) { hover(true) }
-    override func mouseExited(with event: NSEvent) { hover(false) }
+    override func mouseEntered(with event: NSEvent) { hover(true, animated: true) }
+    override func mouseExited(with event: NSEvent) { hover(false, animated: true) }
     override func drawSelection(in dirtyRect: NSRect) {
         let path = NSBezierPath(
             roundedRect: bounds.insetBy(dx: 1, dy: 2), xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
@@ -99,6 +103,7 @@ final class ResultRow: NSTableRowView {
         get { true }
         set {}
     }
+    override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 }
 
 final class ResultCell: NSTableCellView {
