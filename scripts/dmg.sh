@@ -1,5 +1,10 @@
 #!/bin/bash
 set -euo pipefail
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+if [[ $# -ne 2 ]]; then fail 'Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg'; fi
+[[ -d "$1" && "$(basename "$1")" == Ciel.app ]] || fail "$1 is not a Ciel.app bundle."
+app="$(cd "$1" && pwd)"
+if [[ "$2" == /* ]]; then output="$2"; else output="$PWD/$2"; fi
 cd "$(dirname "$0")/.."
 # Window geometry in points. The background and the Finder layout both read it from here.
 width=640
@@ -10,11 +15,6 @@ icon_y=172
 app_x=172
 applications_x=468
 
-fail() { printf '%s\n' "$1" >&2; exit 1; }
-if [[ $# -ne 2 ]]; then fail 'Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg'; fi
-[[ -d "$1" && "$(basename "$1")" == Ciel.app ]] || fail "$1 is not a Ciel.app bundle."
-app="$(cd "$1" && pwd)"
-output="$2"
 command -v python3 >/dev/null || fail 'dmgbuild needs python3 3.11 or later, and there is no python3.'
 python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' ||
     fail "dmgbuild needs python3 3.11 or later, and python3 is $(python3 --version 2>&1)."
