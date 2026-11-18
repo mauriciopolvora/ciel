@@ -21,6 +21,7 @@
 | A new `WindowAction` case defines its geometry | The compiler: `unitRect` switches over every case with no `default`. Mutant M4 |
 | The bundle id lives only in `AppIdentity` and `Resources/Info.plist` | `SavedDataTests.bundleIdentifierMatchesInfoPlist`, mutant M8 |
 | Native checks run only under the checks bundle id, and an unknown flag never launches the app | `LaunchMode` and `LaunchModeTests`, the identity step in `check.sh` (exit 64), mutants M9 and M10 |
+| A completion handler that AppKit calls off the main thread is `@Sendable` and hops to the main actor inside, so no toolchain makes it main-actor isolated and traps on entry | The missing app launch step of `--ui-test` (`LauncherCheck`), which runs the app's real `openApplication` handler |
 | Window commands never target Ciel's own windows | `ForeignProcess` in `WindowController.swift`, `WindowOperationTests.ownProcessIsNeverATarget`, mutant M14 |
 | A window command on a full screen window first takes it out of full screen, waits up to 1.5 s for the flag to clear and the frame to hold, then applies on the screen it lands on | `WindowOperationTests.leavesFullScreenFirst` and `fullScreenExitState`, mutant M29 |
 | Window settle retries an unchanged window after 0.2 s, matches within 3 pt, settles as constrained only when the retry repeats, and never yields before the window responds | `FrameSettleTests`, `WindowOperationTests`, mutants M16 to M20 |

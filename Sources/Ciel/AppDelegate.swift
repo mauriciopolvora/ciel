@@ -221,8 +221,10 @@ import CielCore
             panel.dismiss()
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
+            // AppKit calls this on a LaunchServices queue. Sendable keeps it off the main actor, so Swift inserts no
+            // isolation check that would trap there.
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) {
-                [weak self] app, error in
+                @Sendable [weak self] app, error in
                 DispatchQueue.main.async {
                     if let error {
                         self?.hud.show(error.localizedDescription, error: true)
