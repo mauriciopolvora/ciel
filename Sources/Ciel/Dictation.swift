@@ -206,7 +206,8 @@ enum DictationError: LocalizedError, Equatable {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: break
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+            // AVFoundation calls this on an arbitrary queue, so it must carry no main actor isolation.
+            AVCaptureDevice.requestAccess(for: .audio) { @Sendable _ in }
             throw MicrophoneError.asking
         default: throw MicrophoneError.denied
         }

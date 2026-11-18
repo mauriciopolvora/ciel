@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor final class StatusHUD {
-    private var panel: NSPanel?
+    private(set) var panel: NSPanel?
     private var dismiss: Task<Void, Never>?
     func show(_ message: String, error: Bool = false) {
         dismiss?.cancel()

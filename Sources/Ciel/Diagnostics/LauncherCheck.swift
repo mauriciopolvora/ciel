@@ -2,7 +2,7 @@ import AppKit
 import CielCore
 
 @MainActor enum LauncherCheck {
-    static func run(launcher: LauncherView, panel: LauncherPanel, entries: [SearchEntry]) {
+    static func run(launcher: LauncherView, panel: LauncherPanel, entries: [SearchEntry], hud: StatusHUD) {
         guard launcher.results.isEmpty, launcher.table.numberOfRows == 0,
             panel.frame.height == LauncherView.initialHeight,
             launcher.scopeButton.isHidden, launcher.searchField.placeholderString == nil,
@@ -128,6 +128,31 @@ import CielCore
         print("PASS native Select All shortcut")
         print("PASS 240 native filter/query changes, empty results, and panel resizing")
         print("PASS fuzzy Calculator result and 120-point compact panel")
-        NSApp.terminate(nil)
+        launchMissingApplication(launcher: launcher, hud: hud)
+    }
+
+    /// LaunchServices calls the app's completion handler on its own queue. A handler that traps there ends the
+    /// process, and one that never reaches the main actor times out.
+    private static func launchMissingApplication(launcher: LauncherView, hud: StatusHUD) {
+        guard hud.panel == nil else {
+            print("FAIL a status HUD was showing before the missing application launch")
+            exit(1)
+        }
+        launcher.onExecute?(
+            SearchEntry(
+                id: "ciel-check-missing", title: "Missing", subtitle: "", kind: .application,
+                path: "/var/empty/Ciel Check Missing.app"))
+        Task { @MainActor in
+            let deadline = ProcessInfo.processInfo.systemUptime + 10
+            while hud.panel?.isVisible != true {
+                guard ProcessInfo.processInfo.systemUptime < deadline else {
+                    print("FAIL launching a missing application never showed its error")
+                    exit(1)
+                }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            print("PASS launching a missing application from the launcher shows its error")
+            NSApp.terminate(nil)
+        }
     }
 }

@@ -92,6 +92,22 @@ import CielCore
         open()
     }
 
+    /// Quitting waits for the transcriber to free its session, since transcribe.cpp aborts at exit while one is open.
+    /// The reply goes through the run loop, not the main actor: a quit started inside a main queue job holds that
+    /// queue until the reply arrives.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let transcriber else { return .terminateNow }
+        Task.detached {
+            await transcriber.close()
+            let main = CFRunLoopGetMain()
+            CFRunLoopPerformBlock(main, CFRunLoopMode.commonModes.rawValue) {
+                MainActor.assumeIsolated { NSApp.reply(toApplicationShouldTerminate: true) }
+            }
+            CFRunLoopWakeUp(main)
+        }
+        return .terminateLater
+    }
+
     private func open() {
         guard !Preferences().onboarded else { return present() }
         if let onboarding { return onboarding.present() }
@@ -221,8 +237,10 @@ import CielCore
             panel.dismiss()
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
+            // AppKit calls this on a LaunchServices queue. Sendable keeps it off the main actor, so Swift inserts no
+            // isolation check that would trap there.
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) {
-                [weak self] app, error in
+                @Sendable [weak self] app, error in
                 DispatchQueue.main.async {
                     if let error {
                         self?.hud.show(error.localizedDescription, error: true)
@@ -320,7 +338,12 @@ import CielCore
             CheckHandles(
                 launcher: panel.launcher, panel: panel, openLauncher: { [self] in present() },
                 fieldEditor: panel.fieldEditor, catalog: catalog,
-                hotKeys: hotKeys, speech: speech,
+                hotKeys: hotKeys, speech: speech, hud: hud,
+                loadSpeech: { [self] model in
+                    let loaded = TranscribeCppTranscriber(modelURL: model)
+                    transcriber = loaded
+                    return loaded
+                },
                 menu: statusItem.menu,
                 showSettings: { [self] in
                     showSettings()

@@ -20,6 +20,15 @@ import Testing
         await #expect(throws: TranscriptionError.self) { try await transcriber.prepare() }
     }
 
+    @Test func aClosedTranscriberNeverOpensTheModelAgain() async {
+        let transcriber = TranscribeCppTranscriber(modelURL: missing)
+        await transcriber.close()
+        await #expect(throws: CancellationError.self) {
+            try await transcriber.transcribe(AudioClip(samples: [Float](repeating: 0, count: 16_000)))
+        }
+        await #expect(throws: CancellationError.self) { try await transcriber.prepare() }
+    }
+
     @Test func anEmptyClipIsEmptyText() async throws {
         let transcriber = TranscribeCppTranscriber(modelURL: missing)
         #expect(try await transcriber.transcribe(AudioClip(samples: [])) == Transcript(words: []))

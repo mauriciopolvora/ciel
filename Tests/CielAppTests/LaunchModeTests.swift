@@ -7,13 +7,15 @@ import Testing
 struct LaunchModeTests {
     private static let executable = "/Applications/Ciel.app/Contents/MacOS/Ciel"
     private static let everyMode: [LaunchMode] = [
-        .app, .appCheck(.launcher), .appCheck(.smoke), .appCheck(.performance), .processCheck(.catalog),
+        .app, .appCheck(.launcher), .appCheck(.smoke), .appCheck(.performance), .appCheck(.speechQuit),
+        .processCheck(.catalog),
         .processCheck(.window), .processCheck(.fixture(output: "/tmp/ciel check", minimumSize: false)),
         .processCheck(.fixture(output: "/tmp/ciel check/minimum", minimumSize: true)),
     ]
     private static let checkScriptFlags: [(String, LaunchMode)] = [
         ("--ui-test", .appCheck(.launcher)), ("--smoke-test", .appCheck(.smoke)),
-        ("--performance-test", .appCheck(.performance)), ("--catalog-test", .processCheck(.catalog)),
+        ("--performance-test", .appCheck(.performance)), ("--speech-quit-test", .appCheck(.speechQuit)),
+        ("--catalog-test", .processCheck(.catalog)),
         ("--window-test", .processCheck(.window)),
     ]
 

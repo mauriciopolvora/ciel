@@ -27,6 +27,7 @@ enum LaunchMode: Equatable {
         case ("--ui-test", 1): self = .appCheck(.launcher)
         case ("--smoke-test", 1): self = .appCheck(.smoke)
         case ("--performance-test", 1): self = .appCheck(.performance)
+        case ("--speech-quit-test", 1): self = .appCheck(.speechQuit)
         case ("--catalog-test", 1): self = .processCheck(.catalog)
         case ("--window-test", 1): self = .processCheck(.window)
         case ("--window-fixture", 2): self = .processCheck(.fixture(output: flags[1], minimumSize: false))
@@ -42,6 +43,7 @@ enum LaunchMode: Equatable {
         case .appCheck(.launcher): ["--ui-test"]
         case .appCheck(.smoke): ["--smoke-test"]
         case .appCheck(.performance): ["--performance-test"]
+        case .appCheck(.speechQuit): ["--speech-quit-test"]
         case .processCheck(.catalog): ["--catalog-test"]
         case .processCheck(.window): ["--window-test"]
         case .processCheck(.fixture(let output, minimumSize: false)): ["--window-fixture", output]
@@ -66,12 +68,13 @@ enum LaunchError: Error, Equatable, CustomStringConvertible {
 }
 
 enum AppCheck: Equatable {
-    case launcher, smoke, performance
+    case launcher, smoke, performance, speechQuit
 
     @MainActor func run(_ app: CheckHandles) {
         switch self {
         case .launcher:
-            LauncherCheck.run(launcher: app.launcher, panel: app.panel, entries: app.catalog.entries)
+            LauncherCheck.run(
+                launcher: app.launcher, panel: app.panel, entries: app.catalog.entries, hud: app.hud)
         case .smoke:
             SmokeCheck.run(
                 launcher: app.launcher, fieldEditor: app.fieldEditor, catalog: app.catalog,
@@ -82,6 +85,8 @@ enum AppCheck: Equatable {
             PerformanceCheck.run(
                 launcher: app.launcher, panel: app.panel, open: app.openLauncher,
                 startupMilliseconds: AppPerformance.startupMilliseconds)
+        case .speechQuit:
+            SpeechQuitCheck.run(loadSpeech: app.loadSpeech)
         }
     }
 }

@@ -14,6 +14,19 @@ actor TranscribeCppTranscriber: Transcriber {
 
     func prepare() async throws { _ = try loadedSession() }
 
+    /// Frees the session before the process exits, since transcribe.cpp aborts at exit while a session holds Metal
+    /// buffers. Nonisolated, so it stops a running transcription before it waits for the actor. The flag never clears,
+    /// so a pass queued ahead of the free stops too and nothing reopens the session.
+    nonisolated func close() async {
+        abort.closed.withLock { $0 = true }
+        await free()
+    }
+
+    private func free() {
+        session = nil
+        release = nil
+    }
+
     func transcribe(_ clip: AudioClip) async throws -> Transcript {
         abort.requested.withLock { $0 = false }
         // Calling an isolated method keeps the run on the actor, so a queued pass cannot start mid-run and clear the flag.
@@ -55,6 +68,7 @@ actor TranscribeCppTranscriber: Transcriber {
     private static let samplesPerMillisecond = 16
 
     private func loadedSession() throws -> OpaquePointer {
+        if abort.closed.withLock({ $0 }) { throw CancellationError() }
         if let session { return session }
         var opened: OpaquePointer?
         let status = transcribe_open(modelURL.path, nil, nil, &opened)
@@ -70,10 +84,12 @@ actor TranscribeCppTranscriber: Transcriber {
 /// and the pass queued behind it starts sooner.
 private final class AbortFlag: Sendable {
     let requested = OSAllocatedUnfairLock(initialState: false)
+    let closed = OSAllocatedUnfairLock(initialState: false)
 }
 
 private func abortRequested(_ flag: UnsafeMutableRawPointer?) -> Bool {
-    Unmanaged<AbortFlag>.fromOpaque(flag!).takeUnretainedValue().requested.withLock { $0 }
+    let flag = Unmanaged<AbortFlag>.fromOpaque(flag!).takeUnretainedValue()
+    return flag.closed.withLock { $0 } || flag.requested.withLock { $0 }
 }
 
 struct TranscriptionError: LocalizedError, Equatable {

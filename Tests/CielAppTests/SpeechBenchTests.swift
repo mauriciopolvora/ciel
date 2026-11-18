@@ -6,7 +6,7 @@ import Testing
 
 @testable import CielApp
 
-@Suite(.enabled(if: SpeechBench.model != nil), .timeLimit(.minutes(10)))
+@Suite(.enabled(if: SpeechBench.model != nil && SpeechBench.fixtures != nil), .timeLimit(.minutes(10)))
 @MainActor
 struct SpeechBenchTests {
     @Test func releaseToPaste() async throws {
