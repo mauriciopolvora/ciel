@@ -117,18 +117,25 @@ struct LauncherCellTests {
                 with: .mouseEntered, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0,
                 userData: nil))
+        let plain = try rowFill(of: row, in: view)
         row.mouseEntered(with: entered)
+        #expect(try rowFill(of: row, in: view) > plain + 0.03, "the hover overlay did not draw")
         _ = view.control(
             view.searchField, textView: NSTextView(), doCommandBy: #selector(NSResponder.moveDown(_:)))
         #expect(row.isSelected)
-        let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
-        view.cacheDisplay(in: view.bounds, to: bitmap)
-        let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
-        let rect = row.convert(row.bounds, to: view)
-        let fill = try #require(bitmap.colorAt(x: Int(rect.midX * scale), y: Int((rect.minY + 6) * scale)))
-        #expect(
-            gray(fill) > (gray(Theme.accent) + gray(Theme.selection)) / 2, "selected fill is \(gray(fill))")
+        let fill = try rowFill(of: row, in: view)
+        #expect(fill > (gray(Theme.accent) + gray(Theme.selection)) / 2, "selected fill is \(fill)")
     }
+}
+
+/// The gray of a row's background, sampled from an offscreen render near its top edge, clear of the labels.
+@MainActor
+private func rowFill(of row: NSView, in view: LauncherView) throws -> CGFloat {
+    let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
+    let rect = row.convert(row.bounds, to: view)
+    return gray(try #require(bitmap.colorAt(x: Int(rect.midX * scale), y: Int((rect.minY + 6) * scale))))
 }
 
 /// The darkest and brightest gray in each row's visible icon, sampled from an offscreen render.

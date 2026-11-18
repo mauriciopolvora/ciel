@@ -39,7 +39,6 @@ final class ActionIcon: NSView {
 final class ResultRow: NSTableRowView {
     private let hoverLayer = CAShapeLayer()
     private var tracking: NSTrackingArea?
-    private var pointerInside = false
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -67,29 +66,26 @@ final class ResultRow: NSTableRowView {
             rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
         addTrackingArea(tracking!)
     }
-    private func showHover(animated: Bool) {
+    private func hover(_ visible: Bool, animated: Bool) {
+        let animate = animated && !Theme.reduceMotion
         CATransaction.begin()
-        CATransaction.setAnimationDuration(animated && !Theme.reduceMotion ? Theme.hoverDuration : 0)
+        CATransaction.setDisableActions(!animate)
+        CATransaction.setAnimationDuration(Theme.hoverDuration)
         CATransaction.setAnimationTimingFunction(Theme.easeOut)
-        hoverLayer.opacity = pointerInside && !isSelected ? 1 : 0
+        // A fade still in flight would keep the overlay on screen over the selection fill.
+        if !animate { hoverLayer.removeAllAnimations() }
+        hoverLayer.opacity = visible && !isSelected ? 1 : 0
         CATransaction.commit()
     }
     override var isSelected: Bool {
-        didSet { showHover(animated: false) }
+        didSet { if isSelected { hover(false, animated: false) } }
     }
     override func prepareForReuse() {
         super.prepareForReuse()
-        pointerInside = false
-        showHover(animated: false)
+        hover(false, animated: false)
     }
-    override func mouseEntered(with event: NSEvent) {
-        pointerInside = true
-        showHover(animated: true)
-    }
-    override func mouseExited(with event: NSEvent) {
-        pointerInside = false
-        showHover(animated: true)
-    }
+    override func mouseEntered(with event: NSEvent) { hover(true, animated: true) }
+    override func mouseExited(with event: NSEvent) { hover(false, animated: true) }
     override func drawSelection(in dirtyRect: NSRect) {
         let path = NSBezierPath(
             roundedRect: bounds.insetBy(dx: 1, dy: 2), xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
