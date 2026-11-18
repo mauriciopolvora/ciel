@@ -134,6 +134,10 @@ import CielCore
     /// LaunchServices calls the app's completion handler on its own queue. A handler that traps there ends the
     /// process, and one that never reaches the main actor times out.
     private static func launchMissingApplication(launcher: LauncherView, hud: StatusHUD) {
+        guard hud.panel == nil else {
+            print("FAIL a status HUD was showing before the missing application launch")
+            exit(1)
+        }
         launcher.onExecute?(
             SearchEntry(
                 id: "ciel-check-missing", title: "Missing", subtitle: "", kind: .application,

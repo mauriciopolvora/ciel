@@ -44,9 +44,14 @@ CIEL_SMOKE_OUTPUT="$PWD/.build/smoke" "$check_binary" --smoke-test
 CIEL_PERFORMANCE_OUTPUT="$PWD/.build/performance/native-ui.json" "$check_binary" --performance-test
 if [[ -n "${CIEL_SPEECH_MODEL:-}" ]]; then
     speech_status=0
-    "$check_binary" --speech-quit-test || speech_status=$?
+    speech_output="$("$check_binary" --speech-quit-test 2>&1)" || speech_status=$?
+    printf '%s\n' "$speech_output"
     if [[ $speech_status -ne 0 ]]; then
         printf 'Quitting with the speech model loaded exited %d instead of 0.\n' "$speech_status" >&2
+        exit 1
+    fi
+    if ! grep -q '^PASS speech model loaded and ran one transcription$' <<<"$speech_output"; then
+        printf 'The speech quit test exited 0 before it loaded the model and ran a transcription.\n' >&2
         exit 1
     fi
     printf 'PASS quitting with the speech model loaded exits 0\n'
