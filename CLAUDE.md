@@ -31,7 +31,7 @@
 | `scripts/appcast.sh` writes an appcast only for a signature that matches `SUPublicEDKey`, and `sign_update` output never reaches a log or a `bash -x` trace | The wrong-key and `bash -x` malformed key cases in `scripts/check-appcast.sh` |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |
-| Result row icons and labels draw in the colors `ResultCell.mark` sets, selected or not, and AppKit's selected-row style never recolors them | `LauncherCellTests.resultIconsDrawInTheirRowColorsSelectedOrNot`, mutant M30 |
+| Result row icons draw in the colors `ResultCell.mark` sets, selected or not. AppKit's selected-row style never recolors them, and the hover overlay never covers a selected row | `LauncherCellTests.resultIconsDrawInTheirRowColorsSelectedOrNot` and `aHoveredRowSelectedFromTheKeyboardKeepsItsSelectionFill`, mutant M30 |
 | Colors, labels, switches and the About panel come from `Sources/Ciel/DesignSystem.swift` | `scripts/lint-colors.sh` in `check.sh`. Its error names the token to use |
 | Native behavior works in the real app, not only in fakes | The native modes in `check.sh`, which CI runs on macOS with the window check required |
 | Concurrency is checked, never silenced | Swift 6 language mode in `Package.swift`, and `check.sh` builds with warnings as errors |

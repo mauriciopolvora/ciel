@@ -39,6 +39,7 @@ final class ActionIcon: NSView {
 final class ResultRow: NSTableRowView {
     private let hoverLayer = CAShapeLayer()
     private var tracking: NSTrackingArea?
+    private var pointerInside = false
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -66,22 +67,29 @@ final class ResultRow: NSTableRowView {
             rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self)
         addTrackingArea(tracking!)
     }
-    private func hover(_ visible: Bool) {
+    private func showHover(animated: Bool) {
         CATransaction.begin()
-        CATransaction.setAnimationDuration(Theme.reduceMotion ? 0 : Theme.hoverDuration)
+        CATransaction.setAnimationDuration(animated && !Theme.reduceMotion ? Theme.hoverDuration : 0)
         CATransaction.setAnimationTimingFunction(Theme.easeOut)
-        hoverLayer.opacity = visible && !isSelected ? 1 : 0
+        hoverLayer.opacity = pointerInside && !isSelected ? 1 : 0
         CATransaction.commit()
+    }
+    override var isSelected: Bool {
+        didSet { showHover(animated: false) }
     }
     override func prepareForReuse() {
         super.prepareForReuse()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        hoverLayer.opacity = 0
-        CATransaction.commit()
+        pointerInside = false
+        showHover(animated: false)
     }
-    override func mouseEntered(with event: NSEvent) { hover(true) }
-    override func mouseExited(with event: NSEvent) { hover(false) }
+    override func mouseEntered(with event: NSEvent) {
+        pointerInside = true
+        showHover(animated: true)
+    }
+    override func mouseExited(with event: NSEvent) {
+        pointerInside = false
+        showHover(animated: true)
+    }
     override func drawSelection(in dirtyRect: NSRect) {
         let path = NSBezierPath(
             roundedRect: bounds.insetBy(dx: 1, dy: 2), xRadius: Theme.rowRadius, yRadius: Theme.rowRadius)
