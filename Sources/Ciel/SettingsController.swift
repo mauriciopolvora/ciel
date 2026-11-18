@@ -293,14 +293,14 @@ final class SettingsController: PreferencesController {
 
     @objc func cancelSpotlight() {
         guard let held = spotlightGuide.held, let kept = hotKeys.shortcut(for: .launcher) else { return }
-        spotlightGuide.held = nil
+        spotlightGuide.dismiss()
         showMessage("Kept \(kept.display). \(held.display) is still used by Spotlight.")
         refresh()
     }
 
     override func windowWillClose(_ notification: Notification) {
         super.windowWillClose(notification)
-        spotlightGuide.held = nil
+        spotlightGuide.dismiss()
         refresh()
     }
 

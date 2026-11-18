@@ -80,6 +80,7 @@ import UniformTypeIdentifiers
             captureOnboarding(output: output)
             captureSpotlightSheet(speech: speech, output: output)
             captureDragHint(output: output)
+            captureSpotlightCard(output: output)
             let report: [String: Any] = [
                 "applicationCount": catalog.entries.count, "commandCount": SearchEntry.commands.count,
                 "visibleResults": launcher.results.count, "accessibilityGranted": WindowController.isTrusted,
@@ -319,7 +320,7 @@ import UniformTypeIdentifiers
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
         guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
-            state.opened == [SpotlightShortcuts.keyboardSettings]
+            state.opened == [SpotlightShortcuts.settingsURL]
         else {
             print("FAIL onboarding did not take ⌘Space after Spotlight let go")
             exit(1)
@@ -358,7 +359,7 @@ import UniformTypeIdentifiers
         state.symbolicHotKeys = ["64": ["enabled": false]]
         settings.spotlightGuide.tick()
         guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
-            state.opened == [SpotlightShortcuts.keyboardSettings], settings.spotlightGuide.held == nil
+            state.opened == [SpotlightShortcuts.settingsURL], settings.spotlightGuide.held == nil
         else {
             print("FAIL Settings did not take ⌘Space after Spotlight let go")
             exit(1)
@@ -411,6 +412,49 @@ import UniformTypeIdentifiers
         print("PASS drag hint animation")
     }
 
+    private static func captureSpotlightCard(output: String) {
+        let card = SpotlightCard(frame: NSRect(origin: .zero, size: SpotlightCard.size))
+        card.appearance = NSAppearance(named: .darkAqua)
+        card.state = .turnOff(
+            action: "Show Spotlight search", shortcut: SpotlightShortcuts.commandSpace.display)
+        card.show(at: 0)
+        guard captureLayer(of: card, "spotlight-card", output: output) != nil else {
+            print("FAIL Spotlight card")
+            exit(1)
+        }
+        let count = 48
+        let images = (0..<count).compactMap { index -> CGImage? in
+            card.show(at: Double(index) / Double(count))
+            guard let frame = renderLayer(of: card),
+                let bitmap = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: frame.pixelsWide, pixelsHigh: frame.pixelsHigh,
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+                let context = NSGraphicsContext(bitmapImageRep: bitmap)
+            else { return nil }
+            let cg = context.cgContext
+            cg.scaleBy(x: 2, y: 2)
+            cg.setFillColor(Theme.cg(Theme.selection, in: card))
+            cg.fill(CGRect(origin: .zero, size: SpotlightCard.size))
+            NSGraphicsContext.current = context
+            frame.draw(in: NSRect(origin: .zero, size: SpotlightCard.size))
+            NSGraphicsContext.current = nil
+            return bitmap.cgImage
+        }
+        guard images.count == count,
+            writeGIF(images, delay: SpotlightCard.cycle / Double(count), to: output + "/spotlight-card.gif")
+        else {
+            print("FAIL Spotlight card GIF")
+            exit(1)
+        }
+        card.state = .freed(shortcut: SpotlightShortcuts.commandSpace.display)
+        guard captureLayer(of: card, "spotlight-card-freed", output: output) != nil else {
+            print("FAIL Spotlight card freed")
+            exit(1)
+        }
+        print("PASS Spotlight card states and untick animation")
+    }
+
     private static func settleIcons(in launcher: LauncherView) async {
         launcher.layoutSubtreeIfNeeded()
         let deadline = ProcessInfo.processInfo.systemUptime + 5
@@ -423,10 +467,19 @@ import UniformTypeIdentifiers
         }
     }
 
-    /// Renders the layer tree, since sublayers drawn outside `draw(_:)` are skipped by `cacheDisplay`, then draws
-    /// the subviews over it.
     @discardableResult
     private static func captureLayer(of view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
+        let bitmap = renderLayer(of: view)
+        if let png = bitmap?.representation(using: .png, properties: [:]) {
+            try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
+        }
+        return bitmap
+    }
+
+    /// Renders the layer tree, since sublayers drawn outside `draw(_:)` are skipped by `cacheDisplay`, then draws
+    /// the subviews over it. `render(in:)` ignores the root layer's geometry flip, which a flipped view's layer
+    /// has, so the context carries the flip instead.
+    private static func renderLayer(of view: NSView) -> NSBitmapImageRep? {
         guard let layer = view.layer,
             let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),
@@ -436,8 +489,15 @@ import UniformTypeIdentifiers
                 bytesPerRow: 0, bitsPerPixel: 0),
             let context = NSGraphicsContext(bitmapImageRep: bitmap)
         else { return nil }
-        context.cgContext.scaleBy(x: 2, y: 2)
-        layer.render(in: context.cgContext)
+        let cg = context.cgContext
+        cg.scaleBy(x: 2, y: 2)
+        cg.saveGState()
+        if layer.isGeometryFlipped {
+            cg.translateBy(x: 0, y: view.bounds.height)
+            cg.scaleBy(x: 1, y: -1)
+        }
+        layer.render(in: cg)
+        cg.restoreGState()
         NSGraphicsContext.current = context
         for subview in view.subviews where !subview.isHidden {
             guard
@@ -458,9 +518,6 @@ import UniformTypeIdentifiers
                 respectFlipped: false, hints: nil)
         }
         NSGraphicsContext.current = nil
-        if let png = bitmap.representation(using: .png, properties: [:]) {
-            try? png.write(to: URL(fileURLWithPath: output + "/" + name + ".png"))
-        }
         return bitmap
     }
 
@@ -489,7 +546,7 @@ import UniformTypeIdentifiers
     var opened: [URL] = []
 }
 
-@MainActor private struct AcceptingRegistrar: HotKeyRegistrar {
+@MainActor struct AcceptingRegistrar: HotKeyRegistrar {
     func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
     {
         Cleanup {}

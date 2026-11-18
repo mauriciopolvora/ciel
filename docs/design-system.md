@@ -42,6 +42,7 @@ Settings and onboarding use two columns. `Sources/Ciel/SettingsLayout.swift` dra
 - Lines are 36 points. A name and its controls share a first baseline.
 - Hairline rules inset 36 points separate Launcher shortcut, General, Accessibility and Dictation.
 - The launcher shortcut is a menu: ⌘Space (marked Replaces Spotlight), ⌃⌥Space and Record Shortcut…. Beside it, a 12-point caption says Replaces Spotlight or Used by Spotlight.
+- A launcher shortcut that Spotlight holds opens System Settings at Keyboard Shortcuts with Spotlight selected. A 300-point floating card sits 16 points under that sheet while System Settings is frontmost, or under the window when no sheet opened. Its top is the row to change: a checkbox, the action name, and the shortcut right-aligned in secondary gray, on a Group fill with the row radius. Below it, Turn off and the action name at 13 points medium, over In Keyboard Shortcuts, under Spotlight. The checkbox is pressed and unticks in a 2.4-second loop. It stays ticked and still under Reduce Motion or with animations off. When Spotlight lets go, the box stays unticked, the card says the shortcut now opens Ciel for 1.6 seconds, then closes.
 - Each switch has its name as a clickable label to its right. Check for Updates… sits under Automatically check for updates, and is off while Sparkle cannot check.
 - Shortcut recorders and action buttons are 120 points wide. A status sits right before its button in 12-point tabular digits. Ready and allowed use text white, waiting states use secondary gray, and a failure uses system red with its message.
 - Footer buttons are standard push buttons, 20 points in from each side.
@@ -87,6 +88,7 @@ Applied [Emil Kowalski’s design engineering skill](https://github.com/emilkowa
 | Grouped Settings rows with section headers | Two columns, names on the left and controls on the right | Picked by the operator from three prototypes |
 | Gray selected row with a faint ring, 21-point input, divider under the input | Near-white selected row, 24-point input, no divider | Picked by the operator from three prototypes |
 | Left-aligned transcript lines | Centered transcript lines | Keep the text on the pill's center line as it grows |
+| Replacing Spotlight opened the Keyboard pane and left the user to find Spotlight | Keyboard Shortcuts opens at Spotlight, and a card under System Settings shows the box to untick | Land the user on the exact checkbox and say when Ciel has the shortcut |
 
 ## Validation
 

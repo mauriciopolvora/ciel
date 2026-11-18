@@ -107,7 +107,8 @@ final class OnboardingController: PreferencesController {
         if isTrusted() { close() } else { show(.access) }
     }
 
-    @objc private func allowAccess() {
+    @objc func allowAccess() {
+        spotlightGuide.closeCard()
         open(AccessibilityHelper.settingsURL)
         helper.show()
     }
@@ -117,6 +118,7 @@ final class OnboardingController: PreferencesController {
         poll?.cancel()
         poll = nil
         helper.close()
+        spotlightGuide.dismiss()
         onFinish?()
     }
 }
