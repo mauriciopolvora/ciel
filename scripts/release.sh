@@ -53,8 +53,7 @@ cp "$archive" dist/Ciel.zip
 (cd dist && shasum -a 256 Ciel.zip > Ciel.zip.sha256)
 bash scripts/appcast.sh "$app_path/Contents/Info.plist" "$archive" "$sparkle_key" "$PWD/dist/appcast.xml"
 disk_image="$PWD/dist/Ciel.dmg"
-# dmg.sh runs third-party Python, so it never sees the notary credentials.
-env -u NOTARY_APPLE_ID -u NOTARY_PASSWORD -u NOTARY_TEAM_ID bash scripts/dmg.sh "$app_path" "$disk_image"
+bash scripts/dmg.sh "$app_path" "$disk_image"
 codesign --force --sign "$SIGN_IDENTITY" --timestamp "$disk_image"
 notarize "$disk_image"
 xcrun stapler staple "$disk_image"

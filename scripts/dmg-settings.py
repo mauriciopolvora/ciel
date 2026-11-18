@@ -1,14 +1,12 @@
-# dmgbuild settings. scripts/dmg.sh passes every value as a -D define.
+# dmgbuild settings for bash scripts/dmg.sh --layout, which passes every value as a -D define.
 width = int(defines["width"])
-height = int(defines["height"])
 icon_y = int(defines["icon_y"])
 
 format = "UDZO"
 files = [defines["app"]]
 symlinks = {"Applications": "/Applications"}
 background = defines["background"]
-# Finder stores window bounds with the title bar, which is 28 points tall.
-window_rect = ((200, 200), (width, height + 28))
+window_rect = ((200, 200), (width, int(defines["window_height"])))
 default_view = "icon-view"
 show_status_bar = False
 show_tab_view = False
