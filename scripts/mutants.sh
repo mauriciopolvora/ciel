@@ -33,8 +33,9 @@ mutants=(
     "M27|Report a downloading speech model as not downloaded"
     "M28|Drop the default dictation key while it waits for access"
     "M29|Refuse a full screen window instead of taking it out of full screen"
-    "M30|Open Keyboard settings without the Spotlight anchor"
-    "M31|Never show the Spotlight card under System Settings"
+    "M30|Let the selected row style recolor result icons"
+    "M31|Open Keyboard settings without the Spotlight anchor"
+    "M32|Never show the Spotlight card under System Settings"
 )
 
 mutate() {
@@ -113,8 +114,12 @@ mutate() {
             swap Sources/Ciel/WindowOperationEngine.swift \
                 's/= try leaveFullScreen\(window, check: budget\)\n/= try { () throws -> Bool in if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }; return false }()\n/'
             ;;
-        M30) swap Sources/Ciel/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
-        M31) swap Sources/Ciel/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
+        M30)
+            swap Sources/Ciel/LauncherResults.swift \
+                's/\n\s+override var interiorBackgroundStyle: NSView\.BackgroundStyle \{ \.normal \}//'
+            ;;
+        M31) swap Sources/Ciel/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
+        M32) swap Sources/Ciel/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
     esac
 }
 
