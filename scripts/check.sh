@@ -42,6 +42,17 @@ check_binary="$check_dir/CielChecks.app/Contents/MacOS/Ciel"
 "$check_binary" --catalog-test
 CIEL_SMOKE_OUTPUT="$PWD/.build/smoke" "$check_binary" --smoke-test
 CIEL_PERFORMANCE_OUTPUT="$PWD/.build/performance/native-ui.json" "$check_binary" --performance-test
+if [[ -n "${CIEL_SPEECH_MODEL:-}" ]]; then
+    speech_status=0
+    "$check_binary" --speech-quit-test || speech_status=$?
+    if [[ $speech_status -ne 0 ]]; then
+        printf 'Quitting with the speech model loaded exited %d instead of 0.\n' "$speech_status" >&2
+        exit 1
+    fi
+    printf 'PASS quitting with the speech model loaded exits 0\n'
+else
+    printf 'Skipped the speech quit test: set CIEL_SPEECH_MODEL to a speech model file to run it.\n' >&2
+fi
 window_status=0
 "$check_binary" --window-test || window_status=$?
 if [[ $window_status -eq 2 && -z "${CI:-}" ]]; then

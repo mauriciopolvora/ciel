@@ -40,6 +40,7 @@ public enum CielApplication {
     let hotKeys: HotKeys
     let speech: SpeechModelStore
     let hud: StatusHUD
+    let loadSpeech: (URL) -> TranscribeCppTranscriber
     let menu: NSMenu?
     let showSettings: () -> SettingsController?
     let windowShortcuts: () -> WindowShortcutsController?

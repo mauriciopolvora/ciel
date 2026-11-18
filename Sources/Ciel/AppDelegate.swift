@@ -323,6 +323,11 @@ import CielCore
                 launcher: panel.launcher, panel: panel, openLauncher: { [self] in present() },
                 fieldEditor: panel.fieldEditor, catalog: catalog,
                 hotKeys: hotKeys, speech: speech, hud: hud,
+                loadSpeech: { [self] model in
+                    let loaded = TranscribeCppTranscriber(modelURL: model)
+                    transcriber = loaded
+                    return loaded
+                },
                 menu: statusItem.menu,
                 showSettings: { [self] in
                     showSettings()

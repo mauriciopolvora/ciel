@@ -9,12 +9,26 @@ jobs:
   check:
     runs-on: macos-15
     timeout-minutes: 20
+    env:
+      CIEL_SPEECH_MODEL: ${{ github.workspace }}/.build/speech/parakeet-ultra-Q5_K_M.gguf
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build/speech/parakeet-ultra-Q5_K_M.gguf
+          key: parakeet-ultra-Q5_K_M-f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997
+      - name: Download the speech model
+        run: |
+          model="$CIEL_SPEECH_MODEL"
+          if [ ! -f "$model" ]; then
+            mkdir -p "$(dirname "$model")"
+            curl -fsSL --retry 3 -o "$model" https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q5_K_M.gguf
+          fi
+          echo "f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997  $model" | shasum -a 256 -c
       - name: Check format, scripts, metadata, unit tests, search budgets, and native app
         run: bash scripts/check.sh
       - name: Archive performance report
