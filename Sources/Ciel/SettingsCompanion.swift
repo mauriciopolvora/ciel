@@ -11,6 +11,9 @@ import CielCore
     /// A sheet is where the user acts, so a card that explains a sheet sits under it, not under its window.
     private let followsSheet: Bool
     var isShown: Bool { follow != nil }
+    static var isFrontmost: Bool {
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier == systemSettings
+    }
 
     init(card: NSView, followsSheet: Bool = false) {
         self.followsSheet = followsSheet
@@ -49,8 +52,7 @@ import CielCore
 
     /// Where the card belongs now, or nil while System Settings is not frontmost or has no window.
     func placement() -> NSRect? {
-        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.systemSettings,
-            let window = Self.settingsWindow(front: followsSheet)
+        guard Self.isFrontmost, let window = Self.settingsWindow(front: followsSheet)
         else { return nil }
         return Self.frame(of: panel.frame.size, under: window)
     }

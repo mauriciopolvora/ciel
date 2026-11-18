@@ -9,6 +9,8 @@ import CielCore
         "ciel-check-" + UUID().uuidString)
     private var steps: [(WindowAction, CGRect)] = []
     private var failures = 0
+    /// Set when the Spotlight guide step started System Settings, so every exit quits it.
+    private var launchedSettings = false
     private var enhancedFixture: (any WindowAccess)?
     private var minimumSizeFixture = false
     private var dictationKey: Cleanup?
@@ -308,16 +310,14 @@ import CielCore
         let guide = SpotlightGuide(
             hotKeys: hotKeys, spotlight: SpotlightShortcuts { spotlight.symbolicHotKeys },
             open: { _ = NSWorkspace.shared.open($0) })
-        let wasRunning = !NSRunningApplication.runningApplications(
-            withBundleIdentifier: SettingsCompanion.systemSettings
-        ).isEmpty
+        launchedSettings =
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: SettingsCompanion.systemSettings
+            ).isEmpty
         let done = { [self] (passed: Bool, detail: String) in
             if !passed { failures += 1 }
             print("\(passed ? "PASS" : "FAIL") Spotlight guide: \(detail)")
             guide.dismiss()
-            let settings = NSRunningApplication.runningApplications(
-                withBundleIdentifier: SettingsCompanion.systemSettings)
-            for app in settings where !wasRunning { app.terminate() }
             defaults.removePersistentDomain(forName: suite)
             body()
         }
@@ -343,6 +343,13 @@ import CielCore
                             return done(false, "the ?Spotlight anchor did not show \(action) on \(os)")
                         }
                         print("INFO Spotlight anchor on \(os): \(action) \(found ? "found" : "not found")")
+                        if found,
+                            SettingsCompanion.settingsWindow(front: true)
+                                == SettingsCompanion.settingsWindow()
+                        {
+                            return done(
+                                false, "\(action) is showing, but no sheet is the front window to follow")
+                        }
                         spotlight.symbolicHotKeys = ["64": ["enabled": false]]
                         guide.tick()
                         guard hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace,
@@ -385,10 +392,11 @@ import CielCore
             ).first?.processIdentifier
         else { return false }
         let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, 1)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        let deadline = ProcessInfo.processInfo.systemUptime + 2
         var queue = [app]
         var index = 0
-        while index < queue.count, index < 6000 {
+        while index < queue.count, index < 6000, ProcessInfo.processInfo.systemUptime < deadline {
             let element = queue[index]
             index += 1
             for attribute in [kAXTitleAttribute, kAXValueAttribute, kAXDescriptionAttribute] {
@@ -412,6 +420,11 @@ import CielCore
 
     private func finish(timeout: Bool = false) {
         if child.isRunning { child.terminate() }
+        if launchedSettings {
+            for app in NSRunningApplication.runningApplications(
+                withBundleIdentifier: SettingsCompanion.systemSettings)
+            { app.terminate() }
+        }
         if timeout {
             failures += 1
             print("FAIL fixture timed out")

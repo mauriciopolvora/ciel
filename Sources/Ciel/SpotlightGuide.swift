@@ -9,7 +9,7 @@ import AppKit
     var hold = Duration.milliseconds(1600)
     let card = SpotlightCard(frame: NSRect(origin: .zero, size: SpotlightCard.size))
     let companion: SettingsCompanion
-    private var holding: Task<Void, Never>?
+    private(set) var holding: Task<Void, Never>?
     let heading = Theme.label("", size: 20)
     let note = Theme.label("", size: 12, color: Theme.secondary)
     private let hotKeys: HotKeys
@@ -31,6 +31,7 @@ import AppKit
         self.spotlight = spotlight
         self.open = open
         companion = SettingsCompanion(card: card, followsSheet: true)
+        companion.panel.ignoresMouseEvents = true
         super.init()
         note.lineBreakMode = .byWordWrapping
         note.maximumNumberOfLines = 2
@@ -85,14 +86,20 @@ import AppKit
         }
     }
 
+    /// The owner comes back only from System Settings, so it never takes the front from an app the user moved to.
     private func finish() {
         dismiss()
-        if owner?.window?.isVisible == true { owner?.present() }
+        if owner?.window?.isVisible == true, SettingsCompanion.isFrontmost { owner?.present() }
     }
 
     /// Drops the held shortcut and closes the card, also during the success hold.
     func dismiss() {
         held = nil
+        closeCard()
+    }
+
+    /// Closes the card and keeps the held shortcut, for when System Settings opens for something else.
+    func closeCard() {
         holding?.cancel()
         holding = nil
         companion.close()
@@ -194,16 +201,17 @@ final class SpotlightCard: SurfaceView {
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
         refreshSurface()
-        refresh()
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Also runs when the display options change, so the loop stops as soon as Reduce Motion turns on.
     override func refreshSurface() {
         super.refreshSurface()
         row.backgroundColor = Theme.cg(Theme.group, in: self)
         box.borderColor = Theme.cg(Theme.border, in: self)
         fill.backgroundColor = Theme.cg(Theme.accent, in: self)
         tick.strokeColor = Theme.cg(Theme.selectedText, in: self)
+        refresh()
     }
 
     /// The press on the checkbox, then the tick fading out, then the tick coming back for the next cycle.

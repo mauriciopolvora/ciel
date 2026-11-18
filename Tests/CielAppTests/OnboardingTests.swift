@@ -54,6 +54,20 @@ struct OnboardingTests {
         }
     }
 
+    @Test func openingAccessibilitySettingsClosesTheSpotlightCardAndKeepsTheShortcutWaiting() {
+        withOnboarding { onboarding, hotKeys, system in
+            onboarding.spotlightGuide.choose(SpotlightShortcuts.commandSpace)
+            onboarding.show(.access)
+            onboarding.allowAccess()
+            #expect(onboarding.spotlightGuide.shownCard == nil)
+            #expect(onboarding.helper.isShown)
+            system.symbolicHotKeys = ["64": ["enabled": false]]
+            onboarding.tick()
+            #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
+            onboarding.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+        }
+    }
+
     @Test func aFreeShortcutIsSavedAtOnce() {
         withOnboarding { onboarding, hotKeys, system in
             onboarding.spotlightGuide.choose(shiftCommandSpace)

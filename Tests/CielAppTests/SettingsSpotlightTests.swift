@@ -186,17 +186,21 @@ struct SettingsSpotlightTests {
             system.symbolicHotKeys = ["64": ["enabled": false]]
             settings.spotlightGuide.tick()
             #expect(settings.spotlightGuide.shownCard == .freed(shortcut: "⌘Space"))
-            try await waitUntil { settings.spotlightGuide.shownCard == nil }
+            await settings.spotlightGuide.holding?.value
+            #expect(settings.spotlightGuide.shownCard == nil)
             #expect(hotKeys.shortcut(for: .launcher) == SpotlightShortcuts.commandSpace)
         }
     }
 
-    @Test func choosingAgainDuringTheHoldReplacesTheCard() {
-        withSettings { settings, hotKeys, system in
+    @Test func choosingAgainDuringTheHoldReplacesTheCard() async throws {
+        try await withSettingsAsync { settings, hotKeys, system in
+            settings.spotlightGuide.hold = .zero
             settings.recorders[.launcher]?.accept(SpotlightShortcuts.commandSpace)
             system.symbolicHotKeys = ["64": ["enabled": false]]
             settings.spotlightGuide.tick()
+            let ended = settings.spotlightGuide.holding
             settings.recorders[.launcher]?.accept(optionCommandSpace)
+            await ended?.value
             #expect(
                 settings.spotlightGuide.shownCard
                     == .turnOff(action: "Show Finder search window", shortcut: "⌥⌘Space"))
