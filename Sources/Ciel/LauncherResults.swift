@@ -99,6 +99,7 @@ final class ResultRow: NSTableRowView {
         get { true }
         set {}
     }
+    override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 }
 
 final class ResultCell: NSTableCellView {
