@@ -53,6 +53,78 @@ struct LauncherCellTests {
         #expect(cell.titleLabel.stringValue == "Second")
         #expect(cell.hintLabel.stringValue == "⌘2")
     }
+
+    @Test(arguments: [
+        ("ci", ["Ciel Settings", "Rescan Applications"]),
+        ("display", ["Move to Next Display", "Move to Previous Display"]),
+        ("left", ["Left Half"]),
+    ])
+    func resultIconsDrawInTheirRowColorsSelectedOrNot(query: String, titles: [String]) throws {
+        let view = LauncherView(
+            frame: NSRect(x: 0, y: 0, width: LauncherView.width, height: LauncherView.initialHeight))
+        let window = NSWindow(
+            contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        view.onHeightChange = { [weak window] in
+            window?.setContentSize(NSSize(width: LauncherView.width, height: $0))
+        }
+        view.update(entries: SearchEntry.utilities + SearchEntry.commands, usage: [:], lastUsed: [:])
+        view.searchField.stringValue = query
+        view.updateResults()
+        #expect(Array(view.results.map(\.title).prefix(titles.count)) == titles)
+        let fill = gray(Theme.accent)
+        let darkInk = (fill + gray(Theme.selectedSecondary)) / 2
+        let lightInk = (gray(Theme.surface) + gray(Theme.secondary)) / 2
+        for selected in 0..<2 {
+            if selected > 0 {
+                _ = view.control(
+                    view.searchField, textView: NSTextView(),
+                    doCommandBy: #selector(NSResponder.moveDown(_:)))
+            }
+            #expect(view.table.selectedRow == selected)
+            let ink = try iconInk(in: view, rows: 2)
+            for (row, (darkest, brightest)) in ink.enumerated() {
+                let title = view.results[row].title
+                if row == selected {
+                    #expect(darkest < darkInk, "selected \(title) has no dark ink, darkest \(darkest)")
+                    #expect(
+                        brightest < (fill + 1) / 2, "selected \(title) draws above its fill, \(brightest)")
+                } else {
+                    #expect(brightest > lightInk, "unselected \(title) has no light ink, \(brightest)")
+                }
+            }
+        }
+    }
+}
+
+/// The darkest and brightest gray in each row's visible icon, sampled from an offscreen render.
+@MainActor
+private func iconInk(in view: LauncherView, rows: Int) throws -> [(CGFloat, CGFloat)] {
+    view.layoutSubtreeIfNeeded()
+    let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    let scale = CGFloat(bitmap.pixelsWide) / view.bounds.width
+    return try (0..<rows).map { row in
+        let cell = try #require(view.table.view(atColumn: 0, row: row, makeIfNecessary: false) as? ResultCell)
+        let icon: NSView = cell.appIcon.isHidden ? cell.commandIcon : cell.appIcon
+        let rect = icon.convert(icon.bounds, to: view)
+        var darkest: CGFloat = 1
+        var brightest: CGFloat = 0
+        for y in Int(rect.minY * scale)..<Int(rect.maxY * scale) {
+            for x in Int(rect.minX * scale)..<Int(rect.maxX * scale) {
+                guard let color = bitmap.colorAt(x: x, y: y) else { continue }
+                let value = gray(color) * color.alphaComponent
+                darkest = min(darkest, value)
+                brightest = max(brightest, value)
+            }
+        }
+        return (darkest, brightest)
+    }
+}
+
+private func gray(_ color: NSColor) -> CGFloat {
+    color.usingColorSpace(.genericGray)?.whiteComponent ?? 0
 }
 
 private actor CellIconLoader {
