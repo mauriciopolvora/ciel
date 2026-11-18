@@ -9,10 +9,24 @@ actor TranscribeCppTranscriber: Transcriber {
     private var session: OpaquePointer?
     private var release: Cleanup?
     private let abort = AbortFlag()
+    private var closed = false
 
     init(modelURL: URL) { self.modelURL = modelURL }
 
     func prepare() async throws { _ = try loadedSession() }
+
+    /// Frees the session before the process exits, since transcribe.cpp aborts at exit while a session holds Metal
+    /// buffers. Nonisolated, so it stops a running transcription before it waits for the actor.
+    nonisolated func close() async {
+        abort.requested.withLock { $0 = true }
+        await free()
+    }
+
+    private func free() {
+        closed = true
+        session = nil
+        release = nil
+    }
 
     func transcribe(_ clip: AudioClip) async throws -> Transcript {
         abort.requested.withLock { $0 = false }
@@ -56,6 +70,7 @@ actor TranscribeCppTranscriber: Transcriber {
 
     private func loadedSession() throws -> OpaquePointer {
         if let session { return session }
+        if closed { throw CancellationError() }
         var opened: OpaquePointer?
         let status = transcribe_open(modelURL.path, nil, nil, &opened)
         guard status == TRANSCRIBE_OK, let opened else { throw TranscriptionError(status) }

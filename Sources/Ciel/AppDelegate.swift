@@ -92,6 +92,22 @@ import CielCore
         open()
     }
 
+    /// Quitting waits for the transcriber to free its session, since transcribe.cpp aborts at exit while one is open.
+    /// The reply goes through the run loop, not the main actor: a quit started inside a main queue job holds that
+    /// queue until the reply arrives.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let transcriber else { return .terminateNow }
+        Task.detached {
+            await transcriber.close()
+            let main = CFRunLoopGetMain()
+            CFRunLoopPerformBlock(main, CFRunLoopMode.commonModes.rawValue) {
+                MainActor.assumeIsolated { NSApp.reply(toApplicationShouldTerminate: true) }
+            }
+            CFRunLoopWakeUp(main)
+        }
+        return .terminateLater
+    }
+
     private func open() {
         guard !Preferences().onboarded else { return present() }
         if let onboarding { return onboarding.present() }
