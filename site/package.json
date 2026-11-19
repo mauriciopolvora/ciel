@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "cf dev",
-    "predeploy": "bash check-downloads.sh",
+    "predeploy": "bash check-downloads.sh && bash release-version.sh",
     "deploy": "cf deploy"
   },
   "devDependencies": {
