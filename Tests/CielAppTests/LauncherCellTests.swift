@@ -128,7 +128,6 @@ struct LauncherCellTests {
     }
 }
 
-/// The gray of a row's background, sampled from an offscreen render near its top edge, clear of the labels.
 @MainActor
 private func rowFill(of row: NSView, in view: LauncherView) throws -> CGFloat {
     let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
@@ -138,7 +137,6 @@ private func rowFill(of row: NSView, in view: LauncherView) throws -> CGFloat {
     return gray(try #require(bitmap.colorAt(x: Int(rect.midX * scale), y: Int((rect.minY + 6) * scale))))
 }
 
-/// The darkest and brightest gray in each row's visible icon, sampled from an offscreen render.
 @MainActor
 private func iconInk(in view: LauncherView, rows: Int) throws -> [(CGFloat, CGFloat)] {
     view.layoutSubtreeIfNeeded()

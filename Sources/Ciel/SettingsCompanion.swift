@@ -1,14 +1,11 @@
 import AppKit
 import CielCore
 
-/// Floats a card under the System Settings window while System Settings is frontmost, and follows that window.
 @MainActor final class SettingsCompanion {
     static let systemSettings = "com.apple.systempreferences"
     let panel: NSPanel
-    /// Receives the card frame after each placement, or nil when the card hides.
     var onPlace: ((NSRect?) -> Void)?
     private var follow: Task<Void, Never>?
-    /// A sheet is where the user acts, so a card that explains a sheet sits under it, not under its window.
     private let followsSheet: Bool
     var isShown: Bool { follow != nil }
     static var isFrontmost: Bool {
@@ -50,15 +47,13 @@ import CielCore
         onPlace?(frame)
     }
 
-    /// Where the card belongs now, or nil while System Settings is not frontmost or has no window.
     func placement() -> NSRect? {
         guard Self.isFrontmost, let window = Self.settingsWindow(front: followsSheet)
         else { return nil }
         return Self.frame(of: panel.frame.size, under: window)
     }
 
-    /// Below the window, or inside its bottom edge when the screen has no room below. Whole points, since a
-    /// panel rounds its frame.
+    /// Whole points, since a panel rounds its frame.
     static func frame(of size: NSSize, under window: NSRect) -> NSRect {
         let screen = NSScreen.screens.first { $0.frame.intersects(window) }?.visibleFrame ?? window
         let x = min(
@@ -69,7 +64,6 @@ import CielCore
         return NSRect(origin: NSPoint(x: x.rounded(), y: y.rounded()), size: size)
     }
 
-    /// The largest System Settings window, or with `front` its frontmost one, which is the sheet when one is open.
     static func settingsWindow(front: Bool = false) -> NSRect? {
         guard
             let pid = NSRunningApplication.runningApplications(withBundleIdentifier: systemSettings).first?

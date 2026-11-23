@@ -1,6 +1,5 @@
 import AppKit
 
-/// Native entry point shared by the app executable and its testable library.
 public enum CielApplication {
     @MainActor public static func run() {
         AppPerformance.markLaunch()

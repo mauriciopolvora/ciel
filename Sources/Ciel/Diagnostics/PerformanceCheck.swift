@@ -70,7 +70,6 @@ struct NativePerformanceBudget {
         for index in 0..<cycles {
             let duration = update(queries[index % queries.count], launcher: launcher, panel: panel)
             if index >= 8 { timings.append(duration) }
-            // Let AppKit and worker completions run between interactions.
             try await Task.sleep(for: .milliseconds(2))
             if index > 0 && index % 100 == 0 { samples.append(try resources()) }
         }

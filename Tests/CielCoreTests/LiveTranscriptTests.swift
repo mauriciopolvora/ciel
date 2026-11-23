@@ -203,7 +203,6 @@ import Testing
         return audio
     }
 
-    /// Each word runs on to the next one, the way the model times them.
     private static func heard(_ script: [SpokenWord], from start: Int, to end: Int) -> [SpokenWord] {
         let inside = script.filter { $0.start >= start && $0.end <= end }
         return zip(inside, inside.dropFirst().map(\.start) + [inside.last?.end ?? end]).map { word, next in

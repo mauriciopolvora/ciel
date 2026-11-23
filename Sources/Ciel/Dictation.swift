@@ -96,7 +96,6 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         }
     }
 
-    /// A cancel while stopping means the key joined another shortcut, so listening goes on.
     func cancel() {
         switch phase {
         case .stopping: phase = .toggled
@@ -108,7 +107,6 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         }
     }
 
-    /// The key may be the start of a chord such as right Command + C, so a hold shows only once it outlasts the grace.
     private func showHold(since: ContinuousClock.Instant) {
         Task { [weak self] in
             try? await Task.sleep(for: Self.grace)
@@ -117,8 +115,6 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         }
     }
 
-    /// Transcribes the newest audio while listening, so release only waits for the last few seconds. A slow engine
-    /// rests as long as each pass took, so the release seldom waits behind a pass.
     private func listen(_ engine: any Transcriber) {
         transcript = LiveTranscript()
         live = Task { [weak self, interval] in
@@ -197,7 +193,6 @@ enum DictationError: LocalizedError, Equatable {
     private let samples = OSAllocatedUnfairLock<[Float]>(initialState: [])
     private let onLevel: @MainActor @Sendable (_ rms: [Float], _ interval: Double) -> Void
 
-    /// `onLevel` gets the RMS of each 512-frame block of a buffer and how long one block lasts.
     init(onLevel: @escaping @MainActor @Sendable (_ rms: [Float], _ interval: Double) -> Void = { _, _ in }) {
         self.onLevel = onLevel
     }
@@ -255,7 +250,7 @@ enum DictationError: LocalizedError, Equatable {
     }
 }
 
-/// One converter serves every buffer so its filter state carries across buffer boundaries.
+// WARNING: AVAudioConverter keeps resampling filter state, so one converter must serve successive buffers.
 struct Resampler: Sendable {
     private let converter: OSAllocatedUnfairLock<AVAudioConverter>?
     private let ratio: Double
@@ -315,7 +310,6 @@ enum MicrophoneError: LocalizedError {
     }
 }
 
-/// Pastes through the clipboard, then puts back what was there unless something else changed it meanwhile.
 @MainActor enum TextPaster {
     static func paste(_ text: String, into pasteboard: NSPasteboard = .general) -> Bool {
         let saved = pasteboard.pasteboardItems?.map { item in
