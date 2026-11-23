@@ -84,6 +84,7 @@ repo="$scratch/repo"
 mkdir -p "$repo/scripts" "$repo/site" "$repo/.github/workflows" "$repo/.githooks"
 cp scripts/lint-shell.sh scripts/check-syntax.sh "$repo/scripts/"
 printf 'echo ok\n' > "$repo/site/ação.sh"
+printf 'echo ok\n' > "$repo/site/a\"b.sh"
 git -C "$repo" init -q
 # -f adds a file that a global ignore rule matches.
 git -C "$repo" add -f -A

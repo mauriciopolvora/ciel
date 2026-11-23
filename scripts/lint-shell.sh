@@ -14,7 +14,8 @@ if [[ $# -gt 0 ]]; then
         esac
     done
 else
-    listed="$(git -c core.quotePath=false ls-files -- '*.sh' '*.yml' '*.yaml' '.githooks/*')" || { echo "lint-shell.sh: git ls-files failed" >&2; exit 2; }
+    # -z prints each name as it is. Without it, git quotes a name that holds " or \ even with core.quotePath=false.
+    listed="$(git ls-files -z -- '*.sh' '*.yml' '*.yaml' '.githooks/*' | tr '\0' '\n')" || { echo "lint-shell.sh: git ls-files failed" >&2; exit 2; }
     while IFS= read -r file; do
         [[ -n "$file" ]] && files+=("./$file")
     done <<< "$listed"
