@@ -5,7 +5,6 @@ import os
 
 private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "Speech")
 
-/// Owns the speech model file. Download is the only network request in the app.
 @MainActor final class SpeechModelStore {
     let model: SpeechModel
     let fileURL: URL
@@ -54,9 +53,7 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
                     await self.apply(.progress(fraction))
                 }
                 apply(.verified)
-            } catch is CancellationError {
-                // Cancel and Remove have already moved the state.
-            } catch {
+            } catch is CancellationError {} catch {
                 apply(.failed(error.localizedDescription))
             }
         }
@@ -79,7 +76,6 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         }
     }
 
-    /// Waits until queued file work has finished.
     func idle() async {
         while let current = work {
             await current.value
@@ -87,7 +83,6 @@ private let logger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "
         }
     }
 
-    /// Lets the smoke check render every state without a network or a model file.
     func showForCheck(_ state: ModelState) { self.state = state }
 
     private func apply(_ event: ModelState.Event) {
@@ -140,8 +135,6 @@ enum ModelDownload {
 
     static func partialURL(for file: URL) -> URL { file.appendingPathExtension("partial") }
 
-    /// Resumes from any partial file and hashes as it writes, so only a file with the pinned size and
-    /// SHA-256 ever reaches its final name.
     static func fetch(
         _ model: SpeechModel, to file: URL, session: URLSession,
         chunks: AsyncThrowingStream<Chunk, any Error>,

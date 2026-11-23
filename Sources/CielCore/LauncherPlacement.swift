@@ -1,7 +1,8 @@
 import CoreGraphics
 import Foundation
 
-/// Store the input's top edge as a relative position, independently of result height.
+/// The saved position of the launcher. `vertical` places the input's top edge, not the whole panel, so the
+/// results can grow without moving the input.
 public struct LauncherPlacement: Codable, Equatable {
     public let horizontal: CGFloat
     public let vertical: CGFloat

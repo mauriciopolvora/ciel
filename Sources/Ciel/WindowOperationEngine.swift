@@ -66,7 +66,6 @@ final class WindowOperationEngine {
 
     func releaseCapture(_ id: UUID) { captures.removeAll { $0.selectionID == id } }
 
-    /// Starts the command's budget. When the window left full screen, the caller reads the screens again and the budget starts over.
     func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) throws -> FullScreenCheck {
         let start = clock.now
         let budget = Budget(clock: clock, duration: Self.budget(for: action), from: start)
@@ -140,7 +139,6 @@ final class WindowOperationEngine {
         return .applied
     }
 
-    /// A full-screen window first leaves full screen, so the command then lands on the screen it returns to.
     private func window(for selection: WindowSelection) throws -> any WindowAccess {
         guard accessibility.isTrusted else { throw WindowError.permission }
         guard let captureIndex = captures.firstIndex(where: { $0.selectionID == selection.id }) else {
@@ -153,7 +151,6 @@ final class WindowOperationEngine {
         return window
     }
 
-    /// The full screen check spends the caller's budget. Only the exit wait gets its own.
     private func leaveFullScreen(_ window: any WindowAccess, check: Budget) throws -> Bool {
         guard try window.isFullScreen(timeout: check.timeout()) else { return false }
         let budget = Budget(clock: clock, duration: FullScreenExit.budget)
@@ -164,7 +161,6 @@ final class WindowOperationEngine {
             do {
                 try budget.pause(FullScreenExit.pollInterval)
             } catch WindowError.timedOut {
-                // A window still animating out of full screen at the deadline takes the command anyway.
                 if !lastFullScreen { return true }
                 throw WindowError.fullScreen
             }

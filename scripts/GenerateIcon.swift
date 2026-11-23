@@ -1,6 +1,5 @@
 import AppKit
 
-// Package the original painting with the standard macOS icon inset and rounded silhouette.
 guard CommandLine.arguments.count == 3,
     let painting = NSImage(contentsOfFile: CommandLine.arguments[1]),
     painting.size.width == painting.size.height

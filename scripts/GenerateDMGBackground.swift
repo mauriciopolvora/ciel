@@ -1,7 +1,6 @@
 import AppKit
 import CoreImage
 
-// The disk image window: the blurred painting behind the black launcher panel, with the app and Applications on it.
 let arguments = CommandLine.arguments
 let numbers = arguments.dropFirst(3).compactMap { Double($0) }.map { CGFloat($0) }
 guard arguments.count == 9, numbers.count == 6, let painting = NSImage(contentsOfFile: arguments[1]) else {
@@ -14,7 +13,6 @@ let (width, height, iconSize, iconY, appX, applicationsX) = (
     numbers[0], numbers[1], numbers[2], numbers[3], numbers[4], numbers[5]
 )
 
-// Gray values of the Surface, Accent and Secondary tokens in Sources/Ciel/DesignSystem.swift.
 let surface = NSColor(deviceWhite: 0.035, alpha: 1)
 let accent = NSColor(deviceWhite: 0.92, alpha: 1)
 let secondary = NSColor(deviceWhite: 0.62, alpha: 1)
@@ -61,7 +59,6 @@ func arrow() {
     path.stroke()
 }
 
-// The blur keeps the sky soft, so the sharp app icon stands out from the painting it is made of.
 func blurred(_ image: NSImage, sigma: Double) -> NSImage {
     guard let data = image.tiffRepresentation, let source = CIImage(data: data) else {
         fatalError("The painting cannot be read as an image.")
