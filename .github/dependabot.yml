@@ -7,10 +7,9 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     groups:
-      routine-swift-updates:
-        update-types:
-          - minor
-          - patch
+      swift-updates:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /site
@@ -19,10 +18,9 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     groups:
-      routine-npm-updates:
-        update-types:
-          - minor
-          - patch
+      npm-updates:
+        patterns:
+          - "*"
 
   - package-ecosystem: pip
     directory: /scripts
@@ -31,10 +29,9 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     groups:
-      routine-pip-updates:
-        update-types:
-          - minor
-          - patch
+      pip-updates:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
@@ -43,7 +40,6 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     groups:
-      routine-actions-updates:
-        update-types:
-          - minor
-          - patch
+      actions-updates:
+        patterns:
+          - "*"
