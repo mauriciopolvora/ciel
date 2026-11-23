@@ -41,7 +41,7 @@ import AppKit
         p.alphaValue = Theme.reduceMotion ? 1 : 0
         p.orderFrontRegardless()
         if !Theme.reduceMotion {
-            NSAnimationContext.runAnimationGroup {
+            OffMainCallbacks.animate {
                 $0.duration = 0.16
                 p.animator().alphaValue = 1
             }

@@ -27,6 +27,11 @@ enum OffMainCallbacks {
         node.installTap(onBus: 0, bufferSize: bufferSize, format: format, block: block)
     }
 
+    /// No handler runs after the changes, so nothing here runs off the main thread.
+    @MainActor static func animate(_ changes: (NSAnimationContext) -> Void) {
+        NSAnimationContext.runAnimationGroup(changes)
+    }
+
     @MainActor static func animate(
         _ changes: (NSAnimationContext) -> Void, completion: @escaping @Sendable () -> Void
     ) {

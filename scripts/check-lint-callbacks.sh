@@ -37,6 +37,9 @@ calls=(
     'UNUserNotificationCenter.current().getNotificationSettings(completionHandler: handler)'
     'URLSession.shared.dataTask(with: url) { data, response, error in }'
     'node.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, time in }'
+    'NSAnimationContext.runAnimationGroup({ $0.duration = 0.16 }) { done() }'
+    'NSAnimationContext.runAnimationGroup { $0.duration = 0.16 }'
+    'UNUserNotificationCenter.current().getNotificationSettings { settings in }'
 )
 i=0
 for call in "${calls[@]}"; do
