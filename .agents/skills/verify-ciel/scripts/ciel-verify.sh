@@ -11,7 +11,9 @@ binary="$app/Contents/MacOS/Ciel"
 pid_file="$run_dir/ciel.pid"
 started_file="$run_dir/started-apps"
 finder_file="$run_dir/finder-window"
+lock="$run_dir/lock"
 owned=0
+locked=0
 
 usage() {
     cat >&2 <<USAGE
@@ -40,12 +42,16 @@ fail() {
 }
 
 on_exit() {
-    if [[ $owned -eq 1 ]]; then cleanup; fi
+    if [[ $owned -eq 1 ]]; then
+        cleanup
+    elif [[ $locked -eq 1 ]]; then
+        rm -f "$lock"
+    fi
 }
 trap on_exit EXIT
 
 osa() {
-    perl -e 'alarm shift; exec @ARGV' 20 osascript "$@"
+    perl -e 'alarm shift; exec @ARGV' "${osa_limit:-20}" osascript "$@"
 }
 
 evidence_dir() {
@@ -79,9 +85,32 @@ other_ciel() {
     done
 }
 
+lock_holder() {
+    local holder
+    holder="$(readlink "$lock" 2>/dev/null)" || return 1
+    if [[ "$holder" != "$$" ]] && kill -0 "$holder" 2>/dev/null; then
+        printf '%s\n' "$holder"
+        return 0
+    fi
+    return 1
+}
+
+take_lock() {
+    local holder
+    mkdir -p "$run_dir"
+    if ! ln -s "$$" "$lock" 2>/dev/null; then
+        if holder="$(lock_holder)"; then fail "launch: another run of this script (pid $holder) is driving Ciel. Wait for it to end."; fi
+        if ciel_pid >/dev/null; then fail "launch: an instance from this script is still running. Run cleanup first."; fi
+        rm -f "$lock"
+        ln -s "$$" "$lock" 2>/dev/null || fail "launch: another run of this script started at the same time."
+    fi
+    locked=1
+}
+
 launch() {
     local fresh=0 others
     [[ "${1:-}" == --fresh ]] && fresh=1
+    take_lock
     if ciel_pid >/dev/null; then fail "launch: an instance from this script is still running. Run cleanup first."; fi
     others="$(other_ciel)"
     if [[ -n "$others" ]]; then
@@ -113,36 +142,42 @@ ax_tree() {
     osa -l JavaScript "$here/ax-tree.js" "$pid"
 }
 
+# Returns 0 on a match, 1 on a full read with no match, and 3 when the read failed or, with "complete", was partial.
 ax_match() {
     local tree status=0
     tree="$(ax_tree 2>/dev/null)" || return 3
+    if [[ "${2:-}" == complete ]] && grep -q 'AXReadError' <<<"$tree"; then return 3; fi
     grep -Eq -- "$1" <<<"$tree" || status=$?
     return "$status"
 }
 
+check_regex() {
+    local status=0
+    grep -Eq -- "$2" </dev/null || status=$?
+    [[ $status -ne 2 ]] || fail "$1: grep cannot read the regex $2"
+}
+
 wait_for() {
-    local deadline=$((SECONDS + ${2:-10})) status
+    local deadline=$((SECONDS + ${2:-10})) status osa_limit
+    check_regex wait-for "$1"
     while ((SECONDS < deadline)); do
+        osa_limit=$((deadline - SECONDS < 20 ? deadline - SECONDS : 20))
         status=0
         ax_match "$1" || status=$?
-        case $status in
-        0) return 0 ;;
-        2) fail "wait-for: grep cannot read the regex $1" ;;
-        esac
+        [[ $status -eq 0 ]] && return 0
         sleep 0.3
     done
     return 1
 }
 
 wait_gone() {
-    local deadline=$((SECONDS + ${2:-10})) status
+    local deadline=$((SECONDS + ${2:-10})) status osa_limit
+    check_regex wait-gone "$1"
     while ((SECONDS < deadline)); do
+        osa_limit=$((deadline - SECONDS < 20 ? deadline - SECONDS : 20))
         status=0
-        ax_match "$1" || status=$?
-        case $status in
-        1) return 0 ;;
-        2) fail "wait-gone: grep cannot read the regex $1" ;;
-        esac
+        ax_match "$1" complete || status=$?
+        [[ $status -eq 1 ]] && return 0
         sleep 0.3
     done
     return 1
@@ -167,6 +202,13 @@ doctor() {
     printf 'ok   Ciel answers System Events and shows no shortcut warning\n'
 }
 
+guard_input() {
+    local others
+    ciel_pid >/dev/null || fail "$1: no Ciel instance from this script is running, so the keys could reach another app. Run launch first."
+    others="$(other_ciel)"
+    [[ -z "$others" ]] || fail "$1: another Ciel is running, so the keys could drive it instead of the copy: $others"
+}
+
 press() {
     local code mods=""
     case "$1" in
@@ -179,18 +221,21 @@ press() {
     cmd+comma) code=43 mods=" using {command down}" ;;
     *) fail "press: unknown key $1" ;;
     esac
+    guard_input press
     osa -e "tell application \"System Events\" to key code $code$mods"
 }
 
 close_window() {
     local pid
-    pid="$(ciel_pid)" || fail "close: no Ciel instance from this script is running."
+    guard_input close
+    pid="$(ciel_pid)"
     osa -e 'on run argv' -e 'tell application "System Events" to tell (first process whose unix id is (item 1 of argv as integer))' \
         -e 'click (first button of window (item 2 of argv) whose subrole is "AXCloseButton")' -e 'end tell' -e 'end run' \
         "$pid" "$1" >/dev/null
 }
 
 type_text() {
+    guard_input type
     osa -e 'on run argv' -e 'tell application "System Events" to keystroke (item 1 of argv)' -e 'end run' "$1"
 }
 
@@ -226,7 +271,8 @@ close_finder_window() {
     local id dir
     IFS=$'\t' read -r id dir <"$finder_file"
     osa -e 'on run argv' -e 'tell application "Finder"' -e 'if exists window id (item 1 of argv as integer) then' \
-        -e 'close window id (item 1 of argv as integer)' -e 'end if' -e 'end tell' -e 'end run' "$id" >/dev/null || true
+        -e 'if name of window id (item 1 of argv as integer) is (item 2 of argv) then close window id (item 1 of argv as integer)' \
+        -e 'end if' -e 'end tell' -e 'end run' "$id" "$(basename "$dir")" >/dev/null || true
     rm -rf "$dir"
 }
 
@@ -242,6 +288,7 @@ cleanup() {
     close_finder_window
     rm -rf "$app" "$pid_file" "$started_file" "$finder_file"
     defaults delete "$bundle_id" >/dev/null 2>&1 || true
+    rm -f "$lock"
     if [[ -L "$evidence_root/latest" ]]; then printf 'evidence kept in %s\n' "$(evidence_dir)"; fi
 }
 
@@ -271,8 +318,8 @@ journey_launcher_search() {
     type_text "zzqx"
     wait_for 'value="No matches"' 5 || fail "launcher-search: a query with no match does not say No matches."
     snapshot launcher-search-no-match >/dev/null
-    if grep -q 'AXRow' "$(evidence_dir)/launcher-search-no-match.ax.txt"; then
-        fail "launcher-search: a query with no match still lists rows."
+    if grep -qE 'AXRow|AXReadError' "$(evidence_dir)/launcher-search-no-match.ax.txt"; then
+        fail "launcher-search: a query with no match still lists rows, or part of the tree could not be read."
     fi
     step "launcher-search: a query with no match lists no rows and says No matches"
     press escape
@@ -288,8 +335,8 @@ journey_open_app() {
     wait_for 'AXCell description="TextEdit, ' 10 || fail "open-app: typing \"textedit\" showed no TextEdit row."
     snapshot open-app-results >/dev/null
     step "open-app: \"textedit\" lists TextEdit"
+    [[ -z "$(app_pid TextEdit)" ]] || fail "open-app: TextEdit started before Return, so the journey cannot prove that Return opens it."
     press return
-    wait_gone 'Search apps and commands' 5 || fail "open-app: Return did not close the launcher."
     for _ in {1..40}; do
         pid="$(app_pid TextEdit)"
         [[ -n "$pid" ]] && break
@@ -298,6 +345,7 @@ journey_open_app() {
     [[ -n "$pid" ]] || fail "open-app: Return did not start TextEdit."
     comm="$(ps -p "$pid" -o comm=)"
     printf '%s\t%s\n' "$pid" "$comm" >>"$started_file"
+    wait_gone 'Search apps and commands' 5 || fail "open-app: Return did not close the launcher."
     shot open-app >/dev/null
     step "open-app: Return opens TextEdit (pid $pid) and closes the launcher"
 }
@@ -307,15 +355,19 @@ window_frame() {
 }
 
 journey_window_commands() {
-    local name="ciel-verify-$$-$RANDOM" dir id frame="" got=0
+    local name="ciel-verify-$$-$RANDOM" dir id frame="" got=0 screen
     dir="$run_dir/$name"
     mkdir -p "$dir"
     press escape
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Escape did not close the launcher."
+    printf '\t%s\n' "$dir" >"$finder_file"
     id="$(osa -e 'on run argv' -e 'tell application "Finder"' -e 'set w to make new Finder window to (POSIX file (item 1 of argv))' \
-        -e 'set bounds of w to {120, 160, 820, 660}' -e 'activate' -e 'return id of w' -e 'end tell' -e 'end run' "$dir")" ||
+        -e 'return id of w' -e 'end tell' -e 'end run' "$dir")" ||
         fail "window-commands: Finder did not open a window on $dir."
     printf '%s\t%s\n' "$id" "$dir" >"$finder_file"
+    osa -e 'on run argv' -e 'tell application "Finder"' -e 'set bounds of window id (item 1 of argv as integer) to {120, 160, 820, 660}' \
+        -e 'activate' -e 'end tell' -e 'end run' "$id" >/dev/null ||
+        fail "window-commands: Finder did not move its window on $dir to 700 x 500."
     for _ in {1..20}; do
         if frame="$(window_frame Finder "$name" 2>/dev/null)"; then got=1 && break; fi
         sleep 0.25
@@ -323,6 +375,7 @@ journey_window_commands() {
     [[ $got -eq 1 ]] || fail "window-commands: cannot read the frame of the Finder window $name."
     printf 'before\n%s\n' "$frame" >"$(evidence_dir)/window-commands.frame.txt"
     grep -q '^left-half no$' <<<"$frame" || fail "window-commands: the Finder window starts on the left half: $frame"
+    screen="$(sed -n 's/^screen //p' <<<"$frame")"
     press ctrl+opt+space
     wait_for 'Search apps and commands' 5 || fail "window-commands: Control-Option-Space did not open the launcher."
     type_text "left half"
@@ -330,14 +383,14 @@ journey_window_commands() {
     press return
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Return did not close the launcher."
     for _ in {1..20}; do
-        frame="$(window_frame Finder "$name")" || fail "window-commands: cannot read the frame of the Finder window $name."
+        frame="$(window_frame Finder "$name" "$screen")" || fail "window-commands: cannot read the frame of the Finder window $name."
         grep -q '^left-half yes$' <<<"$frame" && break
         sleep 0.25
     done
     printf 'after\n%s\n' "$frame" >>"$(evidence_dir)/window-commands.frame.txt"
     shot window-commands >/dev/null
     grep -q '^left-half yes$' <<<"$frame" || fail "window-commands: the Finder window is not on the left half: $frame"
-    step "window-commands: Left Half moves the front Finder window from 700 x 500 to the left half of its screen"
+    step "window-commands: Left Half moves the front Finder window from 700 x 500 to the left half of screen $screen, where it started"
 }
 
 journey_settings() {
@@ -387,6 +440,7 @@ case "$command" in
 launch)
     launch "$@"
     owned=0
+    locked=0
     ;;
 doctor) doctor ;;
 press) [[ $# -eq 1 ]] || usage; press "$1" ;;
@@ -397,6 +451,9 @@ shot) [[ $# -eq 1 ]] || usage; shot "$1" ;;
 wait-for) [[ $# -ge 1 ]] || usage; wait_for "$@" || fail "wait-for: no match for $1" ;;
 wait-gone) [[ $# -ge 1 ]] || usage; wait_gone "$@" || fail "wait-gone: $1 still matches, or the tree cannot be read" ;;
 journey) [[ $# -eq 1 ]] || usage; journey "$1" ;;
-cleanup) cleanup ;;
+cleanup)
+    if holder="$(lock_holder)"; then fail "cleanup: a journey (pid $holder) is running and cleans up when it ends."; fi
+    cleanup
+    ;;
 *) usage ;;
 esac

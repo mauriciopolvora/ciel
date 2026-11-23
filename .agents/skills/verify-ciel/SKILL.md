@@ -16,11 +16,11 @@ Every command below runs from the repo root on a Mac. Agent hosts run Linux: the
 
 `launch` copies `dist/Ciel.app` to `.build/verify/CielVerify.app` with the bundle id from `Resources/Info.plist` plus `.verify` (`app.mauriciopolvora.ciel.verify`), so it reads and writes its own defaults and caches, never the installed Ciel's. It turns off Sparkle's update checks and, without `--fresh`, marks onboarding done, so the launcher opens at launch. It is ready when the accessibility tree shows the `Search apps and commands` field (or `Set Up Ciel` with `--fresh`), and it prints `PASS launch pid <pid>, evidence in <dir>`.
 
-`launch` refuses to start while another Ciel runs, and a refused `launch` or `journey` leaves the running copy alone. Two copies fight over Control-Option-Space and the later one shows `Launcher shortcut unavailable`. Ask the operator to quit their Ciel. Never quit it for them.
+`launch` refuses to start while another Ciel runs or another run of this script holds `.build/verify/lock`, and a refused `launch` or `journey` leaves the running copy alone. Two copies fight over Control-Option-Space and the later one shows `Launcher shortcut unavailable`. Ask the operator to quit their Ciel. Never quit it for them.
 
 ## Doctor
 
-Run `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh doctor` first whenever a step fails. Each line is `ok` or a `FAIL` that names the fix. Every `osascript` call stops after 20 s, so a stuck System Events fails the step instead of hanging. It checks that the process is the copy this script started, that it runs as the verify bundle id, the build version, that the terminal has Accessibility access, and that Ciel shows no `Launcher shortcut unavailable` warning. The journeys prove the shortcut itself: each one closes the launcher and opens it again with Control-Option-Space.
+Run `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh doctor` first whenever a step fails. Each line is `ok` or a `FAIL` that names the fix. Every `osascript` call stops after 20 s, or sooner when a wait has less time left, so a stuck System Events fails the step instead of hanging. It checks that the process is the copy this script started, that it runs as the verify bundle id, the build version, that the terminal has Accessibility access, and that Ciel shows no `Launcher shortcut unavailable` warning. The `launcher-search`, `open-app` and `window-commands` journeys prove the shortcut itself: each one closes the launcher and opens it again with Control-Option-Space.
 
 The copy is started from the terminal, so it uses the terminal's Accessibility grant. That grant never touches the installed Ciel's grant. Never run `tccutil`.
 
@@ -34,7 +34,7 @@ bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey launcher-search
 
 The features are `launcher-search`, `open-app`, `window-commands`, `settings` and `onboarding`. `journey all` runs each one in a new instance. Every step prints a `PASS` line. The first failure prints one `FAIL` line, exits 1, and still cleans up.
 
-To drive by hand, launch, then use the same commands the journeys use:
+To drive by hand, launch, then use the same commands the journeys use. `press`, `type` and `close` refuse to send input when the copy is not running or another Ciel runs, so the keys never drive the installed Ciel:
 
 | Command | What it does |
 | --- | --- |
@@ -42,7 +42,7 @@ To drive by hand, launch, then use the same commands the journeys use:
 | `close 'Ciel Settings'` | Clicks the close button of that Ciel window. Settings has no Command-W: Ciel has no main menu |
 | `type "left half"` | Types into the focused field |
 | `wait-for 'Left Half' 5` | Waits up to 5 s for a read of the accessibility tree to match an extended regex |
-| `wait-gone 'Search apps and commands'` | Waits for a read that succeeds and no longer matches, such as the launcher closing. A failed read never counts as gone |
+| `wait-gone 'Search apps and commands'` | Waits for a full read that no longer matches, such as the launcher closing. A failed read, or a tree with an `AXReadError` line, never counts as gone |
 | `snapshot <name>` | Saves and prints the accessibility tree |
 | `shot <name>` | Saves a screenshot of the whole screen |
 
@@ -56,7 +56,7 @@ A proof drives the user path: the shortcut, the keys and the visible result. It 
 
 ## Cleanup
 
-`bash .agents/skills/verify-ciel/scripts/ciel-verify.sh cleanup` stops the Ciel copy by the pid it saved, stops each app that a journey started by the pid it saved, closes the Finder window that `window-commands` opened by its window id, deletes the copy and its defaults, and keeps `.build/verify/evidence/`. Before each stop it checks that the pid still runs the same executable. It never stops or closes anything by name. A journey runs cleanup on exit, also after a failure, but only once its own `launch` has started a copy.
+`bash .agents/skills/verify-ciel/scripts/ciel-verify.sh cleanup` stops the Ciel copy by the pid it saved, stops each app that a journey started by the pid it saved, closes the Finder window that `window-commands` opened by its window id when that window still shows the journey's folder, deletes the copy, its defaults and the lock, and keeps `.build/verify/evidence/`. It refuses while a journey runs, because that journey cleans up when it ends. Before each stop it checks that the pid still runs the same executable. It never stops or closes anything by name. A journey runs cleanup on exit, also after a failure, but only once its own `launch` has started a copy.
 
 ## Gotchas
 

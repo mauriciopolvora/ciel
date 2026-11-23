@@ -1,4 +1,5 @@
 // Prints the accessibility tree of every window of one process, one element per line, indented by depth.
+// An element whose children cannot be read prints an AXReadError line, so a partial tree never proves that something is gone.
 function run(argv) {
     const pid = Number(argv[0]);
     const processes = Application("System Events").processes.whose({ unixId: pid });
@@ -22,7 +23,9 @@ function run(argv) {
         let children = [];
         try {
             children = element.uiElements();
-        } catch (error) {}
+        } catch (error) {
+            lines.push("  ".repeat(depth + 1) + "AXReadError");
+        }
         for (const child of children) walk(child, depth + 1);
     };
     for (const window of processes[0].windows()) walk(window, 0);
