@@ -92,7 +92,6 @@ import CielCore
         open()
     }
 
-    /// Quitting waits for the transcriber to free its session, since transcribe.cpp aborts at exit while one is open.
     /// The reply goes through the run loop, not the main actor: a quit started inside a main queue job holds that
     /// queue until the reply arrives.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -122,7 +121,6 @@ import CielCore
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // Ciel is in the Dock only while an update alert shows, so a Dock click brings that alert forward.
         guard NSApp.activationPolicy() == .accessory else { return true }
         open()
         return false
@@ -179,8 +177,6 @@ import CielCore
         return loaded
     }
 
-    /// Loads the model as soon as speech is ready, so the first dictation never waits for it. Dropping the
-    /// transcriber frees the model.
     private func speechChanged() {
         if Preferences().speechEnabled, speech.state == .ready {
             if transcriber == nil, let loading = try? speechTranscriber() {
@@ -281,8 +277,6 @@ import CielCore
         }
     }
 
-    /// Settings opens centered on the screen the person is using: the launcher's screen when the launcher is
-    /// showing, otherwise the screen under the pointer.
     @objc private func showSettings() {
         let screen =
             (panel.isVisible ? panel.screen : nil)

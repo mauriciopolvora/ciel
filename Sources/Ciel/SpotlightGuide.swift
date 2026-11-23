@@ -5,7 +5,6 @@ import AppKit
 
     var held: Shortcut?
     weak var owner: PreferencesController?
-    /// How long the card says the shortcut is free before it closes and the owner window comes back.
     var hold = Duration.milliseconds(1600)
     let card = SpotlightCard(frame: NSRect(origin: .zero, size: SpotlightCard.size))
     let companion: SettingsCompanion
@@ -16,7 +15,6 @@ import AppKit
     private let spotlight: SpotlightShortcuts
     private let open: @MainActor (URL) -> Void
     private var rows: [(status: NSTextField, button: NSButton)] = []
-    /// The state beside the launcher recorder. The recorder menu offers ⌘Space, so the caption only reports.
     let caption = Theme.label("", size: 12, color: Theme.secondary)
 
     var replacement: Replacement {
@@ -37,7 +35,6 @@ import AppKit
         note.maximumNumberOfLines = 2
     }
 
-    /// The card under System Settings, or nil while it is closed.
     var shownCard: SpotlightCard.State? { companion.isShown ? card.state : nil }
 
     func row() -> [NSView] {
@@ -71,7 +68,6 @@ import AppKit
         owner?.refresh()
     }
 
-    /// Binds the held shortcut once Spotlight lets it go, and says so on the card before it closes.
     func tick() {
         guard let held, !spotlight.owns(held) else { return }
         self.held = nil
@@ -86,19 +82,16 @@ import AppKit
         }
     }
 
-    /// The owner comes back only from System Settings, so it never takes the front from an app the user moved to.
     private func finish() {
         dismiss()
         if owner?.window?.isVisible == true, SettingsCompanion.isFrontmost { owner?.present() }
     }
 
-    /// Drops the held shortcut and closes the card, also during the success hold.
     func dismiss() {
         held = nil
         closeCard()
     }
 
-    /// Closes the card and keeps the held shortcut, for when System Settings opens for something else.
     func closeCard() {
         holding?.cancel()
         holding = nil
@@ -142,7 +135,6 @@ import AppKit
     @objc private func act() { choose(held ?? SpotlightShortcuts.commandSpace) }
 }
 
-/// Floats under System Settings with a miniature of the row to change, then says when the shortcut is free.
 final class SpotlightCard: SurfaceView {
     enum State: Equatable {
         case turnOff(action: String, shortcut: String)
@@ -204,7 +196,7 @@ final class SpotlightCard: SurfaceView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Also runs when the display options change, so the loop stops as soon as Reduce Motion turns on.
+    // WARNING: this runs when macOS display options such as Reduce Motion change, so refresh() re-reads them.
     override func refreshSurface() {
         super.refreshSurface()
         row.backgroundColor = Theme.cg(Theme.group, in: self)
@@ -214,7 +206,6 @@ final class SpotlightCard: SurfaceView {
         refresh()
     }
 
-    /// The press on the checkbox, then the tick fading out, then the tick coming back for the next cycle.
     static func pose(at cycleFraction: Double) -> (scale: CGFloat, ticked: Float) {
         func eased(_ from: Double, _ to: Double) -> Double {
             1 - pow(1 - min(max((cycleFraction - from) / (to - from), 0), 1), 3)

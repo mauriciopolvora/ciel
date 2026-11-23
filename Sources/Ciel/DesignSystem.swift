@@ -76,7 +76,6 @@ final class MonochromeSwitch: NSButton {
     }
 }
 
-/// A borderless button that reads as text, for an action that belongs to the line it sits in.
 final class TextButton: NSButton {
     private let size: CGFloat
     private let color: NSColor
@@ -103,7 +102,6 @@ final class TextButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-/// Opens a menu of shortcuts, with ⌘Space marked as the Spotlight replacement, and records a custom one on request.
 final class MenuRecorder: ShortcutRecorder {
     required init(shortcut: Shortcut?, onRecord: @escaping (Shortcut?) -> Void) {
         super.init(shortcut: shortcut, onRecord: onRecord)

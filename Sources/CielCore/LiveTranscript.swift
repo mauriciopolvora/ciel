@@ -1,12 +1,4 @@
 /// Builds a transcript while someone is still speaking, from repeated passes over the newest audio.
-///
-/// A word commits once two passes in a row agree on it and it ends at least `settle` before the
-/// newest audio. The rest stays tentative. Once a pass covers more than `window`, the next one
-/// starts in the latest pause among the committed words, so every pass and the final one stay
-/// short however long the speech runs. A pause is 300 ms at least 20 dB quieter than the pass.
-/// It comes from the audio, not the word times, because the model hears little or nothing in a
-/// pass that starts inside speech. A pass that hears nothing changes nothing, except that it
-/// undoes the cut just before it.
 public struct LiveTranscript: Sendable, Equatable {
     public private(set) var committed: [SpokenWord] = []
     public private(set) var tentative: [SpokenWord] = []
@@ -76,6 +68,8 @@ public struct LiveTranscript: Sendable, Equatable {
         return fresh
     }
 
+    /// The model hears little or nothing in a pass that starts inside speech, so the cut point comes
+    /// from a pause in the audio, not from the word times.
     private mutating func cut(_ audio: [Float]) {
         guard let last = committed.last, last.end > start else { return }
         let energy = audio.reduce(into: [0.0]) { $0.append($0.last! + Double($1 * $1)) }

@@ -51,7 +51,7 @@ struct BundleInfo {
     var isUserFacing: Bool { !isBackgroundOnly || isMenuBarApp }
 
     init?(appAt url: URL) {
-        // Read fresh metadata. Bundle caches Info.plist and can hide an app update.
+        // Bundle caches Info.plist and can hide an app update.
         guard let data = try? Data(contentsOf: url.appendingPathComponent("Contents/Info.plist")),
             let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
             let identifier = info["CFBundleIdentifier"] as? String

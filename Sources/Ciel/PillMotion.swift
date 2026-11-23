@@ -1,7 +1,6 @@
 import CoreText
 import Foundation
 
-/// A critically damped spring. Retargeting keeps the current value and velocity, so a new target never snaps.
 struct Spring: Equatable {
     private(set) var value: Double
     private(set) var velocity = 0.0
@@ -22,7 +21,6 @@ struct Spring: Equatable {
         velocity = 0
     }
 
-    /// Moves the value without touching the target or velocity, for content that shifts under the spring.
     mutating func shift(by delta: Double) { value += delta }
 
     mutating func advance(by seconds: Double) {
@@ -42,9 +40,6 @@ struct Spring: Equatable {
     private static let precision = 0.002
 }
 
-/// Plays back the microphone's levels at the pace they were recorded, smoothed with a fast attack and a slower
-/// release. Levels arrive in bursts, one per audio buffer, so playback holds the last level through a late
-/// buffer and drops the oldest levels once they lag more than `latency`.
 struct LevelMeter: Equatable {
     private var queue: [Slice] = []
     private var input = 0.0
@@ -76,10 +71,13 @@ struct LevelMeter: Equatable {
         }
     }
 
-    /// Maps RMS to 0...1 between -50 dB and -10 dB.
+    private static let quietestDecibels = -50.0
+    private static let loudestDecibels = -10.0
+
     static func loudness(_ rms: Float) -> Double {
         let decibels = 20 * log10(max(Double(rms), 0.000_01))
-        return min(max((decibels + 50) / 40, 0), 1)
+        let span = loudestDecibels - quietestDecibels
+        return min(max((decibels - quietestDecibels) / span, 0), 1)
     }
 
     private struct Slice: Equatable {
@@ -88,7 +86,6 @@ struct LevelMeter: Equatable {
     }
 }
 
-/// The bar heights of the waveform, newest level in the middle, flowing out to both edges.
 struct Waveform: Equatable {
     static let bars = 15
     static let period = 1.0 / 24
@@ -107,8 +104,6 @@ struct Waveform: Equatable {
         }
     }
 
-    /// Each bar shows the level from `period` seconds before the bar inside it, interpolated between samples, so
-    /// the shape flows at display rate. Without flow every bar shows the current level.
     func amplitudes(flowing: Bool) -> [Double] {
         let side = (0...Self.half).map { distance in
             Self.weight(distance) * (flowing ? level(age: Double(distance) * Self.period) : current)
@@ -116,7 +111,6 @@ struct Waveform: Equatable {
         return side.reversed() + side.dropFirst()
     }
 
-    /// A slow ripple out from the middle while the last words transcribe.
     static func ripple(at time: Double) -> [Double] {
         let side = (0...half).map { distance in
             weight(distance) * 0.2 * (0.5 + 0.5 * sin(2 * .pi * time / 1.1 - Double(distance) * 0.7))
@@ -138,11 +132,9 @@ struct Waveform: Equatable {
     }
 }
 
-/// Lines of the live transcript, broken by Core Text at `maxWidth`, the same way the pill draws them.
 struct TranscriptLayout {
     static let lineHeight: CGFloat = 16
     let lines: [CTLine]
-    /// Each line without its trailing spaces, so the space before a wrap does not pull a centered line left.
     let widths: [CGFloat]
     let width: CGFloat
 
@@ -164,13 +156,9 @@ struct TranscriptLayout {
 
     var height: CGFloat { CGFloat(lines.count) * Self.lineHeight }
 
-    /// Where a line starts so it sits centered in `space`. While the pill springs wider, a line can be wider
-    /// than the pill: it stays centered and overflows both edges under the side fades.
     static func start(of width: CGFloat, in space: CGFloat) -> CGFloat { (space - width) / 2 }
 }
 
-/// Sizes of the two pills. The transcript pill widens with its first line, then grows a line at a time up to
-/// `maxLines`, after which older lines scroll up under a fade.
 enum PillLayout {
     static let waveform = CGSize(width: 96, height: 32)
     static let gap: CGFloat = 8

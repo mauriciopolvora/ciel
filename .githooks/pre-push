@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs scripts/check-fast.sh and gitleaks on the pushed commits. Set it once per clone: git config core.hooksPath .githooks
-# The macOS checks (scripts/check.sh) run only in CI.
+# Runs scripts/check-fast.sh, then the comment lint on each pushed ref tip and gitleaks on the pushed commits.
+# Set it once per clone: git config core.hooksPath .githooks. The macOS checks (scripts/check.sh) run only in CI.
 set -euo pipefail
 set -f # $range below is split into words and must not glob
 cd "$(git rev-parse --show-toplevel)"
@@ -10,11 +10,18 @@ if ! command -v gitleaks >/dev/null; then
   exit 1
 fi
 
-bash scripts/check-fast.sh </dev/null
+bash scripts/check-fast.sh --no-comment-lint </dev/null
 
 remote=$1
 while read -r _ local_sha _ remote_sha; do
   [[ $local_sha =~ ^0+$ ]] && continue # a deleted branch has no commits to scan
+  main="refs/remotes/$remote/main"
+  git rev-parse -q --verify "$main" >/dev/null || main=refs/remotes/origin/main # a push to a URL
+  base=$(git merge-base "$local_sha" "$main") || {
+    echo "pre-push: cannot find the merge base of $local_sha with $main. Run git fetch, then push again." >&2
+    exit 1
+  }
+  CIEL_COMMENT_BASE=$base bash scripts/lint-comments.sh --commit "$local_sha" </dev/null
   if ! git remote | grep -qxF -- "$remote"; then
     range=$local_sha # a push to a URL: no tracking refs say what the remote has, so scan all history
   elif [[ $remote_sha =~ ^0+$ ]] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
