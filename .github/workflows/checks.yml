@@ -111,6 +111,18 @@ jobs:
           sleep 5
           kill -0 $!
           kill $!
+          wait $! || true
+      - name: Drive the built app with verify-ciel
+        timeout-minutes: 5
+        run: bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey all
+      - name: Archive the verify-ciel evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-verify-evidence
+          path: .build/verify/evidence
+          if-no-files-found: warn
+          retention-days: 14
       - name: Archive development app
         run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
