@@ -1,10 +1,15 @@
 name: Check Ciel
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+# A new commit on a pull request cancels the run for the commit it replaces. Every other run gets its own group, so a push to main always runs to the end: release.yml needs a passed push run on the commit it releases.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: macos-15
