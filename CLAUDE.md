@@ -32,7 +32,7 @@
 | A speech model counts as ready only after its size and SHA-256 match the pinned values | `SpeechModelStoreTests`, mutant M23 |
 | Ad-hoc builds sign without hardened runtime. Developer ID builds sign app and framework with hardened runtime, one Team ID and library validation on | The signature check at the end of `scripts/build.sh`, and the launch step in `.github/workflows/checks.yml` |
 | `scripts/appcast.sh` writes an appcast only for a signature that matches `SUPublicEDKey`, and `sign_update` output never reaches a log or a `bash -x` trace | The wrong-key and `bash -x` malformed key cases in `scripts/check-appcast.sh` |
-| The disk image holds the signed app unchanged, an Applications link and the window layout, and nothing else | The checks in `scripts/dmg.sh`, which `checks.yml` runs on each push |
+| The disk image holds the signed app unchanged, an Applications link and the window layout, and nothing else | The checks in `scripts/dmg.sh`, which `checks.yml` runs on each pull request and each push to main |
 | Catalog events match canonical roots, so symlinked folders still update | `CatalogTests`, mutant M11 |
 | A result picked for a query ranks first, after exact title matches, whenever the typed query is the start of that query: a pick under `first t` ranks for `f` and `fir` | `LearnedRankingTests.aPickRanksFirstForEveryStartOfTheQueryItWasPickedFor` and `anExactTitleOutranksALearnedEntry`, `UsageHistoryTests.storedPicksReadBackAndMalformedRowsAreSkipped`, mutant M33 |
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |

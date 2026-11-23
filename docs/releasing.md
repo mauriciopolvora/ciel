@@ -39,7 +39,7 @@ The job runs in the `release` environment. Only runs from `main` can use it, and
 | `CIEL_NOTARY_TEAM_ID` | Team ID for `notarytool` |
 | `CIEL_SPARKLE_ENV` | Contents of `ciel-sparkle.env`, the line `SPARKLE_PRIVATE_ED_KEY=<key>` |
 
-The workflow in `.github/workflows/checks.yml` checks each push. It builds an ad-hoc signed app and uploads it as a development archive. It also builds and checks a development disk image with `scripts/dmg.sh`, opens it in Finder and uploads a screenshot of the window as `Ciel-disk-image-window`. It does not publish anything.
+The workflow in `.github/workflows/checks.yml` checks each pull request and each push to main. It builds an ad-hoc signed app and uploads it as a development archive. It also builds and checks a development disk image with `scripts/dmg.sh`, opens it in Finder and uploads a screenshot of the window as `Ciel-disk-image-window`. It does not publish anything.
 
 ### Roll back
 
