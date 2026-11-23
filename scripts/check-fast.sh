@@ -3,5 +3,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # bash -n reads only its first file, so check each one.
-for script in scripts/*.sh .githooks/pre-push; do bash -n "$script"; done
+for script in scripts/*.sh .agents/skills/*/scripts/*.sh .githooks/pre-push; do bash -n "$script"; done
 bash scripts/lint-colors.sh
