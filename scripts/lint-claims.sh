@@ -24,8 +24,9 @@ facts() {
     found=$(find Sources -name '*.swift') || fail 'cannot read every folder in Sources.'
     while IFS= read -r file; do swift+=("$file"); done < <(lines "$found")
     [ "${#swift[@]}" -gt 0 ] || fail 'found no Swift files in Sources.'
-    # Sparkle reads each SU key in Info.plist, and SPU types run it.
-    probe network 'URLSession|URLRequest|NWConnection|NWPathMonitor|https?://|(^|[^A-Za-z0-9_])SP?U[A-Z]|import (Network|Sparkle|WebKit)' \
+    # Sparkle reads each SU key in Info.plist, SPU types run it, and updater properties set what it sends and when.
+    # A .download( call starts the speech model download.
+    probe network 'URLSession|URLRequest|NWConnection|NWPathMonitor|https?://|(^|[^A-Za-z0-9_])SP?U[A-Z]|\.updater\.|sendsSystemProfile|updateCheckInterval|\.download\(|import (Network|Sparkle|WebKit)' \
         "${swift[@]}" Package.swift Resources/Info.plist scripts/appcast.sh
     probe arch 'arm64|x86_64|universal|lipo|-thin|--arch|ARCH' \
         scripts/build.sh scripts/release.sh Package.swift .github/workflows/*.yml

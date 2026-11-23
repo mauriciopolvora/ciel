@@ -86,6 +86,7 @@ network|Resources/Info.plist: <key>SUPublicEDKey</key><string>pj+OdMDGmclTCwEn4v
 network|Sources/Ciel/Diagnostics/SmokeCheck.swift: import Sparkle
 network|Sources/Ciel/Diagnostics/SmokeCheck.swift: settings.updateButton.action == #selector(SPUStandardUpdaterController.checkForUpdates(_:))
 network|Sources/Ciel/OffMainCallbacks.swift: static func delegateTask(_ session: URLSession, with request: URLRequest) -> URLSessionDataTask {
+network|Sources/Ciel/SettingsController.swift: case .download: speech.download()
 network|Sources/Ciel/SpeechModelStore.swift: _ model: SpeechModel, to file: URL, session: URLSession,
 network|Sources/Ciel/SpeechModelStore.swift: configuration: URLSessionConfiguration = .default
 network|Sources/Ciel/SpeechModelStore.swift: final class Delegate: NSObject, URLSessionDataDelegate, Sendable {
@@ -97,10 +98,14 @@ network|Sources/Ciel/SpeechModelStore.swift: var request = URLRequest(url: model
 network|Sources/Ciel/Updater.swift: @MainActor private final class DockDuringUpdate: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
 network|Sources/Ciel/Updater.swift: _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState
 network|Sources/Ciel/Updater.swift: action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)))
+network|Sources/Ciel/Updater.swift: button.isEnabled = controller.updater.canCheckForUpdates
 network|Sources/Ciel/Updater.swift: controller = SPUStandardUpdaterController(
+network|Sources/Ciel/Updater.swift: controller.updater.observe(\.canCheckForUpdates) { updater, _ in
+network|Sources/Ciel/Updater.swift: get { controller.updater.automaticallyChecksForUpdates }
 network|Sources/Ciel/Updater.swift: import Sparkle
 network|Sources/Ciel/Updater.swift: item.action = #selector(SPUStandardUpdaterController.checkForUpdates(_:))
 network|Sources/Ciel/Updater.swift: private let controller: SPUStandardUpdaterController
+network|Sources/Ciel/Updater.swift: set { controller.updater.automaticallyChecksForUpdates = newValue }
 network|Sources/CielCore/Speech.swift: private static let huggingFace = "https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/"
 network|scripts/appcast.sh: <enclosure url="https://github.com/mauriciopolvora/ciel/releases/download/v$short_version/$(basename "$archive")" length="$(wc -c <"$archive" | tr -d ' ')" type="application/octet-stream" sparkle:edSignature="$signature"/>
 network|scripts/appcast.sh: <rss version="*" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">

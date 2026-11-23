@@ -11,7 +11,7 @@ network|site/public/privacy.html|Ciel collects no data.
 network|site/public/privacy.html|It has no account, server, or analytics.
 network|site/public/privacy.html|The audio stays in memory and is never saved or sent anywhere.
 network|site/public/index.html|Audio stays in memory while you talk and is never saved or sent.
-network|site/public/index.html|One process whose only timer is the daily update check
+network|site/public/index.html|When it sits idle, its only timer is the daily update check
 network|site/public/privacy.html|Once a day, it checks its release feed on GitHub for an update
 network|site/public/privacy.html|Ciel sends no system profile.
 network|site/public/privacy.html|Nothing in either place is sent anywhere.
