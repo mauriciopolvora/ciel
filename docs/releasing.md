@@ -5,7 +5,7 @@
 `.github/workflows/release.yml` publishes a release on a macOS runner. No Mac is needed. To start it:
 
 1. Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Resources/Info.plist` and merge.
-2. Wait for `Check Ciel` to pass on the merge commit.
+2. Wait for the `push` run of `Check Ciel` to pass on the head of `main`. A manual run does not count. A newer push to `main` replaces a run that has not started yet.
 3. Run the workflow on `main` from the Actions tab, or with `gh workflow run release.yml --ref main -f version=<version>`. It releases the head of `main` and creates the tag `v<version>` on that commit.
 
 Only a manual run on `main` starts a release. A pushed tag does not start it.

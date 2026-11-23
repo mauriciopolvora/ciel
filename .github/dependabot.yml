@@ -5,41 +5,49 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
+    rebase-strategy: disabled
     groups:
-      swift-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        update-types: [minor, patch]
 
   - package-ecosystem: npm
     directory: /site
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
+    rebase-strategy: disabled
     groups:
-      npm-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        update-types: [minor, patch]
 
   - package-ecosystem: pip
     directory: /scripts
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
+    rebase-strategy: disabled
     groups:
-      pip-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
+    rebase-strategy: disabled
     groups:
-      actions-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        update-types: [minor, patch]
