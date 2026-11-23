@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs scripts/check-fast.sh and gitleaks on the pushed commits. Set it once per clone: git config core.hooksPath .githooks
+# The macOS checks (scripts/check.sh) run only in CI.
+set -euo pipefail
+set -f # $range below is split into words and must not glob
+cd "$(git rev-parse --show-toplevel)"
+
+if ! command -v gitleaks >/dev/null; then
+  echo "pre-push: gitleaks is not installed. Install it (https://github.com/gitleaks/gitleaks#installing), then push again." >&2
+  exit 1
+fi
+
+bash scripts/check-fast.sh </dev/null
+
+remote=$1
+while read -r _ local_sha _ remote_sha; do
+  [[ $local_sha =~ ^0+$ ]] && continue # a deleted branch has no commits to scan
+  if ! git remote | grep -qxF -- "$remote"; then
+    range=$local_sha # a push to a URL: no tracking refs say what the remote has, so scan all history
+  elif [[ $remote_sha =~ ^0+$ ]] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    # Skip commits that this remote already has. The --exclude keeps out the refs of a remote named "$remote/<name>".
+    range="$local_sha --not --exclude=$remote/*/* --remotes=$remote"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
+  git rev-list $range >/dev/null # unquoted: $range holds several arguments, and none has a space
+  gitleaks git --no-banner --redact --log-opts="$range -m" .
+done

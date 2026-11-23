@@ -4,14 +4,13 @@ cd "$(dirname "$0")/.."
 if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--unit-only" ) ]]; then
     printf 'Usage: bash scripts/check.sh [--unit-only]\n' >&2; exit 1
 fi
-bash -n scripts/*.sh
+bash scripts/check-fast.sh
 plutil -lint Resources/Info.plist Resources/Ciel.entitlements
 if [[ "$(plutil -extract SUFeedURL raw Resources/Info.plist)" != https://* ]] ||
     ! plutil -extract SUPublicEDKey raw Resources/Info.plist | grep -qE '^[A-Za-z0-9+/]{43}=$'; then
     printf 'Info.plist needs an https SUFeedURL and a base64 Ed25519 SUPublicEDKey for updates.\n' >&2; exit 1
 fi
 swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift scripts/GenerateDMGBackground.swift scripts/VerifyUpdate.swift Package.swift
-bash scripts/lint-colors.sh
 bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
 bash scripts/benchmark.sh
 bash scripts/check-appcast.sh

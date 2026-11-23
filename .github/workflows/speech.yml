@@ -1,6 +1,8 @@
+# Times release to paste for the speech model on a real Mac, only when a PR changes the speech path, so speech latency is measured before it ships.
 name: Time speech to text
 on:
   pull_request:
+    branches: [main]
     paths:
       - Sources/CielCore/LiveTranscript.swift
       - Sources/CielCore/Speech.swift
@@ -12,6 +14,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   bench:
     runs-on: macos-15
