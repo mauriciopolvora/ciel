@@ -16,7 +16,7 @@ Every command below runs from the repo root on a Mac. Agent hosts run Linux: the
 
 `launch` copies `dist/Ciel.app` to `.build/verify/CielVerify.app` with the bundle id from `Resources/Info.plist` plus `.verify` (`app.mauriciopolvora.ciel.verify`), so it reads and writes its own defaults and caches, never the installed Ciel's. It turns off Sparkle's update checks and, without `--fresh`, marks onboarding done, so the launcher opens at launch. It is ready when the accessibility tree shows the `Search apps and commands` field (or `Set Up Ciel` with `--fresh`), and it prints `PASS launch pid <pid>, evidence in <dir>`.
 
-`launch` refuses to start while another Ciel runs or another run of this script holds `.build/verify/lock`, and a refused `launch` or `journey` leaves the running copy alone. Two copies fight over Control-Option-Space and the later one shows `Launcher shortcut unavailable`. Ask the operator to quit their Ciel. Never quit it for them.
+`launch` refuses to start while another Ciel runs or another run of this script holds the lock on `.build/verify/run.lock`, and a refused `launch` or `journey` leaves the running copy alone. Two copies fight over Control-Option-Space and the later one shows `Launcher shortcut unavailable`. Ask the operator to quit their Ciel. Never quit it for them.
 
 ## Doctor
 
@@ -56,11 +56,12 @@ A proof drives the user path: the shortcut, the keys and the visible result. It 
 
 ## Cleanup
 
-`bash .agents/skills/verify-ciel/scripts/ciel-verify.sh cleanup` stops the Ciel copy by the pid it saved, stops each app that a journey started by the pid it saved, closes the Finder window that `window-commands` opened by its window id when that window still shows the journey's folder, deletes the copy, its defaults and the lock, and keeps `.build/verify/evidence/`. It refuses while a journey runs, because that journey cleans up when it ends. Before each stop it checks that the pid still runs the same executable. It never stops or closes anything by name. A journey runs cleanup on exit, also after a failure, but only once its own `launch` has started a copy.
+`bash .agents/skills/verify-ciel/scripts/ciel-verify.sh cleanup` stops the Ciel copy by the pid it saved, in CI also stops each app that a journey started by the pid it saved, closes the Finder windows named after the folder that `window-commands` made for this run, deletes that folder, the copy and its defaults, and keeps `.build/verify/evidence/`. It takes the same lock as `launch`, so it refuses while a journey runs, because that journey cleans up when it ends. Before each stop it checks that the pid still runs the same executable. It never stops an app by name. Outside CI it leaves the apps a journey opened running and prints their pids, because Launch Services can hand Return an instance the operator opened. A journey runs cleanup on exit, also after a failure, but only once its own `launch` has started a copy.
 
 ## Gotchas
 
 - The script needs Accessibility access for the terminal that runs it, for System Events key presses and for Ciel's window commands. The screenshot needs Screen Recording access. GitHub's macOS runners have both.
-- System Events types into the key window. A click elsewhere during a run sends the keys to another app.
+- System Events types into the key window. A click elsewhere during a run sends the keys to another app. The script checks that its copy runs and no other Ciel does, but it cannot see which app gets the keys. Do not touch the Mac while a journey runs.
+- The accessibility tree treats an attribute it cannot read as empty. A `wait-gone` on a label can pass when only that label fails to read. Read the saved tree when a pass looks wrong.
 - `journey open-app` fails at once when TextEdit is already running, because then it cannot prove that Return opened it. Quit TextEdit first.
 - Dictation needs a microphone and the 600 MB speech model, so no journey covers it. The native checks in `check.sh` cover its pill and the press before the model is ready.

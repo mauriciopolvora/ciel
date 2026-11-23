@@ -11,9 +11,8 @@ binary="$app/Contents/MacOS/Ciel"
 pid_file="$run_dir/ciel.pid"
 started_file="$run_dir/started-apps"
 finder_file="$run_dir/finder-window"
-lock="$run_dir/lock"
+lock="$run_dir/run.lock"
 owned=0
-locked=0
 
 usage() {
     cat >&2 <<USAGE
@@ -42,11 +41,7 @@ fail() {
 }
 
 on_exit() {
-    if [[ $owned -eq 1 ]]; then
-        cleanup
-    elif [[ $locked -eq 1 ]]; then
-        rm -f "$lock"
-    fi
+    if [[ $owned -eq 1 ]]; then cleanup; fi
 }
 trap on_exit EXIT
 
@@ -85,32 +80,18 @@ other_ciel() {
     done
 }
 
-lock_holder() {
-    local holder
-    holder="$(readlink "$lock" 2>/dev/null)" || return 1
-    if [[ "$holder" != "$$" ]] && kill -0 "$holder" 2>/dev/null; then
-        printf '%s\n' "$holder"
-        return 0
-    fi
-    return 1
-}
-
+# Holds an flock on fd 9 until this process exits. The Ciel copy gets fd 9 closed, so the lock never outlives the run.
 take_lock() {
-    local holder
     mkdir -p "$run_dir"
-    if ! ln -s "$$" "$lock" 2>/dev/null; then
-        if holder="$(lock_holder)"; then fail "launch: another run of this script (pid $holder) is driving Ciel. Wait for it to end."; fi
-        if ciel_pid >/dev/null; then fail "launch: an instance from this script is still running. Run cleanup first."; fi
-        rm -f "$lock"
-        ln -s "$$" "$lock" 2>/dev/null || fail "launch: another run of this script started at the same time."
-    fi
-    locked=1
+    exec 9>>"$lock"
+    perl -e 'use Fcntl ":flock"; open(my $fh, ">&=", 9) or exit 2; flock($fh, LOCK_EX | LOCK_NB) or exit 1' ||
+        fail "$1: another run of this script is driving Ciel. Wait for it to end."
 }
 
 launch() {
     local fresh=0 others
     [[ "${1:-}" == --fresh ]] && fresh=1
-    take_lock
+    take_lock launch
     if ciel_pid >/dev/null; then fail "launch: an instance from this script is still running. Run cleanup first."; fi
     others="$(other_ciel)"
     if [[ -n "$others" ]]; then
@@ -127,7 +108,7 @@ launch() {
     defaults write "$bundle_id" SUEnableAutomaticChecks -bool false
     if [[ $fresh -eq 0 ]]; then defaults write "$bundle_id" onboarded -bool true; fi
     new_evidence_dir
-    nohup "$binary" >"$(evidence_dir)/ciel.log" 2>&1 &
+    nohup "$binary" >"$(evidence_dir)/ciel.log" 2>&1 9>&- &
     printf '%s\n' "$!" >"$pid_file"
     disown
     local ready="Search apps and commands"
@@ -158,10 +139,12 @@ check_regex() {
 }
 
 wait_for() {
-    local deadline=$((SECONDS + ${2:-10})) status osa_limit
+    local deadline=$((SECONDS + ${2:-10})) status osa_limit remaining
     check_regex wait-for "$1"
-    while ((SECONDS < deadline)); do
-        osa_limit=$((deadline - SECONDS < 20 ? deadline - SECONDS : 20))
+    while :; do
+        remaining=$((deadline - SECONDS))
+        ((remaining > 0)) || return 1
+        osa_limit=$((remaining < 20 ? remaining : 20))
         status=0
         ax_match "$1" || status=$?
         [[ $status -eq 0 ]] && return 0
@@ -171,10 +154,12 @@ wait_for() {
 }
 
 wait_gone() {
-    local deadline=$((SECONDS + ${2:-10})) status osa_limit
+    local deadline=$((SECONDS + ${2:-10})) status osa_limit remaining
     check_regex wait-gone "$1"
-    while ((SECONDS < deadline)); do
-        osa_limit=$((deadline - SECONDS < 20 ? deadline - SECONDS : 20))
+    while :; do
+        remaining=$((deadline - SECONDS))
+        ((remaining > 0)) || return 1
+        osa_limit=$((remaining < 20 ? remaining : 20))
         status=0
         ax_match "$1" complete || status=$?
         [[ $status -eq 1 ]] && return 0
@@ -259,20 +244,23 @@ stop_started_apps() {
     [[ -f "$started_file" ]] || return 0
     local pid comm
     while IFS=$'\t' read -r pid comm; do
-        if pid_runs "$pid" "$comm"; then
+        pid_runs "$pid" "$comm" || continue
+        if [[ "${CI:-}" == true ]]; then
             kill -TERM "$pid" 2>/dev/null || true
             printf 'stopped %s %s, which this script opened\n' "$comm" "$pid"
+        else
+            printf 'left %s %s running: Launch Services can hand Return an instance you opened, so only CI stops it\n' "$comm" "$pid"
         fi
     done <"$started_file"
 }
 
 close_finder_window() {
     [[ -f "$finder_file" ]] || return 0
-    local id dir
-    IFS=$'\t' read -r id dir <"$finder_file"
-    osa -e 'on run argv' -e 'tell application "Finder"' -e 'if exists window id (item 1 of argv as integer) then' \
-        -e 'if name of window id (item 1 of argv as integer) is (item 2 of argv) then close window id (item 1 of argv as integer)' \
-        -e 'end if' -e 'end tell' -e 'end run' "$id" "$(basename "$dir")" >/dev/null || true
+    local dir
+    dir="$(cat "$finder_file")"
+    [[ -n "$dir" ]] || return 0
+    osa -e 'on run argv' -e 'tell application "Finder" to close (every Finder window whose name is (item 1 of argv))' -e 'end run' \
+        "$(basename "$dir")" >/dev/null || true
     rm -rf "$dir"
 }
 
@@ -288,7 +276,7 @@ cleanup() {
     close_finder_window
     rm -rf "$app" "$pid_file" "$started_file" "$finder_file"
     defaults delete "$bundle_id" >/dev/null 2>&1 || true
-    rm -f "$lock"
+
     if [[ -L "$evidence_root/latest" ]]; then printf 'evidence kept in %s\n' "$(evidence_dir)"; fi
 }
 
@@ -355,19 +343,15 @@ window_frame() {
 }
 
 journey_window_commands() {
-    local name="ciel-verify-$$-$RANDOM" dir id frame="" got=0 screen
+    local name="ciel-verify-$$-$RANDOM" dir frame="" got=0 screen
     dir="$run_dir/$name"
     mkdir -p "$dir"
     press escape
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Escape did not close the launcher."
-    printf '\t%s\n' "$dir" >"$finder_file"
-    id="$(osa -e 'on run argv' -e 'tell application "Finder"' -e 'set w to make new Finder window to (POSIX file (item 1 of argv))' \
-        -e 'return id of w' -e 'end tell' -e 'end run' "$dir")" ||
-        fail "window-commands: Finder did not open a window on $dir."
-    printf '%s\t%s\n' "$id" "$dir" >"$finder_file"
-    osa -e 'on run argv' -e 'tell application "Finder"' -e 'set bounds of window id (item 1 of argv as integer) to {120, 160, 820, 660}' \
-        -e 'activate' -e 'end tell' -e 'end run' "$id" >/dev/null ||
-        fail "window-commands: Finder did not move its window on $dir to 700 x 500."
+    printf '%s\n' "$dir" >"$finder_file"
+    osa -e 'on run argv' -e 'tell application "Finder"' -e 'set w to make new Finder window to (POSIX file (item 1 of argv))' \
+        -e 'set bounds of w to {120, 160, 820, 660}' -e 'activate' -e 'end tell' -e 'end run' "$dir" >/dev/null ||
+        fail "window-commands: Finder did not open a 700 x 500 window on $dir."
     for _ in {1..20}; do
         if frame="$(window_frame Finder "$name" 2>/dev/null)"; then got=1 && break; fi
         sleep 0.25
@@ -440,7 +424,6 @@ case "$command" in
 launch)
     launch "$@"
     owned=0
-    locked=0
     ;;
 doctor) doctor ;;
 press) [[ $# -eq 1 ]] || usage; press "$1" ;;
@@ -452,7 +435,7 @@ wait-for) [[ $# -ge 1 ]] || usage; wait_for "$@" || fail "wait-for: no match for
 wait-gone) [[ $# -ge 1 ]] || usage; wait_gone "$@" || fail "wait-gone: $1 still matches, or the tree cannot be read" ;;
 journey) [[ $# -eq 1 ]] || usage; journey "$1" ;;
 cleanup)
-    if holder="$(lock_holder)"; then fail "cleanup: a journey (pid $holder) is running and cleans up when it ends."; fi
+    take_lock cleanup
     cleanup
     ;;
 *) usage ;;
