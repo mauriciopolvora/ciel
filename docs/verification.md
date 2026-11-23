@@ -6,6 +6,8 @@ Checked on 1 October 2026 on Apple silicon with macOS 27 and Swift 6.4. The depl
 
 Run `bash scripts/check.sh` for the full local check. It creates a diagnostic app with a separate bundle identifier and catalog cache. Run `bash scripts/check.sh --unit-only` without opening windows. The window check uses only temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally.
 
+To see a change work the way a user does, run `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey all` after `bash scripts/build.sh`. It drives a copy of the built app with the launcher shortcut, typing and Return, and saves the proof in `.build/verify/evidence/`. CI runs it after the build. The skill is in `.agents/skills/verify-ciel/SKILL.md`.
+
 | Check | Result |
 | --- | --- |
 | Swift format, shell syntax, and Info.plist | Passed |
