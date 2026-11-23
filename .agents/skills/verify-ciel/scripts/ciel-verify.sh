@@ -5,17 +5,18 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../../../.." && pwd)"
 run_dir="${CIEL_VERIFY_DIR:-$repo/.build/verify}"
 evidence_root="$run_dir/evidence"
-bundle_id=app.mauriciopolvora.ciel.verify
+bundle_id="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$repo/Resources/Info.plist").verify"
 app="$run_dir/CielVerify.app"
 binary="$app/Contents/MacOS/Ciel"
 pid_file="$run_dir/ciel.pid"
 started_file="$run_dir/started-apps"
-target_dir="$run_dir/ciel-verify-target"
+finder_file="$run_dir/finder-window"
+owned=0
 
 usage() {
-    cat >&2 <<'EOF'
+    cat >&2 <<USAGE
 Usage: ciel-verify.sh <command>
-  launch [--fresh]        copy dist/Ciel.app as app.mauriciopolvora.ciel.verify and start it.
+  launch [--fresh]        copy dist/Ciel.app as $bundle_id and start it.
                           --fresh keeps onboarding; without it the launcher opens at launch.
   doctor                  check that the instance is ours, alive and driveable.
   press <key>             press a key: ctrl+opt+space, escape, return, tab, down, up, cmd+comma.
@@ -23,19 +24,28 @@ Usage: ciel-verify.sh <command>
   type <text>             type text into the focused field.
   snapshot <name>         write the accessibility tree of Ciel's windows to <name>.ax.txt and print it.
   shot <name>             write a screenshot to <name>.png.
-  wait-for <regex> [s]    wait until the accessibility tree matches the extended regex (default 10 s).
-  wait-gone <regex> [s]   wait until it no longer matches.
+  wait-for <regex> [s]    wait until a read of the accessibility tree matches the extended regex (default 10 s).
+  wait-gone <regex> [s]   wait until a read of the tree succeeds and no longer matches.
   journey <feature>       launch, doctor, drive one feature, clean up: launcher-search, open-app,
                           window-commands, settings, onboarding, or all.
   cleanup                 stop what this script started. Keeps the evidence.
 Evidence goes to .build/verify/evidence/<run id>/, and .build/verify/evidence/latest points at the newest run.
-EOF
+USAGE
     exit 64
 }
 
 fail() {
     printf 'FAIL %s\n' "$*"
     exit 1
+}
+
+on_exit() {
+    if [[ $owned -eq 1 ]]; then cleanup; fi
+}
+trap on_exit EXIT
+
+osa() {
+    perl -e 'alarm shift; exec @ARGV' 20 osascript "$@"
 }
 
 evidence_dir() {
@@ -50,26 +60,35 @@ new_evidence_dir() {
     ln -sfn "$id" "$evidence_root/latest"
 }
 
+pid_runs() {
+    [[ "$(ps -p "$1" -o comm= 2>/dev/null)" == "$2" ]]
+}
+
 ciel_pid() {
     [[ -f "$pid_file" ]] || return 1
     local pid
     pid="$(cat "$pid_file")"
-    [[ "$(ps -p "$pid" -o comm= 2>/dev/null)" == "$binary" ]] || return 1
+    pid_runs "$pid" "$binary" || return 1
     printf '%s\n' "$pid"
 }
 
 other_ciel() {
-    ps -axo pid=,comm= | awk -v ours="$binary" '$2 ~ /\/Contents\/MacOS\/Ciel$/ && $2 != ours { print }'
+    local pid comm
+    ps -axo pid=,comm= | while read -r pid comm; do
+        if [[ "$comm" == */Contents/MacOS/Ciel && "$comm" != "$binary" ]]; then printf '%s %s\n' "$pid" "$comm"; fi
+    done
 }
 
 launch() {
-    local fresh=0
+    local fresh=0 others
     [[ "${1:-}" == --fresh ]] && fresh=1
     if ciel_pid >/dev/null; then fail "launch: an instance from this script is still running. Run cleanup first."; fi
-    if [[ -n "$(other_ciel)" ]]; then
-        fail "launch: another Ciel is running and holds the launcher shortcut. Quit it first: $(other_ciel)"
+    others="$(other_ciel)"
+    if [[ -n "$others" ]]; then
+        fail "launch: another Ciel is running and holds the launcher shortcut. Quit it first: $others"
     fi
     [[ -d "$repo/dist/Ciel.app" ]] || fail "launch: dist/Ciel.app is missing. Run bash scripts/build.sh first."
+    owned=1
     mkdir -p "$run_dir"
     rm -rf "$app"
     ditto "$repo/dist/Ciel.app" "$app"
@@ -84,14 +103,49 @@ launch() {
     disown
     local ready="Search apps and commands"
     [[ $fresh -eq 1 ]] && ready="Set Up Ciel"
-    wait_for "$ready" 15 >/dev/null || fail "launch: Ciel did not show \"$ready\" within 15 s. See $(evidence_dir)/ciel.log."
+    wait_for "$ready" 15 || fail "launch: Ciel did not show \"$ready\" within 15 s. See $(evidence_dir)/ciel.log."
     printf 'PASS launch pid %s, evidence in %s\n' "$(ciel_pid)" "$(evidence_dir)"
 }
 
 ax_tree() {
     local pid
     pid="$(ciel_pid)" || fail "no Ciel instance from this script is running. Run launch first."
-    osascript -l JavaScript "$here/ax-tree.js" "$pid"
+    osa -l JavaScript "$here/ax-tree.js" "$pid"
+}
+
+ax_match() {
+    local tree status=0
+    tree="$(ax_tree 2>/dev/null)" || return 3
+    grep -Eq -- "$1" <<<"$tree" || status=$?
+    return "$status"
+}
+
+wait_for() {
+    local deadline=$((SECONDS + ${2:-10})) status
+    while ((SECONDS < deadline)); do
+        status=0
+        ax_match "$1" || status=$?
+        case $status in
+        0) return 0 ;;
+        2) fail "wait-for: grep cannot read the regex $1" ;;
+        esac
+        sleep 0.3
+    done
+    return 1
+}
+
+wait_gone() {
+    local deadline=$((SECONDS + ${2:-10})) status
+    while ((SECONDS < deadline)); do
+        status=0
+        ax_match "$1" || status=$?
+        case $status in
+        1) return 0 ;;
+        2) fail "wait-gone: grep cannot read the regex $1" ;;
+        esac
+        sleep 0.3
+    done
+    return 1
 }
 
 doctor() {
@@ -102,7 +156,7 @@ doctor() {
         fail "doctor: the copy does not run as $bundle_id."
     printf 'ok   bundle id %s, so the installed Ciel keeps its settings\n' "$bundle_id"
     printf 'ok   build %s\n' "$(defaults read "$app/Contents/Info" CFBundleShortVersionString)"
-    trusted="$(osascript -l JavaScript -e 'ObjC.import("ApplicationServices"); $.AXIsProcessTrusted()')"
+    trusted="$(osa -l JavaScript -e 'ObjC.import("ApplicationServices"); $.AXIsProcessTrusted()')"
     [[ "$trusted" == true ]] ||
         fail "doctor: this terminal has no Accessibility access. Grant it in System Settings > Privacy & Security > Accessibility."
     printf 'ok   Accessibility access for the driver and the Ciel it started\n'
@@ -110,7 +164,7 @@ doctor() {
     if grep -q 'Launcher shortcut unavailable' <<<"$tree"; then
         fail "doctor: Ciel could not register the launcher shortcut. Another app holds Control-Option-Space."
     fi
-    printf 'ok   Ciel answers System Events and holds the launcher shortcut\n'
+    printf 'ok   Ciel answers System Events and shows no shortcut warning\n'
 }
 
 press() {
@@ -125,17 +179,19 @@ press() {
     cmd+comma) code=43 mods=" using {command down}" ;;
     *) fail "press: unknown key $1" ;;
     esac
-    osascript -e "tell application \"System Events\" to key code $code$mods"
+    osa -e "tell application \"System Events\" to key code $code$mods"
 }
 
 close_window() {
-    osascript -e 'on run argv' -e 'tell application "System Events" to tell (first process whose unix id is (item 1 of argv as integer))' \
+    local pid
+    pid="$(ciel_pid)" || fail "close: no Ciel instance from this script is running."
+    osa -e 'on run argv' -e 'tell application "System Events" to tell (first process whose unix id is (item 1 of argv as integer))' \
         -e 'click (first button of window (item 2 of argv) whose subrole is "AXCloseButton")' -e 'end tell' -e 'end run' \
-        "$(cat "$pid_file")" "$1" >/dev/null
+        "$pid" "$1" >/dev/null
 }
 
 type_text() {
-    osascript -e 'on run argv' -e 'tell application "System Events" to keystroke (item 1 of argv)' -e 'end run' "$1"
+    osa -e 'on run argv' -e 'tell application "System Events" to keystroke (item 1 of argv)' -e 'end run' "$1"
 }
 
 snapshot() {
@@ -150,58 +206,54 @@ shot() {
     printf 'wrote %s\n' "$(evidence_dir)/$1.png"
 }
 
-wait_for() {
-    local deadline=$((SECONDS + ${2:-10}))
-    while ((SECONDS < deadline)); do
-        if ax_tree 2>/dev/null | grep -Eq -- "$1"; then return 0; fi
-        sleep 0.3
-    done
-    return 1
+app_pid() {
+    pgrep -x "$1" | head -1 || true
 }
 
-wait_gone() {
-    local deadline=$((SECONDS + ${2:-10}))
-    while ((SECONDS < deadline)); do
-        if ! ax_tree 2>/dev/null | grep -Eq -- "$1"; then return 0; fi
-        sleep 0.3
-    done
-    return 1
+stop_started_apps() {
+    [[ -f "$started_file" ]] || return 0
+    local pid comm
+    while IFS=$'\t' read -r pid comm; do
+        if pid_runs "$pid" "$comm"; then
+            kill -TERM "$pid" 2>/dev/null || true
+            printf 'stopped %s %s, which this script opened\n' "$comm" "$pid"
+        fi
+    done <"$started_file"
 }
 
-app_running() {
-    osascript -e "on run argv" -e 'tell application "System Events" to return exists (processes whose name is (item 1 of argv))' \
-        -e "end run" "$1"
-}
-
-remember_started() {
-    if [[ "$(app_running "$1")" == false ]]; then printf '%s\n' "$1" >>"$started_file"; fi
+close_finder_window() {
+    [[ -f "$finder_file" ]] || return 0
+    local id dir
+    IFS=$'\t' read -r id dir <"$finder_file"
+    osa -e 'on run argv' -e 'tell application "Finder"' -e 'if exists window id (item 1 of argv as integer) then' \
+        -e 'close window id (item 1 of argv as integer)' -e 'end if' -e 'end tell' -e 'end run' "$id" >/dev/null || true
+    rm -rf "$dir"
 }
 
 cleanup() {
     local pid
     if pid="$(ciel_pid)"; then
-        kill "$pid"
-        for _ in {1..20}; do kill -0 "$pid" 2>/dev/null || break; sleep 0.25; done
-        if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; fi
+        kill "$pid" 2>/dev/null || true
+        for _ in {1..20}; do pid_runs "$pid" "$binary" || break; sleep 0.25; done
+        if pid_runs "$pid" "$binary"; then kill -9 "$pid" 2>/dev/null || true; fi
         printf 'stopped Ciel %s\n' "$pid"
     fi
-    if [[ -f "$started_file" ]]; then
-        while IFS= read -r name; do
-            osascript -e "on run argv" -e 'tell application (item 1 of argv) to quit' -e "end run" "$name" || true
-            printf 'quit %s, which this script opened\n' "$name"
-        done <"$started_file"
-    fi
-    if [[ -d "$target_dir" ]]; then
-        osascript -e 'tell application "Finder"' -e 'repeat with w in (get every Finder window)' \
-            -e 'if name of w is "ciel-verify-target" then close w' -e 'end repeat' -e 'end tell' || true
-    fi
-    rm -rf "$app" "$pid_file" "$started_file" "$target_dir"
+    stop_started_apps
+    close_finder_window
+    rm -rf "$app" "$pid_file" "$started_file" "$finder_file"
     defaults delete "$bundle_id" >/dev/null 2>&1 || true
     if [[ -L "$evidence_root/latest" ]]; then printf 'evidence kept in %s\n' "$(evidence_dir)"; fi
 }
 
 step() {
     printf 'PASS %s\n' "$*"
+}
+
+reopen_launcher() {
+    press escape
+    wait_gone 'Search apps and commands' 5 || fail "$1: Escape did not close the launcher."
+    press ctrl+opt+space
+    wait_for 'Search apps and commands' 5 || fail "$1: Control-Option-Space did not open the launcher."
 }
 
 journey_launcher_search() {
@@ -212,71 +264,94 @@ journey_launcher_search() {
     wait_for 'Search apps and commands' 5 || fail "launcher-search: Control-Option-Space did not open the launcher."
     step "launcher-search: Control-Option-Space opens the launcher"
     type_text "left half"
-    wait_for 'Left Half' 5 || fail "launcher-search: typing \"left half\" showed no Left Half row."
+    wait_for 'AXCell description="Left Half, ' 5 || fail "launcher-search: typing \"left half\" showed no Left Half row."
     snapshot launcher-search >/dev/null
     shot launcher-search >/dev/null
     step "launcher-search: \"left half\" lists the Left Half window command"
     type_text "zzqx"
-    wait_gone 'Left Half' 5 || fail "launcher-search: a query with no match still lists Left Half."
+    wait_for 'value="No matches"' 5 || fail "launcher-search: a query with no match does not say No matches."
     snapshot launcher-search-no-match >/dev/null
-    step "launcher-search: a query with no match lists no rows"
+    if grep -q 'AXRow' "$(evidence_dir)/launcher-search-no-match.ax.txt"; then
+        fail "launcher-search: a query with no match still lists rows."
+    fi
+    step "launcher-search: a query with no match lists no rows and says No matches"
     press escape
     wait_gone 'Search apps and commands' 5 || fail "launcher-search: Escape did not close the launcher."
 }
 
 journey_open_app() {
-    remember_started TextEdit
-    press escape
-    wait_gone 'Search apps and commands' 5 || fail "open-app: Escape did not close the launcher."
-    press ctrl+opt+space
-    wait_for 'Search apps and commands' 5 || fail "open-app: Control-Option-Space did not open the launcher."
+    local pid comm
+    [[ -z "$(app_pid TextEdit)" ]] ||
+        fail "open-app: TextEdit is already running, so the journey cannot prove that Return opens it. Quit TextEdit first."
+    reopen_launcher open-app
     type_text "textedit"
-    wait_for 'TextEdit' 10 || fail "open-app: typing \"textedit\" showed no TextEdit row."
+    wait_for 'AXCell description="TextEdit, ' 10 || fail "open-app: typing \"textedit\" showed no TextEdit row."
     snapshot open-app-results >/dev/null
     step "open-app: \"textedit\" lists TextEdit"
     press return
     wait_gone 'Search apps and commands' 5 || fail "open-app: Return did not close the launcher."
-    for _ in {1..40}; do [[ "$(app_running TextEdit)" == true ]] && break; sleep 0.25; done
-    [[ "$(app_running TextEdit)" == true ]] || fail "open-app: Return did not start TextEdit."
+    for _ in {1..40}; do
+        pid="$(app_pid TextEdit)"
+        [[ -n "$pid" ]] && break
+        sleep 0.25
+    done
+    [[ -n "$pid" ]] || fail "open-app: Return did not start TextEdit."
+    comm="$(ps -p "$pid" -o comm=)"
+    printf '%s\t%s\n' "$pid" "$comm" >>"$started_file"
     shot open-app >/dev/null
-    step "open-app: Return opens TextEdit and closes the launcher"
+    step "open-app: Return opens TextEdit (pid $pid) and closes the launcher"
 }
 
 window_frame() {
-    osascript -l JavaScript "$here/window-frame.js" "$@"
+    osa -l JavaScript "$here/window-frame.js" "$@"
 }
 
 journey_window_commands() {
-    mkdir -p "$target_dir"
+    local name="ciel-verify-$$-$RANDOM" dir id frame="" got=0
+    dir="$run_dir/$name"
+    mkdir -p "$dir"
     press escape
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Escape did not close the launcher."
-    osascript -e 'on run argv' -e 'tell application "Finder"' -e 'make new Finder window to (POSIX file (item 1 of argv))' \
-        -e 'activate' -e 'end tell' -e 'end run' "$target_dir" >/dev/null
-    sleep 1
+    id="$(osa -e 'on run argv' -e 'tell application "Finder"' -e 'set w to make new Finder window to (POSIX file (item 1 of argv))' \
+        -e 'set bounds of w to {120, 160, 820, 660}' -e 'activate' -e 'return id of w' -e 'end tell' -e 'end run' "$dir")" ||
+        fail "window-commands: Finder did not open a window on $dir."
+    printf '%s\t%s\n' "$id" "$dir" >"$finder_file"
+    for _ in {1..20}; do
+        if frame="$(window_frame Finder "$name" 2>/dev/null)"; then got=1 && break; fi
+        sleep 0.25
+    done
+    [[ $got -eq 1 ]] || fail "window-commands: cannot read the frame of the Finder window $name."
+    printf 'before\n%s\n' "$frame" >"$(evidence_dir)/window-commands.frame.txt"
+    grep -q '^left-half no$' <<<"$frame" || fail "window-commands: the Finder window starts on the left half: $frame"
     press ctrl+opt+space
     wait_for 'Search apps and commands' 5 || fail "window-commands: Control-Option-Space did not open the launcher."
     type_text "left half"
-    wait_for 'Left Half' 5 || fail "window-commands: typing \"left half\" showed no Left Half row."
+    wait_for 'AXCell description="Left Half, ' 5 || fail "window-commands: typing \"left half\" showed no Left Half row."
     press return
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Return did not close the launcher."
-    sleep 1
-    local frame
-    frame="$(window_frame Finder ciel-verify-target)" || fail "window-commands: cannot read the Finder window frame."
-    printf '%s\n' "$frame" >"$(evidence_dir)/window-commands.frame.txt"
+    for _ in {1..20}; do
+        frame="$(window_frame Finder "$name")" || fail "window-commands: cannot read the frame of the Finder window $name."
+        grep -q '^left-half yes$' <<<"$frame" && break
+        sleep 0.25
+    done
+    printf 'after\n%s\n' "$frame" >>"$(evidence_dir)/window-commands.frame.txt"
     shot window-commands >/dev/null
     grep -q '^left-half yes$' <<<"$frame" || fail "window-commands: the Finder window is not on the left half: $frame"
-    step "window-commands: Left Half moves the front Finder window to the left half of the screen"
+    step "window-commands: Left Half moves the front Finder window from 700 x 500 to the left half of its screen"
 }
 
 journey_settings() {
+    local recorder='AXButton title="⌃⌥Space" description="Launcher shortcut"'
     press cmd+comma
-    wait_for 'Ciel Settings' 5 || fail "settings: Command-Comma in the launcher did not open Ciel Settings."
-    wait_for 'Launcher shortcut' 5 || fail "settings: Ciel Settings shows no Launcher shortcut recorder."
+    wait_for 'AXWindow title="Ciel Settings"' 5 || fail "settings: Command-Comma in the launcher did not open Ciel Settings."
+    wait_for "$recorder" 5 || fail "settings: Ciel Settings shows no Launcher shortcut recorder set to Control-Option-Space."
     snapshot settings >/dev/null
+    awk '/^AXWindow/ { inside = /title="Ciel Settings"/ } inside' "$(evidence_dir)/settings.ax.txt" | grep -qF "$recorder" ||
+        fail "settings: the Launcher shortcut recorder is not in the Ciel Settings window."
     shot settings >/dev/null
-    step "settings: Command-Comma opens Ciel Settings with the Launcher shortcut recorder"
+    step "settings: Command-Comma opens Ciel Settings with the Launcher shortcut recorder set to Control-Option-Space"
     close_window 'Ciel Settings'
-    wait_gone 'Ciel Settings' 5 || fail "settings: the close button did not close Ciel Settings."
+    wait_gone 'AXWindow title="Ciel Settings"' 5 || fail "settings: the close button did not close Ciel Settings."
     step "settings: the close button closes Ciel Settings"
 }
 
@@ -299,7 +374,6 @@ journey() {
         ;;
     *) fail "journey: unknown feature $feature" ;;
     esac
-    trap cleanup EXIT
     if [[ "$feature" == onboarding ]]; then launch --fresh; else launch; fi
     doctor
     "journey_${feature//-/_}"
@@ -310,7 +384,10 @@ journey() {
 command="$1"
 shift
 case "$command" in
-launch) launch "$@" ;;
+launch)
+    launch "$@"
+    owned=0
+    ;;
 doctor) doctor ;;
 press) [[ $# -eq 1 ]] || usage; press "$1" ;;
 close) [[ $# -eq 1 ]] || usage; close_window "$1" ;;
@@ -318,7 +395,7 @@ type) [[ $# -eq 1 ]] || usage; type_text "$1" ;;
 snapshot) [[ $# -eq 1 ]] || usage; snapshot "$1" ;;
 shot) [[ $# -eq 1 ]] || usage; shot "$1" ;;
 wait-for) [[ $# -ge 1 ]] || usage; wait_for "$@" || fail "wait-for: no match for $1" ;;
-wait-gone) [[ $# -ge 1 ]] || usage; wait_gone "$@" || fail "wait-gone: $1 still matches" ;;
+wait-gone) [[ $# -ge 1 ]] || usage; wait_gone "$@" || fail "wait-gone: $1 still matches, or the tree cannot be read" ;;
 journey) [[ $# -eq 1 ]] || usage; journey "$1" ;;
 cleanup) cleanup ;;
 *) usage ;;

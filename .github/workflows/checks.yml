@@ -111,6 +111,7 @@ jobs:
           sleep 5
           kill -0 $!
           kill $!
+          wait $! || true
       - name: Drive the built app with verify-ciel
         timeout-minutes: 5
         run: bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey all

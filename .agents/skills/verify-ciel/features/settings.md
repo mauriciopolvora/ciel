@@ -19,7 +19,7 @@ Preconditions:
 
 - The launcher is open after `launch`.
 
-- **Open.** Press Command-Comma. Run `ciel-verify.sh press cmd+comma`, then `ciel-verify.sh wait-for 'Ciel Settings' 5`. The tree shows the `Ciel Settings` window with the `Launcher shortcut` recorder.
+- **Open.** Press Command-Comma. Run `ciel-verify.sh press cmd+comma`, then `ciel-verify.sh wait-for 'Ciel Settings' 5`. The tree shows the `Ciel Settings` window, and inside it the recorder `AXButton title="⌃⌥Space" description="Launcher shortcut"`.
 - **Close.** Click the close button. Run `ciel-verify.sh close 'Ciel Settings'`, then `ciel-verify.sh wait-gone 'Ciel Settings' 5`. The window is gone.
 - **Proof.** `journey settings` saves `settings.ax.txt` and `settings.png`.
 

@@ -17,13 +17,13 @@ Return on an app result opens that app, brings it to the front and closes the la
 Preconditions:
 
 - The launcher is open after `launch`.
-- TextEdit is installed (it ships with macOS). The journey records whether it was already running.
+- TextEdit is installed (it ships with macOS) and is not running. The journey fails at once when it runs, because then Return proves nothing.
 
 - **Find.** Close and reopen the launcher, then type `textedit`. Run `ciel-verify.sh press escape`, `ciel-verify.sh press ctrl+opt+space`, `ciel-verify.sh type textedit` and `ciel-verify.sh wait-for 'TextEdit' 10`. A `TextEdit` row is listed.
-- **Open.** Press Return. Run `ciel-verify.sh press return`, then `ciel-verify.sh wait-gone 'Search apps and commands' 5`. The launcher closes and System Events lists a running `TextEdit` process.
+- **Open.** Press Return. Run `ciel-verify.sh press return`, then `ciel-verify.sh wait-gone 'Search apps and commands' 5`. The launcher closes and a new `TextEdit` process runs. The journey saves its pid.
 - **Proof.** `journey open-app` saves `open-app-results.ax.txt` and `open-app.png`.
 
 ## Gotchas
 
 - TextEdit opens its Open dialog at launch. That is TextEdit's behavior, not a Ciel failure.
-- Cleanup quits TextEdit only when the journey started it.
+- Cleanup stops TextEdit by the pid the journey saved, after it checks that the pid still runs TextEdit.

@@ -18,7 +18,7 @@ This directory is the maintained source for verifying what a Ciel user sees. Rea
 
 ## Proof and skip reporting
 
-- Each step saves the accessibility tree after the action and a screenshot, under `.build/verify/evidence/latest/`.
+- Each journey saves the accessibility trees, screenshots and readbacks that its feature file names, under `.build/verify/evidence/latest/`.
 - A side effect outside Ciel (an app that opened, a window that moved) is read back from that app, not from Ciel.
 - Report a step that cannot run with the command you ran and the unmet precondition. Never report it as verified through another path.
 
