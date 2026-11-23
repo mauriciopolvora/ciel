@@ -86,6 +86,13 @@ jobs:
       - name: Build and check the disk image
         timeout-minutes: 5
         run: bash scripts/dmg.sh dist/Ciel.app dist/Ciel-development.dmg
+      # Only --layout runs dmgbuild, so this step is what tests a dmgbuild update.
+      - name: Write the layout with dmgbuild and build an image from it
+        timeout-minutes: 5
+        run: |
+          trap 'git checkout -- Resources/DiskImage.DS_Store' EXIT
+          bash scripts/dmg.sh --layout
+          bash scripts/dmg.sh dist/Ciel.app "$RUNNER_TEMP/Ciel-layout.dmg"
       - name: Capture the disk image window
         timeout-minutes: 2
         run: |
