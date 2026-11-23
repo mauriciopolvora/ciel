@@ -1,15 +1,17 @@
 name: Check Ciel
+# Push runs only on main, because release.yml needs a passed push run on the commit it releases.
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
-# A new commit on a pull request cancels the run for the commit it replaces. Every other run gets its own group, so a push to main always runs to the end: release.yml needs a passed push run on the commit it releases.
+# A new commit on a pull request cancels the run for the commit it replaces. A run on main never cancels. A newer push to main can replace a pending run for an older commit, and release.yml releases the head of main. The event name keeps a manual run from replacing the push run that release.yml reads.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
     runs-on: macos-15
@@ -19,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
@@ -34,7 +37,22 @@ jobs:
             curl -fsSL --retry 3 -o "$model" https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q5_K_M.gguf
           fi
           echo "f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997  $model" | shasum -a 256 -c
+      - name: gitleaks on the PR commits
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
+          git rev-list "$BASE..$HEAD" >/dev/null
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="$BASE..$HEAD -m" .
       - name: Check format, scripts, metadata, unit tests, search budgets, and native app
+        if: ${{ !cancelled() }}
         run: bash scripts/check.sh
       - name: Archive performance report
         if: always()
@@ -55,6 +73,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Build Apple Silicon app
+        if: ${{ !cancelled() }}
         env:
           CIEL_ARCH: arm64
         run: bash scripts/build.sh
@@ -92,6 +111,18 @@ jobs:
           sleep 5
           kill -0 $!
           kill $!
+          wait $! || true
+      - name: Drive the built app with verify-ciel
+        timeout-minutes: 5
+        run: bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey all
+      - name: Archive the verify-ciel evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Ciel-verify-evidence
+          path: .build/verify/evidence
+          if-no-files-found: warn
+          retention-days: 14
       - name: Archive development app
         run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -110,6 +141,7 @@ jobs:
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - name: Check that the tests catch each recorded past mistake
+        if: ${{ !cancelled() }}
         run: bash scripts/mutants.sh
       - name: Archive mutant logs
         if: always()
@@ -119,3 +151,17 @@ jobs:
           path: .build/mutants
           if-no-files-found: warn
           retention-days: 14
+  # The ruleset requires this job, so one required check covers every job above.
+  ci:
+    needs: [check, mutants]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Fail when a needed job did not pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [[ $result == success ]] || { echo "A needed job ended with $result." >&2; exit 1; }
+          done

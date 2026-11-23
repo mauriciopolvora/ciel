@@ -1,3 +1,4 @@
+# Builds, signs, notarizes and publishes a release by hand from main. It reads the Check Ciel push run on the commit it releases.
 name: Release Ciel
 on:
   workflow_dispatch:
