@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-# A new commit on a pull request cancels the run for the commit it replaces. A run on main never cancels. A newer push to main can replace a pending run for an older commit, and release.yml releases the head of main.
+# A new commit on a pull request cancels the run for the commit it replaces. A run on main never cancels. A newer push to main can replace a pending run for an older commit, and release.yml releases the head of main. The event name keeps a manual run from replacing the push run that release.yml reads.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
@@ -23,20 +23,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: gitleaks on the PR commits
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        env:
-          GITLEAKS_VERSION: 8.30.1
-          GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
-          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | shasum -a 256 -c -
-          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
-          # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
-          git rev-list "$BASE..$HEAD" >/dev/null
-          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="$BASE..$HEAD -m" .
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -51,6 +37,20 @@ jobs:
             curl -fsSL --retry 3 -o "$model" https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q5_K_M.gguf
           fi
           echo "f6e3d8172547a3bb468e92ff395696e6d2e0371a9e52690a27741b4e8561c997  $model" | shasum -a 256 -c
+      - name: gitleaks on the PR commits
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
+          git rev-list "$BASE..$HEAD" >/dev/null
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="$BASE..$HEAD -m" .
       - name: Check format, scripts, metadata, unit tests, search budgets, and native app
         if: ${{ !cancelled() }}
         run: bash scripts/check.sh
