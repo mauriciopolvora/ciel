@@ -1,0 +1,108 @@
+arch|.github/workflows/checks.yml: CIEL_ARCH: arm64
+arch|.github/workflows/checks.yml: curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+arch|.github/workflows/checks.yml: lipo dist/Ciel.app/Contents/Frameworks/Sparkle.framework/Sparkle -verify_arch arm64
+arch|.github/workflows/checks.yml: test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
+arch|.github/workflows/checks.yml: test "$(lipo -archs dist/Ciel.app/Contents/MacOS/Ciel)" = arm64
+arch|.github/workflows/release.yml: "dist/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip.sha256" \
+arch|.github/workflows/release.yml: CIEL_ARCH: arm64
+arch|.github/workflows/release.yml: enclosure="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip"
+arch|.github/workflows/release.yml: fetch "$enclosure" "$check/Ciel-$VERSION-arm64.zip" "dist/Ciel-$VERSION-arm64.zip"
+arch|.github/workflows/release.yml: run: swift build -c release --product Ciel --arch arm64
+arch|.github/workflows/release.yml: swift scripts/VerifyUpdate.swift "$(plutil -extract SUPublicEDKey raw Resources/Info.plist)" "$signature" "$check/Ciel-$VERSION-arm64.zip"
+arch|scripts/build.sh: *) printf 'CIEL_ARCH must be native or arm64.\n' >&2; exit 1 ;;
+arch|scripts/build.sh: arm64) build_args+=(--arch arm64) ;;
+arch|scripts/build.sh: case "${CIEL_ARCH:-native}" in
+arch|scripts/build.sh: if [[ "$(lipo -archs "$staged_app/Contents/MacOS/Ciel")" != arm64 ]]; then
+arch|scripts/build.sh: lipo "$framework/Versions/A/CTranscribe" -thin arm64 -output "$staging_dir/CTranscribe"
+arch|scripts/build.sh: lipo -archs "$app_path/Contents/Frameworks/CTranscribe.framework/CTranscribe"
+arch|scripts/build.sh: lipo -archs "$app_path/Contents/Frameworks/Sparkle.framework/Sparkle"
+arch|scripts/build.sh: lipo -archs "$app_path/Contents/MacOS/Ciel"
+arch|scripts/build.sh: printf 'Ciel builds for Apple Silicon only. Build on an Apple Silicon Mac or set CIEL_ARCH=arm64.\n' >&2
+arch|scripts/release.sh: archive="$PWD/dist/Ciel-${version}-${CIEL_ARCH}.zip"
+arch|scripts/release.sh: export CIEL_ARCH="${CIEL_ARCH:-arm64}"
+audio|Sources/Ciel/Diagnostics/IntegrationCheck.swift: func recorded(from start: Int) -> AudioClip { AudioClip(samples: []) }
+audio|Sources/Ciel/Diagnostics/IntegrationCheck.swift: func stop() -> AudioClip { AudioClip(samples: []) }
+audio|Sources/Ciel/Diagnostics/SpeechQuitCheck.swift: let tone = AudioClip(
+audio|Sources/Ciel/Dictation.swift: AudioClip(samples: samples.withLock { Array($0.dropFirst(start)) })
+audio|Sources/Ciel/Dictation.swift: OffMainCallbacks.tap(input, bufferSize: 4096, format: format) {
+audio|Sources/Ciel/Dictation.swift: func recorded(from start: Int) -> AudioClip
+audio|Sources/Ciel/Dictation.swift: func recorded(from start: Int) -> AudioClip {
+audio|Sources/Ciel/Dictation.swift: func stop() -> AudioClip
+audio|Sources/Ciel/Dictation.swift: func stop() -> AudioClip {
+audio|Sources/Ciel/Dictation.swift: let input = AVAudioPCMBuffer(
+audio|Sources/Ciel/Dictation.swift: let output = AVAudioPCMBuffer(
+audio|Sources/Ciel/Dictation.swift: let pending = OSAllocatedUnfairLock<AVAudioPCMBuffer?>(uncheckedState: input)
+audio|Sources/Ciel/Dictation.swift: let tail = AudioClip(samples: Array(clip.samples.dropFirst(transcript.start)))
+audio|Sources/Ciel/Dictation.swift: return AudioClip(
+audio|Sources/Ciel/OffMainCallbacks.swift: block: @escaping @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void
+audio|Sources/Ciel/OffMainCallbacks.swift: node.installTap(onBus: 0, bufferSize: bufferSize, format: format, block: block)
+audio|Sources/Ciel/TranscribeCppTranscriber.swift: func transcribe(_ clip: AudioClip) async throws -> Transcript {
+audio|Sources/Ciel/TranscribeCppTranscriber.swift: private func run(_ clip: AudioClip) throws -> Transcript {
+audio|Sources/CielCore/Speech.swift: func transcribe(_ clip: AudioClip) async throws -> Transcript
+audio|Sources/CielCore/Speech.swift: public struct AudioClip: Sendable {
+fullscreen|Sources/Ciel/FrameSettle.swift: guard fullScreen == false, let frame else {
+fullscreen|Sources/Ciel/FrameSettle.swift: mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
+fullscreen|Sources/Ciel/FrameSettle.swift: struct FullScreenExit {
+fullscreen|Sources/Ciel/WindowAccessibility.swift: else { throw WindowError.fullScreen }
+fullscreen|Sources/Ciel/WindowAccessibility.swift: func exitFullScreen(timeout: TimeInterval) throws
+fullscreen|Sources/Ciel/WindowAccessibility.swift: func exitFullScreen(timeout: TimeInterval) throws {
+fullscreen|Sources/Ciel/WindowAccessibility.swift: func isFullScreen(timeout: TimeInterval) throws -> Bool
+fullscreen|Sources/Ciel/WindowAccessibility.swift: func isFullScreen(timeout: TimeInterval) throws -> Bool {
+fullscreen|Sources/Ciel/WindowAccessibility.swift: try set(window, "AXFullScreen", value: kCFBooleanFalse, timeout: timeout)
+fullscreen|Sources/Ciel/WindowAccessibility.swift: try value(window, "AXFullScreen", timeout: timeout) as? Bool == true
+fullscreen|Sources/Ciel/WindowAccessibility.swift: window, kAXFullScreenButtonAttribute,
+fullscreen|Sources/Ciel/WindowController.swift: Result { try engine.leaveFullScreen(action, selection: selection) }
+fullscreen|Sources/Ciel/WindowController.swift: case .fullScreen: return "This window did not leave macOS full screen. Try again."
+fullscreen|Sources/Ciel/WindowController.swift: case permission, noWindow, fullScreen, noHistory, oneDisplay, unsupported, timedOut
+fullscreen|Sources/Ciel/WindowController.swift: displays: check.leftFullScreen ? DisplaySnapshot.current() : displays,
+fullscreen|Sources/Ciel/WindowController.swift: func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) -> Result<FullScreenCheck, Error>
+fullscreen|Sources/Ciel/WindowController.swift: switch await worker.leaveFullScreen(action, selection: selection) {
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: func leaveFullScreen(_ action: WindowAction, selection: WindowSelection) throws -> FullScreenCheck {
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: guard try window.isFullScreen(timeout: check.timeout()) else { return false }
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: if !lastFullScreen { return true }
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: if exit.observe(fullScreen: fullScreen, frame: frame, at: clock.now) { return true }
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: if leftFullScreen { budget = Budget(clock: clock, duration: duration, from: clock.now) }
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: if let fullScreen { lastFullScreen = fullScreen }
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: let budget = Budget(clock: clock, duration: FullScreenExit.budget)
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: let fullScreen = try? window.isFullScreen(timeout: budget.timeout())
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: let left = try leaveFullScreen(window(for: selection), check: budget)
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: let leftFullScreen = try leaveFullScreen(window, check: budget)
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: let leftFullScreen: Bool
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: private func leaveFullScreen(_ window: any WindowAccess, check: Budget) throws -> Bool {
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: return FullScreenCheck(leftFullScreen: left, budgetStart: left ? clock.now : start)
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: struct FullScreenCheck: Equatable, Sendable {
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: throw WindowError.fullScreen
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: try budget.pause(FullScreenExit.pollInterval)
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: try window.exitFullScreen(timeout: budget.timeout())
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: var exit = FullScreenExit()
+fullscreen|Sources/Ciel/WindowOperationEngine.swift: var lastFullScreen = true
+network|Package.swift: "https://github.com/handy-computer/transcribe.cpp/releases/download/v*/TranscribeCpp.xcframework.zip",
+network|Package.swift: .package(url: "https://github.com/ordo-one/FuzzyMatch.git", exact: "*"),
+network|Package.swift: .package(url: "https://github.com/sparkle-project/Sparkle", exact: "*"),
+network|Resources/Info.plist: <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST *//EN" "http://www.apple.com/DTDs/PropertyList-*.dtd">
+network|Resources/Info.plist: <key>SUEnableAutomaticChecks</key><true/>
+network|Resources/Info.plist: <key>SUFeedURL</key><string>https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml</string>
+network|Resources/Info.plist: <key>SUPublicEDKey</key><string>pj+OdMDGmclTCwEn4vf29Yn02ok+/hz/D+zk3F5tcV0=</string>
+network|Sources/Ciel/Diagnostics/SmokeCheck.swift: import Sparkle
+network|Sources/Ciel/Diagnostics/SmokeCheck.swift: settings.updateButton.action == #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+network|Sources/Ciel/OffMainCallbacks.swift: static func delegateTask(_ session: URLSession, with request: URLRequest) -> URLSessionDataTask {
+network|Sources/Ciel/SpeechModelStore.swift: _ model: SpeechModel, to file: URL, session: URLSession,
+network|Sources/Ciel/SpeechModelStore.swift: configuration: URLSessionConfiguration = .default
+network|Sources/Ciel/SpeechModelStore.swift: final class Delegate: NSObject, URLSessionDataDelegate, Sendable {
+network|Sources/Ciel/SpeechModelStore.swift: func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+network|Sources/Ciel/SpeechModelStore.swift: func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?)
+network|Sources/Ciel/SpeechModelStore.swift: let session = URLSession(
+network|Sources/Ciel/SpeechModelStore.swift: private let configuration: URLSessionConfiguration
+network|Sources/Ciel/SpeechModelStore.swift: var request = URLRequest(url: model.url)
+network|Sources/Ciel/Updater.swift: @MainActor private final class DockDuringUpdate: NSObject, @preconcurrency SPUStandardUserDriverDelegate {
+network|Sources/Ciel/Updater.swift: _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState
+network|Sources/Ciel/Updater.swift: action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)))
+network|Sources/Ciel/Updater.swift: controller = SPUStandardUpdaterController(
+network|Sources/Ciel/Updater.swift: import Sparkle
+network|Sources/Ciel/Updater.swift: item.action = #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+network|Sources/Ciel/Updater.swift: private let controller: SPUStandardUpdaterController
+network|Sources/CielCore/Speech.swift: private static let huggingFace = "https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/"
+network|scripts/appcast.sh: <enclosure url="https://github.com/mauriciopolvora/ciel/releases/download/v$short_version/$(basename "$archive")" length="$(wc -c <"$archive" | tr -d ' ')" type="application/octet-stream" sparkle:edSignature="$signature"/>
+network|scripts/appcast.sh: <rss version="*" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+network|scripts/appcast.sh: if ! swift "$(dirname "$0")/VerifyUpdate.swift" "$(plutil -extract SUPublicEDKey raw "$plist")" "$signature" "$archive"; then
+network|scripts/appcast.sh: printf 'The key in %s does not match SUPublicEDKey in %s, so installed copies would reject this update.\n' \
