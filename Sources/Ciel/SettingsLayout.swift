@@ -1,6 +1,5 @@
 import AppKit
 
-/// Two columns: gray right-aligned names on the left, controls on the right, and rules between sections.
 extension PreferencesController {
     static let nameEdge: CGFloat = 172
     static let controlEdge: CGFloat = 188

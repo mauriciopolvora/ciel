@@ -139,7 +139,6 @@ class PreferencesController: NSWindowController, NSWindowDelegate {
             recorder.shortcut = hotKeys.shortcut(for: command)
         }
     }
-    /// Centers the window on `screen`, unless it is already showing there, then presents it.
     func present(on screen: NSScreen) {
         if let window, !(window.isVisible && window.screen?.frame == screen.frame) {
             window.setFrame(Self.centered(window.frame.size, in: screen.visibleFrame), display: false)

@@ -1,8 +1,7 @@
 import AppKit
 import Sparkle
 
-/// Reads its feed and public key from Info.plist. Sparkle saves the automatic check setting itself, under
-/// `SUEnableAutomaticChecks`.
+/// Sparkle saves the automatic check setting itself, under `SUEnableAutomaticChecks`.
 @MainActor final class Updater {
     private let dock = DockDuringUpdate()
     private let controller: SPUStandardUpdaterController
@@ -27,7 +26,6 @@ import Sparkle
         return item
     }
 
-    /// Starts disabled when the updater cannot check. Pair it with `observeCanCheck` to keep it current.
     func checkButton() -> NSButton {
         let button = NSButton(
             title: "Check for Updates…", target: controller,
@@ -38,7 +36,7 @@ import Sparkle
         return button
     }
 
-    /// Calls `change` each time Sparkle's `canCheckForUpdates` changes. Sparkle changes it on the main thread.
+    /// Sparkle changes `canCheckForUpdates` on the main thread.
     func observeCanCheck(_ change: @escaping @MainActor @Sendable (Bool) -> Void) -> NSKeyValueObservation {
         controller.updater.observe(\.canCheckForUpdates) { updater, _ in
             MainActor.assumeIsolated { change(updater.canCheckForUpdates) }
