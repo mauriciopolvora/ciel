@@ -6,7 +6,7 @@
 
 - `bash scripts/check.sh` is the full check, and CI runs the same command. It lints scripts, metadata, format and colors, runs the tests with warnings as errors and the search benchmark, then builds the app and runs the native UI, catalog, smoke, performance and window checks. It needs a desktop session. The window check needs Accessibility access for the app that runs the script, such as your terminal. Without it the check is skipped locally and fails CI.
 - `bash scripts/check.sh --unit-only` runs everything before the app build and opens no windows.
-- `bash scripts/check-fast.sh` runs the checks that need no macOS: script syntax, the shell lint, the color lint and the off-main callback lint with its self-test. The pre-push hook runs it and gitleaks on the pushed commits, and fails when gitleaks is not installed. Turn the hook on once per clone with `git config core.hooksPath .githooks`. Never push with `--no-verify`. Agent hosts run Linux, so the macOS checks run only in CI.
+- `bash scripts/check-fast.sh` runs the checks that need no macOS: script syntax, the shell lint, the color lint, the off-main callback lint, the claims lint and their self-tests. The pre-push hook runs it and gitleaks on the pushed commits, and fails when gitleaks is not installed. Turn the hook on once per clone with `git config core.hooksPath .githooks`. Never push with `--no-verify`. Agent hosts run Linux, so the macOS checks run only in CI.
 - `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey all` drives a copy of `dist/Ciel.app` the way a user does and saves accessibility trees and screenshots. CI runs it after the build. Read `.agents/skills/verify-ciel/SKILL.md` before you prove a change in the app.
 - `bash scripts/mutants.sh` reapplies each recorded past mistake to a scratch copy and fails if the tests miss one.
 - Run tests with `bash scripts/test.sh`, not bare `swift test`. Some Command Line Tools builds omit the Swift Testing macro plugin, and the wrapper loads it.
@@ -40,6 +40,7 @@
 | Tab cycles categories in order, and a window command reports its own title | `LauncherCategoryTests`, `WindowOperationTests`, mutants M6 and M7 |
 | Result row icons draw in the colors `ResultCell.mark` sets, selected or not. AppKit's selected-row style never recolors them, and the hover overlay never covers a selected row | `LauncherCellTests.resultIconsDrawInTheirRowColorsSelectedOrNot` and `aHoveredRowSelectedFromTheKeyboardKeepsItsSelectionFill`, mutant M30 |
 | Shell syntax checks run only through `scripts/check-syntax.sh`, which runs `bash -n` once per file, because `bash -n` checks only its first file | `scripts/lint-shell.sh` in `check-fast.sh` fails on any other `bash -n`, `sh -n` or `-o noexec` call in a tracked script, hook or workflow, and `scripts/check-lint-shell.sh` proves both |
+| When a source line under a public claim changes (network use, build architecture, full screen handling, moving windows between Spaces, dictated audio), every claim listed for that fact in `scripts/claims.txt` is read again | `scripts/lint-claims.sh` in `check-fast.sh`, and `scripts/check-lint-claims.sh` |
 | Colors, labels, switches and the About panel come from `Sources/Ciel/DesignSystem.swift` | `scripts/lint-colors.sh` in `check.sh`. Its error names the token to use |
 | Native behavior works in the real app, not only in fakes | The native modes in `check.sh`, which CI runs on macOS with the window check required |
 | Concurrency is checked, never silenced | Swift 6 language mode in `Package.swift`, and `check.sh` builds with warnings as errors |
@@ -51,6 +52,7 @@ Nothing checks these, so read them before you start.
 
 - **Minimal black UI.** No chrome, no color beyond the gray tokens, and no added text, counts, hints, tabs or controls unless the operator asks. The brief is in `docs/design-system.md`. Past failure: filter tabs, a branding footer and "soft sky colors", each rejected with "minimal clean style" and "make it black".
 - **Window access after a rebuild.** An ad-hoc rebuild or install gets a new code identity. macOS still shows Ciel as enabled, but `AXIsProcessTrusted()` returns false and window commands fail. The app then warns once through the HUD at launch. After any rebuild or install, run a window command on the installed app before you report done. If access is gone, tell the operator to re-grant it (README, Window commands). Never run `tccutil`.
+- **Public claims go in the ledger.** A new sentence in the README, the site or the docs about network use, build architecture, full screen handling, Spaces or dictated audio gets a line in `scripts/claims.txt`. The lint protects only the claims listed there.
 - **Window timing is not instant.** Apps apply frames late, clamp sizes and animate minimize. Change the settle timing in `FrameSettle` or `WindowOperationEngine` only with a full `check.sh` run whose window check passed, not skipped.
 
 ## When the operator corrects you

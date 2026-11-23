@@ -1,0 +1,35 @@
+# fact|file|exact words from one line of the file. scripts/lint-claims.sh lists these lines when the fact changes.
+# A claim that rests on two facts gets one line for each fact.
+network|README.md|It makes two kinds of network request
+network|README.md|Ciel makes two kinds of network request
+network|README.md|Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
+network|site/public/index.html|your dictated audio never leaves your Mac
+network|site/public/index.html|Automatic update checks, which you can turn off
+network|site/public/index.html|No account, server, or analytics.
+network|site/public/index.html|Ciel checks its release feed on GitHub once a day.
+network|site/public/privacy.html|Ciel collects no data.
+network|site/public/privacy.html|It has no account, server, or analytics.
+network|site/public/privacy.html|The audio stays in memory and is never saved or sent anywhere.
+network|site/public/index.html|Audio stays in memory while you talk and is never saved or sent.
+network|site/public/index.html|When it sits idle, its only timer is the daily update check
+network|site/public/privacy.html|Once a day, it checks its release feed on GitHub for an update
+network|site/public/privacy.html|Ciel sends no system profile.
+network|site/public/privacy.html|Nothing in either place is sent anywhere.
+network|README.md|The only recurring timer is Sparkle's daily update check, which stops when automatic checks are off.
+network|docs/releasing.md|The app reads the feed at `https://github.com/mauriciopolvora/ciel/releases/latest/download/appcast.xml`
+audio|README.md|Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
+audio|site/public/index.html|your dictated audio never leaves your Mac
+audio|site/public/privacy.html|The audio stays in memory and is never saved or sent anywhere.
+audio|site/public/index.html|Audio stays in memory while you talk and is never saved or sent.
+arch|README.md|Requires an **Apple Silicon Mac**
+arch|site/public/index.html|"processorRequirements": "Apple silicon"
+arch|site/public/index.html|macOS 14 or later · Apple silicon · Free and MIT licensed
+arch|site/public/index.html|macOS 14 or later · Apple silicon · Signed and notarized
+arch|site/public/index.html|It does not run on Intel Macs.
+arch|docs/architecture-plan.md|an Apple silicon build
+arch|docs/releasing.md|Ciel runs on Apple Silicon only
+arch|docs/releasing.md|keeps only its arm64 slice
+fullscreen|README.md|A command on a full screen window first takes it out of full screen
+fullscreen|site/public/index.html|Window commands work on full screen windows too.
+spaces|README.md|Moving windows between Spaces is not supported.
+spaces|site/public/index.html|Ciel does not move windows between Spaces.
