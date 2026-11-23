@@ -56,7 +56,7 @@ jobs:
         run: bash scripts/check.sh
       - name: Archive performance report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Ciel-search-performance
           path: .build/performance/search-engine.json
@@ -64,7 +64,7 @@ jobs:
           retention-days: 14
       - name: Archive native check reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Ciel-native-checks
           path: |
@@ -98,7 +98,7 @@ jobs:
           screencapture -x dist/dmg-window.png
       - name: Archive the disk image window
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Ciel-disk-image-window
           path: dist/dmg-window.png
@@ -113,7 +113,7 @@ jobs:
           kill $!
       - name: Archive development app
         run: ditto -c -k --sequesterRsrc --keepParent dist/Ciel.app dist/Ciel-development.zip
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Ciel-development
           path: dist/Ciel-development.zip
@@ -133,7 +133,7 @@ jobs:
         run: bash scripts/mutants.sh
       - name: Archive mutant logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Ciel-mutants
           path: .build/mutants
