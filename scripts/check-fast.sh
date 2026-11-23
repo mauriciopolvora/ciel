@@ -8,3 +8,5 @@ bash scripts/check-lint-shell.sh
 bash scripts/lint-colors.sh
 bash scripts/lint-callbacks.sh
 bash scripts/check-lint-callbacks.sh
+bash scripts/lint-claims.sh
+bash scripts/check-lint-claims.sh
