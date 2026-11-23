@@ -8,7 +8,7 @@ A small native macOS launcher for apps and window commands. Open it, type, and p
 
 Website: [cielmac.app](https://cielmac.app)
 
-Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. It makes two kinds of network request: the speech model download you start in Settings, and update checks. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
+Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. It makes two kinds of network request: the speech model download you start in Settings, and app updates. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
 
 ![Ciel opens as a blank black input box](docs/launcher-empty.png)
 
@@ -86,7 +86,7 @@ The model is a 550 MB download. Ciel checks its size and SHA-256 against pinned 
 
 Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
 
-Ciel makes two kinds of network request. The speech model download starts only when you choose **Download** in Settings. Update checks fetch the appcast from Ciel's GitHub releases about once a day, and send only the Ciel and Sparkle versions. Turn them off with **Settings → Automatically check for updates**, or check by hand with **Check for Updates…** in the menu bar. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
+Ciel makes two kinds of network request: the speech model download and app updates. The speech model download starts only when you choose **Download** in Settings. App updates are checks and downloads from Ciel's GitHub releases. A check fetches the appcast about once a day and sends only the Ciel and Sparkle versions. An update downloads when you choose to install it, or without asking after you turn on automatic installs. Turn automatic checks off with **Settings → Automatically check for updates**, or check by hand with **Check for Updates…** in the menu bar. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
 
 Ciel has one resident process. It scans standard application folders and nested app folders up to five levels deep. Recursive filesystem events trigger background updates after app changes. Wake and volume changes also refresh the catalog. An unchanged scan does not rewrite the cache or rebuild launcher rows. Bundle changes invalidate affected icons. Icon retrieval and drawing run outside the main actor, with bounded work and cache limits. Window commands run on a serial background executor. The only recurring timer is Sparkle's daily update check, which stops when automatic checks are off.
 

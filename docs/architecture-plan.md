@@ -10,7 +10,7 @@ The app keeps AppKit and its existing black launcher design.
 | Catalog | Publish and save changed snapshots only; separate refresh completion; classify bundle events for icon invalidation | Initial empty/cache-equal completion, unchanged snapshots, metadata-only and icon-only events; real FSEvents |
 | Icons | Main-actor cache with bounded pending work; worker loads immutable pixels; path/token checks discard stale completions | Coalescing, invalidation during load, identity, and cache/work limits |
 | Launcher | Small main-actor state model; render only changed results; retain native input, placement, and blank opening | Query/filter/selection/history transitions and native launcher checks |
-| Concurrency | Testable CielApp library and separate executable; explicit UI ownership and worker boundaries; strict checking | Clean compiler diagnostics and universal compilation |
+| Concurrency | Testable CielApp library and separate executable; explicit UI ownership and worker boundaries; strict checking | Clean compiler diagnostics and an Apple silicon build |
 | Performance | Standard tests; separate release benchmark; signposts and native diagnostic report | Configurable regression budgets, first and repeated query timings, idle CPU and session memory samples |
 
 The integration review checks all boundaries together. No extra framework or database is needed. A full catalog scan remains the fallback for dropped or ambiguous filesystem events. A faster search-selection algorithm is added only if measurements justify it.
