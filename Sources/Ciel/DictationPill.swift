@@ -41,7 +41,6 @@ import QuartzCore
         if activity != .idle { view.text(committed: committed, tentative: tentative) }
     }
 
-    /// The panel keeps one frame for every state, so the pills move inside it and the window never resizes.
     private func appear() {
         let screen =
             NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
@@ -55,9 +54,6 @@ import QuartzCore
     }
 }
 
-/// Two stacked pills: the waveform below, and above it the live transcript, which springs out of the waveform
-/// once words arrive. One display link drives the levels and every spring, and each tick sets layer geometry
-/// once, with no Auto Layout pass.
 final class PillView: NSView {
     var onRest: () -> Void = {}
     private let stack = CALayer()
@@ -118,7 +114,6 @@ final class PillView: NSView {
     var visibility: Double { presence.value }
     var showsTranscript: Bool { reveal.value > 0 }
     var lineCount: Int { layout.lines.count }
-    /// How far the top fade over older lines has come in, from 0 to 1.
     var olderLinesFade: CGFloat { words.placement.topFade }
     var transcriptFrame: CGRect {
         CGRect(
@@ -151,8 +146,6 @@ final class PillView: NSView {
 
     func hear(_ rms: [Float], every interval: Double) { meter.hear(rms, every: interval) }
 
-    /// Committed words in text gray, the guesses after them in secondary gray. The pill widens with the first
-    /// line, then grows a line at a time. New lines push the text up from where it was, so nothing jumps.
     func text(committed: String, tentative: String) {
         let text = NSMutableAttributedString(string: committed, attributes: attributes(Theme.text))
         text.append(
@@ -211,7 +204,6 @@ final class PillView: NSView {
         if mode != .idle || !presence.isSettled { start() }
     }
 
-    /// The words draw in a layer, so VoiceOver reads them from this view.
     private func transcriptChanged(_ text: String) {
         guard text != accessibilityValue() as? String else { return }
         setAccessibilityValue(text)
@@ -280,7 +272,6 @@ final class PillView: NSView {
             pill.borderColor = Theme.cg(Theme.hairline, in: self)
         }
         bars.fillColor = Theme.cg(Theme.text, in: self)
-        // Only the alpha counts: the words layer erases its text with this gradient, so the fade shows the pill.
         words.fade = CGGradient(
             colorsSpace: nil,
             colors: Self.fadeStops.map { Theme.cg(Theme.surface.withAlphaComponent($0.alpha), in: self) }
@@ -356,9 +347,6 @@ final class PillView: NSView {
 
 private func unit(_ value: some BinaryFloatingPoint) -> CGFloat { CGFloat(min(max(value, 0), 1)) }
 
-/// Draws the newest lines of the transcript from the bottom up, and erases them under the fades. It clips and
-/// fades in its own drawing, so a snapshot shows the same pixels as the screen, and it redraws only when the
-/// words, their placement or its size change.
 private final class TranscriptLayer: CALayer {
     struct Placement: Equatable {
         var bottom: CGFloat = 0

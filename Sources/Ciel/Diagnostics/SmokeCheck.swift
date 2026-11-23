@@ -97,7 +97,6 @@ import UniformTypeIdentifiers
         }
     }
 
-    /// Runs under the checks bundle id, so it changes only the checks defaults and never touches model files.
     private static func captureSpeechStates(
         _ settings: SettingsController, speech: SpeechModelStore, output: String
     ) {
@@ -119,8 +118,6 @@ import UniformTypeIdentifiers
         print("PASS speech settings states")
     }
 
-    /// The check never starts the updater, so Sparkle reports that it cannot check and the button stays off.
-    /// Then ⌘Space replaces a free Spotlight in an isolated controller.
     private static func checkSettings(
         _ settings: SettingsController, speech: SpeechModelStore, output: String
     ) {
@@ -156,8 +153,6 @@ import UniformTypeIdentifiers
         print("PASS settings update button and Spotlight replacement")
     }
 
-    /// Plays a scripted dictation through the pill: transcript passes every 0.5 s like the live engine, and levels
-    /// from a fixed speech-shaped curve, since the check has no microphone. Writes stills and a GIF of the run.
     private static func capturePillStates(output: String) {
         let pill = PillView()
         let words =
@@ -208,15 +203,12 @@ import UniformTypeIdentifiers
         print("PASS dictation pill states")
     }
 
-    /// A check fixture shaped like speech: syllable bursts under a slower phrase envelope, then silence.
     private static func speechLevel(at time: Double) -> Float {
         guard time < 4.7 else { return 0.003 }
         return Float(
             0.003 + 0.09 * abs(sin(2 * .pi * 2.3 * time)) * (0.55 + 0.45 * sin(2 * .pi * 0.4 * time)))
     }
 
-    /// Bars must be lit while listening. The transcript must hold light words on its dark surface, one line when
-    /// short, and at the cap with older lines fading once it overflows.
     private static func checkPill(_ pill: PillView, _ name: String, _ image: NSBitmapImageRep) -> Bool {
         let canvas = PillLayout.canvas
         let waveform = CGRect(
@@ -249,7 +241,6 @@ import UniformTypeIdentifiers
         return Double(lit) / Double(max(total, 1))
     }
 
-    /// The pill's layer tree at 2x over a gray backdrop, since the panel itself is clear.
     private static func renderPill(_ pill: PillView) -> NSBitmapImageRep? {
         let size = pill.bounds.size
         guard let layer = pill.layer,
@@ -521,10 +512,10 @@ import UniformTypeIdentifiers
         return bitmap
     }
 
-    /// Renders at 2x, since CI displays run at 1x and the docs screenshots come from these captures.
     @discardableResult
     private static func capture(_ view: NSView, _ name: String, output: String) -> NSBitmapImageRep? {
         view.layoutSubtreeIfNeeded()
+        // WARNING: CI displays run at 1x. Render at 2x, since the docs screenshots come from these captures.
         guard
             let bitmap = NSBitmapImageRep(
                 bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2),

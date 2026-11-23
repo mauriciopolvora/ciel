@@ -41,7 +41,6 @@ struct SpotlightShortcuts {
         }
     }
 
-    /// An id missing from the saved list still has its shipped shortcut.
     private static func shortcut(_ id: String, saved: [String: Any], shipped: Shortcut) -> Shortcut? {
         guard let entry = saved[id] as? [String: Any] else { return shipped }
         guard entry["enabled"] as? Bool ?? true else { return nil }

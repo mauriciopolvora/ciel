@@ -210,8 +210,7 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
         }
         applyingSelection = true
         defer { applyingSelection = false }
-        // Refresh row count before resizing can trigger AppKit layout. Query or
-        // history changes with identical results retain the existing cells.
+        // Refresh row count before resizing can trigger AppKit layout.
         if change.resultsChanged {
             resultReloadCount += 1
             table.reloadData()
@@ -240,7 +239,6 @@ final class LauncherView: FlippedView, NSTextFieldDelegate, NSTableViewDataSourc
             } else if table.selectedRow >= 0 {
                 table.deselectAll(nil)
             }
-            // An arrow key changes only the rows it leaves and enters.
             updateHints(rows: change.resultsChanged ? nil : [previous, table.selectedRow])
         }
     }

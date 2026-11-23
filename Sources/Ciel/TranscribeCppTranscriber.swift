@@ -3,7 +3,7 @@ import CielCore
 import Foundation
 import os
 
-/// The only code that touches transcribe.cpp. An actor, because a session runs one transcription at a time.
+// WARNING: transcribe.cpp allows one thread per session (include/transcribe.h, v0.4.1), so an actor owns it.
 actor TranscribeCppTranscriber: Transcriber {
     private let modelURL: URL
     private var session: OpaquePointer?
@@ -14,9 +14,7 @@ actor TranscribeCppTranscriber: Transcriber {
 
     func prepare() async throws { _ = try loadedSession() }
 
-    /// Frees the session before the process exits, since transcribe.cpp aborts at exit while a session holds Metal
-    /// buffers. Nonisolated, so it stops a running transcription before it waits for the actor. The flag never clears,
-    /// so a pass queued ahead of the free stops too and nothing reopens the session.
+    // WARNING: a transcribe.cpp run holds the actor until it returns, so close() sets the flag before it waits.
     nonisolated func close() async {
         abort.closed.withLock { $0 = true }
         await free()
@@ -29,7 +27,6 @@ actor TranscribeCppTranscriber: Transcriber {
 
     func transcribe(_ clip: AudioClip) async throws -> Transcript {
         abort.requested.withLock { $0 = false }
-        // Calling an isolated method keeps the run on the actor, so a queued pass cannot start mid-run and clear the flag.
         return try await withTaskCancellationHandler {
             try run(clip)
         } onCancel: { [abort] in

@@ -1,8 +1,6 @@
 import AppKit
 import CielCore
 
-/// Loads the model named by `CIEL_SPEECH_MODEL` into the app's own transcriber, runs one transcription, then quits
-/// through `NSApp.terminate`. `check.sh` fails the step unless the process then exits with status 0.
 @MainActor enum SpeechQuitCheck {
     static func run(loadSpeech: (URL) -> TranscribeCppTranscriber) {
         guard let model = ProcessInfo.processInfo.environment["CIEL_SPEECH_MODEL"] else {
@@ -10,7 +8,7 @@ import CielCore
             exit(1)
         }
         let transcriber = loadSpeech(URL(fileURLWithPath: model))
-        // One second of a quiet 440 Hz tone at 16 kHz, enough to allocate the run-time buffers.
+        // WARNING: An empty clip returns before transcribe_run, so the quit would skip the run-time buffers.
         let tone = AudioClip(
             samples: (0..<16_000).map { Float(0.1 * sin(2 * .pi * 440 * Double($0) / 16_000)) })
         Task { @MainActor in

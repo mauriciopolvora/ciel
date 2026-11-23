@@ -30,14 +30,11 @@ struct Preferences {
         nonmutating set { defaults.set(newValue, forKey: "hadWindowAccess") }
     }
 
-    /// An ad-hoc rebuild or update changes the code identity, so macOS keeps showing access as
-    /// enabled while denying it. Reports that once, then waits for the next grant.
     func windowAccessLost(trusted: Bool) -> Bool {
         defer { hadWindowAccess = trusted }
         return hadWindowAccess && !trusted
     }
 
-    /// Test builds of the design prototypes saved a chosen design under these keys. Ciel has one design now.
     func dropRetiredKeys() {
         for key in ["designPreview.settings", "designPreview.launcher"] { defaults.removeObject(forKey: key) }
     }

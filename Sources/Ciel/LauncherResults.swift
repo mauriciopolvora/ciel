@@ -72,7 +72,6 @@ final class ResultRow: NSTableRowView {
         CATransaction.setDisableActions(!animate)
         CATransaction.setAnimationDuration(Theme.hoverDuration)
         CATransaction.setAnimationTimingFunction(Theme.easeOut)
-        // A fade still in flight would keep the overlay on screen over the selection fill.
         if !animate { hoverLayer.removeAllAnimations() }
         hoverLayer.opacity = visible && !isSelected ? 1 : 0
         CATransaction.commit()

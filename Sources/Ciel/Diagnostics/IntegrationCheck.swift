@@ -9,7 +9,6 @@ import CielCore
         "ciel-check-" + UUID().uuidString)
     private var steps: [(WindowAction, CGRect)] = []
     private var failures = 0
-    /// Set when the Spotlight guide step started System Settings, so every exit quits it.
     private var launchedSettings = false
     private var enhancedFixture: (any WindowAccess)?
     private var minimumSizeFixture = false
@@ -299,7 +298,6 @@ import CielCore
         }
     }
 
-    /// Opens the real System Settings through the guide with Spotlight on its shipped shortcuts, so ⌘Space is held.
     private func checkSpotlightGuide(then body: @escaping () -> Void) {
         let suite = "ciel.checks.window-spotlight"
         let defaults = UserDefaults(suiteName: suite)!
@@ -373,7 +371,6 @@ import CielCore
             })
     }
 
-    /// The System Settings window the card follows, and whether the card panel is on screen at its placement.
     private static func cardPlacement(_ companion: SettingsCompanion) -> (window: CGRect, placed: Bool)? {
         guard let window = SettingsCompanion.settingsWindow(front: true), let frame = companion.placement()
         else { return nil }
@@ -384,7 +381,6 @@ import CielCore
         return (window, onScreen && panel.frame == frame)
     }
 
-    /// Searches the System Settings accessibility tree for an element with this title, value or description.
     private static func settingsShows(_ name: String) -> Bool {
         guard
             let pid = NSRunningApplication.runningApplications(

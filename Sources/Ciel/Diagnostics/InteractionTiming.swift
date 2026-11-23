@@ -1,8 +1,6 @@
 import AppKit
 import QuartzCore
 
-/// Times what a person waits for: the hotkey to the panel on screen, key and focused; a keystroke to its results;
-/// an arrow key to the moved selection. Each ends at the target time of the first display frame after the change.
 @MainActor struct Interactions {
     private(set) var open = Samples()
     private(set) var keystroke = Samples()
@@ -86,7 +84,6 @@ extension Interactions.Samples {
     }
 }
 
-/// Waits for the next display frame of a view's screen and returns its target presentation time.
 @MainActor final class FrameClock: NSObject {
     private var waiting: CheckedContinuation<CFTimeInterval, Error>?
     private var link: CADisplayLink?
