@@ -40,6 +40,7 @@ calls=(
     'NSAnimationContext.runAnimationGroup({ $0.duration = 0.16 }) { done() }'
     'NSAnimationContext.runAnimationGroup { $0.duration = 0.16 }'
     'UNUserNotificationCenter.current().getNotificationSettings { settings in }'
+    'NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config, completionHandler: handler)'
 )
 i=0
 for call in "${calls[@]}"; do
