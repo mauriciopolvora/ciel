@@ -173,7 +173,7 @@ enum ModelDownload {
             if received < model.byteCount {
                 var request = URLRequest(url: model.url)
                 if received > 0 { request.setValue("bytes=\(received)-", forHTTPHeaderField: "Range") }
-                let task = session.dataTask(with: request)
+                let task = OffMainCallbacks.delegateTask(session, with: request)
                 try await withTaskCancellationHandler {
                     task.resume()
                     var first = true

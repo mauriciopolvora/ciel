@@ -206,8 +206,7 @@ enum DictationError: LocalizedError, Equatable {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: break
         case .notDetermined:
-            // AVFoundation calls this on an arbitrary queue, so it must carry no main actor isolation.
-            AVCaptureDevice.requestAccess(for: .audio) { @Sendable _ in }
+            OffMainCallbacks.requestMicrophoneAccess { @Sendable _ in }
             throw MicrophoneError.asking
         default: throw MicrophoneError.denied
         }
@@ -219,8 +218,7 @@ enum DictationError: LocalizedError, Equatable {
         samples.withLock { $0.removeAll() }
         let block = 512
         let interval = Double(block) / format.sampleRate
-        // The tap runs on an audio thread, so it must not inherit the main actor.
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) {
+        OffMainCallbacks.tap(input, bufferSize: 4096, format: format) {
             @Sendable [samples, onLevel, resampler] buffer, _ in
             guard let channel = buffer.floatChannelData?[0] else { return }
             let frames = Int(buffer.frameLength)

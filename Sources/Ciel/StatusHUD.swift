@@ -41,7 +41,7 @@ import AppKit
         p.alphaValue = Theme.reduceMotion ? 1 : 0
         p.orderFrontRegardless()
         if !Theme.reduceMotion {
-            NSAnimationContext.runAnimationGroup {
+            OffMainCallbacks.animate {
                 $0.duration = 0.16
                 p.animator().alphaValue = 1
             }
@@ -51,12 +51,12 @@ import AppKit
                 try await Task.sleep(for: .seconds(error ? 4 : 1.6))
             } catch { return }
             guard let p else { return }
-            NSAnimationContext.runAnimationGroup(
+            OffMainCallbacks.animate(
                 { context in
                     context.duration = Theme.reduceMotion ? 0 : Theme.hoverDuration
                     p.animator().alphaValue = 0
                 },
-                completionHandler: { [weak self, weak p] in
+                completion: { [weak self, weak p] in
                     Task { @MainActor [weak self, weak p] in
                         guard let p else { return }
                         p.orderOut(nil)
