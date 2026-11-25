@@ -109,7 +109,7 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
 - `Resources`: app metadata, artwork, and dependency notices.
 - `scripts`: build, install, checks, and notarized release packaging.
-- `site`: the [cielmac.app](https://cielmac.app) landing page, a static Cloudflare Worker. Deploy it with `cd site && bun install --frozen-lockfile && bun run deploy`.
+- `site`: the [cielmac.app](https://cielmac.app) landing page, a static Cloudflare Worker. Deploy it with `cd site && bun install --frozen-lockfile && bun run deploy`. The deploy also needs Node.js 22.23 or later on the `PATH`, because wrangler loads its config with Node.
 
 Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
 
