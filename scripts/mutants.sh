@@ -37,6 +37,7 @@ mutants=(
     "M31|Open Keyboard settings without the Spotlight anchor"
     "M32|Never show the Spotlight card under System Settings"
     "M33|Match a pick only when its query equals the typed query"
+    "M34|Count a test wait's budget in wall time instead of in its own polls"
 )
 
 mutate() {
@@ -122,6 +123,10 @@ mutate() {
         M31) swap Sources/Ciel/Shortcuts/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
         M32) swap Sources/Ciel/Onboarding/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
         M33) swap Sources/CielCore/Search.swift 's/where pick\.query\.hasPrefix\(key\)/where pick.query == key/' ;;
+        M34)
+            swap Tests/CielAppTests/WaitUntil.swift \
+                's/for _ in 0\.\.<polls \{\n\s+if condition\(\) \{ return \}\n(\s+try await Task\.sleep\(for: \.milliseconds\(1\)\)\n)\s+\}\n\s+guard condition\(\) else \{ throw WaitTimedOut\(\) \}/let deadline = ContinuousClock.now.advanced(by: .milliseconds(polls))\n    while !condition() {\n        guard ContinuousClock.now < deadline else { throw WaitTimedOut() }\n$1    }/'
+            ;;
     esac
 }
 
