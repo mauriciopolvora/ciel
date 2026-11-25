@@ -4,28 +4,28 @@ import { fileURLToPath } from "node:url";
 
 const base = process.argv[2]?.replace(/\/$/, "");
 if (!base) {
-  console.error("Usage: NODE_PATH=<dir with playwright-core> node site-verify.mjs <site url>");
+  process.stderr.write("Usage: NODE_PATH=<dir with playwright-core> node site-verify.mjs <site url>\n");
   process.exit(64);
 }
 const { chromium } = createRequire(import.meta.url)("playwright-core");
 const download = "https://github.com/mauriciopolvora/ciel/releases/latest/download/Ciel.dmg";
 const root = fileURLToPath(new URL("../../../../.build/verify/site/", import.meta.url));
-const id = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "Z") + "-" + process.pid;
+const id = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\..*/, "Z") + "-" + process.pid;
 const evidence = root + id + "/";
 mkdirSync(evidence, { recursive: true });
 rmSync(root + "latest", { force: true });
 symlinkSync(id, root + "latest");
 
-const pass = (line) => console.log("PASS site: " + line);
+const pass = (line) => process.stdout.write("PASS site: " + line + "\n");
 const fail = (line) => {
-  console.log("FAIL site: " + line);
+  process.stdout.write("FAIL site: " + line + "\n");
   process.exit(1);
 };
 const expect = async (what, check) => {
   try {
     await check();
   } catch (error) {
-    fail(what + " (" + String(error.message).split("\n")[0] + ")");
+    fail(what + " (" + String(error instanceof Error ? error.message : error).split("\n")[0] + ")");
   }
 };
 
@@ -58,10 +58,10 @@ try {
 
   const input = page.locator("#demo-input");
   const results = page.locator("#demo-results .row-title");
-  const ready = () => page.waitForFunction(() => {
-    const field = document.querySelector("#demo-input");
-    return !document.querySelector("[data-launcher]").classList.contains("closed") && field.value === "";
-  });
+  const field = await input.elementHandle();
+  const demoWindow = await page.locator("[data-window]").elementHandle();
+  const ready = () =>
+    page.waitForFunction((box) => document.querySelector("[data-launcher]:not(.closed)") !== null && box.value === "", field);
   await input.click();
   await input.pressSequentially("left half");
   await expect('typing "left half" in the demo lists Left Half', () =>
@@ -70,11 +70,11 @@ try {
   await input.press("Enter");
   await expect("Return on Left Half puts the demo window on the left half", () =>
     page.waitForFunction(
-      () => {
-        const style = document.querySelector("[data-window]").style;
+      (win) => {
+        const style = win.style;
         return style.left === "0%" && style.top === "0%" && style.width === "50%" && style.height === "100%";
       },
-      null,
+      demoWindow,
       { timeout: 3000 },
     ),
   );
@@ -86,19 +86,19 @@ try {
   await input.press("Tab");
   const chip = page.locator("[data-category]");
   await expect("Tab switches the demo category to Apps and keeps Safari", async () => {
-    await page.waitForFunction(() => document.querySelector("[data-category]").textContent.startsWith("Apps"));
+    await page.waitForFunction(() => document.querySelector("[data-category]")?.textContent?.startsWith("Apps"));
     await results.filter({ hasText: /^Safari$/ }).first().waitFor({ timeout: 3000 });
   });
   await input.press("Tab");
   await expect("a second Tab switches to Windows and lists no app", async () => {
-    await page.waitForFunction(() => document.querySelector("[data-category]").textContent.startsWith("Windows"));
+    await page.waitForFunction(() => document.querySelector("[data-category]")?.textContent?.startsWith("Windows"));
     await page.locator("#demo-results").waitFor({ state: "hidden", timeout: 3000 });
   });
   pass("Tab cycles the demo category from All to Apps to Windows: " + (await chip.textContent()).trim());
 
   await input.press("Escape");
   await expect("Escape closes the demo launcher", () =>
-    page.waitForFunction(() => document.querySelector("[data-launcher]").classList.contains("closed"), null, {
+    page.waitForFunction(() => document.querySelector("[data-launcher].closed") !== null, null, {
       timeout: 800,
     }),
   );
@@ -106,15 +106,20 @@ try {
   await input.pressSequentially("calculator");
   await input.press("Enter");
   await expect("Return on Calculator opens it in the demo window", () =>
-    page.waitForFunction(() => document.querySelector(".win-title [data-app-name]").textContent === "Calculator"),
+    page.waitForFunction(() => document.querySelector(".win-title [data-app-name]")?.textContent === "Calculator"),
   );
   pass("Escape closes the demo launcher, and Return on Calculator shows Calculator in the demo window");
 
   await page.locator('.nav-links a[href="#features"]').click();
   await expect("the Features link scrolls to the Features section", () =>
-    page.waitForFunction(() => Math.abs(document.getElementById("features").getBoundingClientRect().top) < 120, null, {
-      timeout: 5000,
-    }),
+    page.waitForFunction(
+      () => {
+        const features = document.getElementById("features");
+        return features !== null && Math.abs(features.getBoundingClientRect().top) < 120;
+      },
+      null,
+      { timeout: 5000 },
+    ),
   );
   pass("the Features link in the top bar scrolls to the Features section");
 
