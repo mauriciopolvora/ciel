@@ -24,4 +24,4 @@ Keep AppKit state on the main actor. Keep blocking filesystem and Accessibility 
 
 Explain the problem, the change, and the checks in each pull request. Add a test when a behavior change needs regression coverage. Include a screenshot for interface changes. Do not commit `.build`, `dist`, credentials, personal preferences, or signing certificates.
 
-See the [architecture plan](docs/architecture-plan.md), [design system](docs/design-system.md), and [release guide](docs/releasing.md).
+See the [design system](docs/design-system.md) and [release guide](docs/releasing.md).
