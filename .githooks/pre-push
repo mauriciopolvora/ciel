@@ -5,13 +5,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 remote=$1
 updates=()
-tips=$'\n'
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ $local_sha =~ ^0+$ ]] && continue
   updates+=("$local_ref $local_sha $remote_ref $remote_sha")
-  [[ $remote_ref = refs/tags/* ]] && continue
-  tip=$(git rev-parse "$local_sha^{commit}")
-  [[ $tips == *$'\n'$tip$'\n'* ]] || tips+=$tip$'\n'
 done
 [ ${#updates[@]} -gt 0 ] || exit 0
 
@@ -25,7 +21,6 @@ remove_checkout() {
   [ -n "$checkout" ] || return 0
   git worktree remove --force "$checkout/tree" 2>/dev/null || true
   rm -rf "$checkout"
-  git worktree prune
   checkout=
 }
 trap remove_checkout EXIT
@@ -36,34 +31,42 @@ clean=0
 if [ -z "$(git status --porcelain --untracked-files=normal --ignore-submodules=none)" ] && ! git ls-files -v | grep '^[a-zS]' >/dev/null; then
   clean=1
 fi
-for tip in $tips; do
-  if [ "$tip" = "$head" ] && [ "$clean" = 1 ]; then
-    bash scripts/check-fast.sh --no-comment-lint </dev/null
-    continue
-  fi
-  echo "pre-push: $tip is not a clean checkout of HEAD, so check-fast runs in a detached checkout of it." >&2
-  parent=$(git rev-parse --path-format=absolute --git-path ciel-pre-push)
-  mkdir -p "$parent"
-  checkout=$(mktemp -d "$parent/XXXXXX")
-  git worktree add -q --detach "$checkout/tree" "$tip"
-  (
-    # WARNING: a hook can export GIT_DIR and GIT_INDEX_FILE, which would point git in the detached checkout at this one.
-    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_PREFIX
-    cd "$checkout/tree"
-    bash scripts/check-fast.sh --no-comment-lint </dev/null
-  )
-  remove_checkout
-done
-
+checked=$'\n'
 for update in "${updates[@]}"; do
-  read -r _ local_sha _ remote_sha <<<"$update"
+  read -r _ local_sha remote_ref remote_sha <<<"$update"
+  tip=$(git rev-parse "$local_sha^{commit}")
+  tree=$PWD
+  if [ "$tip" != "$head" ] || [ "$clean" != 1 ]; then
+    echo "pre-push: $tip is not a clean checkout of HEAD, so its own check scripts run in a detached checkout of it." >&2
+    parent=$(git rev-parse --path-format=absolute --git-path ciel-pre-push)
+    mkdir -p "$parent"
+    checkout=$(mktemp -d "$parent/XXXXXX")
+    git worktree add -q --detach "$checkout/tree" "$tip"
+    tree=$checkout/tree
+  fi
+  for script in check-fast.sh lint-comments.sh check-commits.sh; do
+    [ -f "$tree/scripts/$script" ] || {
+      echo "pre-push: $tip has no scripts/$script. Rebase it on origin/main, then push again." >&2
+      exit 1
+    }
+  done
+  if [[ $remote_ref != refs/tags/* && $checked != *$'\n'$tip$'\n'* ]]; then
+    checked+=$tip$'\n'
+    (
+      # WARNING: a hook can export GIT_DIR and GIT_INDEX_FILE, which would point git in the detached checkout at this one.
+      unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_PREFIX
+      cd "$tree"
+      bash scripts/check-fast.sh --no-comment-lint </dev/null
+    )
+  fi
+
   main="refs/remotes/$remote/main"
   git rev-parse -q --verify "$main" >/dev/null || main=refs/remotes/origin/main
   base=$(git merge-base "$local_sha" "$main") || {
     echo "pre-push: cannot find the merge base of $local_sha with $main. Run git fetch, then push again." >&2
     exit 1
   }
-  CIEL_COMMENT_BASE=$base bash scripts/lint-comments.sh --commit "$local_sha" </dev/null
+  CIEL_COMMENT_BASE=$base bash "$tree/scripts/lint-comments.sh" --commit "$local_sha" </dev/null
   if ! [[ $remote_sha =~ ^0+$ ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
     range="$remote_sha..$local_sha"
   elif ! git remote | grep -qxF -- "$remote"; then
@@ -76,6 +79,7 @@ for update in "${updates[@]}"; do
   # WARNING: gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
   git rev-list $range >/dev/null
   # WARNING: a remote can already hold commits with trailers from before this hook, so skip commits that any remote has. In rev-list, the second --not cancels the first.
-  bash scripts/check-commits.sh --not --remotes --not $range
+  bash "$tree/scripts/check-commits.sh" --not --remotes --not $range
   gitleaks git --no-banner --redact --log-opts="$range -m" .
+  remove_checkout
 done
