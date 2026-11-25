@@ -3,12 +3,12 @@
 struct WaitTimedOut: Error {}
 
 @MainActor
-func waitUntil(timeout: Duration = .seconds(3), _ condition: () -> Bool) async throws {
-    let deadline = ContinuousClock.now.advanced(by: timeout)
-    while !condition() {
-        guard ContinuousClock.now < deadline else { throw WaitTimedOut() }
+func waitUntil(polls: Int = 3000, _ condition: () -> Bool) async throws {
+    for _ in 0..<polls {
+        if condition() { return }
         try await Task.sleep(for: .milliseconds(1))
     }
+    guard condition() else { throw WaitTimedOut() }
 }
 
 @MainActor
