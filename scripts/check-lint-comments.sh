@@ -222,6 +222,13 @@ printf '2 Sources/Moved.swift\n' >"$repo/scripts/comment-baseline.txt"
 lint 0 ""
 lint 0 "" --update
 scratch_git commit -q -am "move"
+scratch_git mv Sources/Moved.swift Sources/Again.swift
+lint 0 "" --update
+if [[ "$(cat "$repo/scripts/comment-baseline.txt")" != "2 Sources/Again.swift" ]]; then
+    printf 'check-lint-comments: --update after a second git mv wrote:\n%s\n' "$(cat "$repo/scripts/comment-baseline.txt")" >&2
+    failed=1
+fi
+scratch_git reset -q --hard HEAD
 lint 0 "" --commit HEAD
 printf '// three\n' >>"$repo/Sources/Moved.swift"
 printf '3 Sources/Moved.swift\n' >"$repo/scripts/comment-baseline.txt"

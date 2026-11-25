@@ -12,7 +12,8 @@ Counts the comment lines in each tracked Swift file with scripts/comment-lines.a
 <sha> with the lint and scanner that <sha> holds. Fails when a file has more than scripts/comment-baseline.txt
 allows, when the baseline allows more than a file has, or when the baseline rises above its copy at the base
 commit: CIEL_COMMENT_BASE, else the merge base with origin/main. A file that git sees as moved since the base keeps
-its base count. --update writes the counts only when no count rises. Exit 2: it cannot list or extract the files.
+its base count, and --update maps the current baseline with the moves since HEAD. --update writes the counts only
+when no count rises. Exit 2: it cannot list or extract the files.
 USAGE
     exit 64
 }
@@ -72,14 +73,19 @@ validate() {
     ' "$2"
 }
 : >"$scratch/previous"
-: >"$scratch/moves"
 has_previous=0
-apply_moves() {
+apply_moves_since() {
+    git diff -z -M --name-status --diff-filter=R "$1" -- '*.swift' >"$scratch/renames" ||
+        broken "cannot list the files moved since $1 with git diff."
+    : >"$scratch/moves"
+    while IFS= read -r -d '' _ && IFS= read -r -d '' from && IFS= read -r -d '' to; do
+        printf '%s\t%s\n' "$from" "$to" >>"$scratch/moves"
+    done <"$scratch/renames"
     awk -F '\t' 'which == "moves" { to[$1] = $2; next }
         { space = index($0, " "); path = substr($0, space + 1) }
         { print (path in to) ? substr($0, 1, space) to[path] : $0 }' \
-        which=moves "$scratch/moves" which=rows "$1" >"$scratch/moved"
-    mv "$scratch/moved" "$1"
+        which=moves "$scratch/moves" which=rows "$2" >"$scratch/moved"
+    mv "$scratch/moved" "$2"
 }
 if [[ -n "$base" ]]; then
     git cat-file -e "$base^{commit}" 2>/dev/null ||
@@ -90,12 +96,7 @@ if [[ -n "$base" ]] && git cat-file -e "$base:$baseline" 2>/dev/null; then
     git show "$base:$baseline" >"$scratch/previous"
     errors="$(validate "$base:$baseline" "$scratch/previous")"
     [[ -z "$errors" ]] || fail "$errors"$'\n'"Fix the baseline at the base commit, or set CIEL_COMMENT_BASE to a commit with a valid one."
-    git diff -z -M --name-status --diff-filter=R "$base" -- '*.swift' >"$scratch/renames" ||
-        broken "cannot list the files moved since $base with git diff."
-    while IFS= read -r -d '' _ && IFS= read -r -d '' from && IFS= read -r -d '' to; do
-        printf '%s\t%s\n' "$from" "$to" >>"$scratch/moves"
-    done <"$scratch/renames"
-    apply_moves "$scratch/previous"
+    apply_moves_since "$base" "$scratch/previous"
 fi
 
 cp "$baseline" "$scratch/stored" 2>/dev/null || : >"$scratch/stored"
@@ -103,7 +104,7 @@ errors="$(validate "$baseline" "$scratch/stored")"
 if [[ "$update" == 1 ]]; then
     has_current=0
     [[ ! -f "$baseline" || -n "$errors" ]] || has_current=1
-    apply_moves "$scratch/stored"
+    ! git rev-parse -q --verify HEAD >/dev/null || apply_moves_since HEAD "$scratch/stored"
     awk -F '\t' '{ if (!($1 in count)) order[++files] = $1; count[$1]++ }
         END { for (f = 1; f <= files; f++) print count[order[f]], order[f] }' "$scratch/lines" >"$scratch/proposed"
     awk -v baseline="$baseline" '
