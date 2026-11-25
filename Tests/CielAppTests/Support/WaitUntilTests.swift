@@ -1,7 +1,5 @@
 import Testing
 
-@testable import CielApp
-
 @Suite(.timeLimit(.minutes(1)))
 @MainActor
 struct WaitUntilTests {

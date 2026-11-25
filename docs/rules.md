@@ -43,3 +43,4 @@ Each rule names the check that fails when someone breaks it. `bash scripts/mutan
 | Each `scripts/` path in a workflow, hook, script, skill or doc names a tracked file | `scripts/lint/lint-paths.sh` in `check-fast.sh`, and `scripts/lint/check-lint-paths.sh` |
 | Commits carry no trailers and no Co-authored-by lines. Dependabot may sign off its own commits | `scripts/lint/check-commits.sh` in the pre-push hook and on the pull request commits in CI, and `scripts/lint/check-lint-commits.sh` |
 | A window or utility command with no verify recipe is listed in `VerifyRecipeTests`, and leaves the list when it gains one | `VerifyRecipeTests` |
+| Swift code holds no declaration that nothing uses. A property that only keeps a `Cleanup` or a dispatch source alive, and a `Codable` field, count as used | `scripts/lint/dead-code.sh` (periphery, settings in `.periphery.yml`) in the `dead-code` job of `checks.yml` |
