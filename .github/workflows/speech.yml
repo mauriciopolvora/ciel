@@ -7,7 +7,7 @@ on:
       - Sources/CielCore/Speech.swift
       - Sources/Ciel/Dictation/Dictation.swift
       - Sources/Ciel/Dictation/TranscribeCppTranscriber.swift
-      - Tests/CielAppTests/SpeechBenchTests.swift
+      - Tests/CielAppTests/Dictation/SpeechBenchTests.swift
       - Package.swift
       - .github/workflows/speech.yml
   workflow_dispatch:

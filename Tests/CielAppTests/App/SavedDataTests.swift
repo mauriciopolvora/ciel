@@ -111,10 +111,6 @@ struct SavedDataTests {
     }
 
     @Test func bundleIdentifierMatchesInfoPlist() throws {
-        let plist = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Resources/Info.plist")
-        let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil)
-        #expect((info as? [String: Any])?["CFBundleIdentifier"] as? String == AppIdentity.bundleIdentifier)
+        #expect(try infoPlist()["CFBundleIdentifier"] as? String == AppIdentity.bundleIdentifier)
     }
 }
