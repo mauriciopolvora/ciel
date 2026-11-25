@@ -58,10 +58,11 @@ try {
 
   const input = page.locator("#demo-input");
   const results = page.locator("#demo-results .row-title");
-  const field = await input.elementHandle();
-  const demoWindow = await page.locator("[data-window]").elementHandle();
   const ready = () =>
-    page.waitForFunction((box) => document.querySelector("[data-launcher]:not(.closed)") !== null && box.value === "", field);
+    page.waitForFunction(
+      'document.querySelector("[data-launcher]:not(.closed)") !== null && document.querySelector("#demo-input").value === ""',
+    );
+  const windowStyle = 'document.querySelector("[data-window]").style';
   await input.click();
   await input.pressSequentially("left half");
   await expect('typing "left half" in the demo lists Left Half', () =>
@@ -70,11 +71,8 @@ try {
   await input.press("Enter");
   await expect("Return on Left Half puts the demo window on the left half", () =>
     page.waitForFunction(
-      (win) => {
-        const style = win.style;
-        return style.left === "0%" && style.top === "0%" && style.width === "50%" && style.height === "100%";
-      },
-      demoWindow,
+      `${windowStyle}.left === "0%" && ${windowStyle}.top === "0%" && ${windowStyle}.width === "50%" && ${windowStyle}.height === "100%"`,
+      null,
       { timeout: 3000 },
     ),
   );
