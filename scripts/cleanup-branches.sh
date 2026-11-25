@@ -34,7 +34,7 @@ if [ -n "$open" ] && [ $((${#newlines} + 1)) -ge "$limit" ]; then
   echo "cleanup-branches: $repo has $limit or more open PRs, so this script cannot see them all" >&2
   exit 1
 fi
-merged=$(gh pr list --repo "$repo" --state merged --limit "$limit" --json headRefName,headRefOid,isCrossRepository --jq '.[] | select(.isCrossRepository | not) | "\(.headRefName) \(.headRefOid)"')
+merged=$(gh pr list --repo "$repo" --state merged --limit "$limit" --json baseRefName,headRefName,headRefOid,isCrossRepository --jq '.[] | select(.isCrossRepository | not) | "\(.baseRefName) \(.headRefName) \(.headRefOid)"')
 
 has_line() { [[ $'\n'$2$'\n' == *$'\n'"$1"$'\n'* ]]; }
 
@@ -42,7 +42,7 @@ classify() {
   local branch=$1 tip=$2 cherry merges
   if has_line "$branch" "$open"; then
     echo open
-  elif has_line "$branch $tip" "$merged" || git merge-base --is-ancestor "$tip" "$base"; then
+  elif has_line "$default $branch $tip" "$merged" || git merge-base --is-ancestor "$tip" "$base"; then
     echo merged
   else
     cherry=$(git cherry "$base" "$tip") || return 1
