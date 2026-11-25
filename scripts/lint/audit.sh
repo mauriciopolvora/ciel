@@ -9,6 +9,7 @@ trap 'rm -f "$report"' EXIT
 status=0
 "$scanner" scan source --format json \
     -L Package.resolved \
+    -L bun.lock \
     -L site/bun.lock \
     -L requirements.txt:scripts/release/dmg-requirements.txt >"$report" || status=$?
 if [[ $status -ne 0 && $status -ne 1 ]]; then

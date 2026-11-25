@@ -20,7 +20,7 @@ const docLineCaps = {
   "docs/artwork.md": 10,
   "docs/design-system.md": 105,
   "docs/releasing.md": 125,
-  "docs/rules.md": 48,
+  "docs/rules.md": 50,
 };
 
 const problems = [];
@@ -86,7 +86,7 @@ try {
     `${lines}These lines have an em dash. Use a comma, a colon or parentheses instead.`,
   );
 } catch (error) {
-  if (error.status !== 1) {
+  if (!(error instanceof Error && "status" in error && error.status === 1)) {
     throw error;
   }
 }

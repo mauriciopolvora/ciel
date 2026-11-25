@@ -1,0 +1,13 @@
+{
+  "name": "ciel-checks",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "devDependencies": {
+    "@cloudflare/oxlint-config": "^0.2.0",
+    "@types/node": "^26.6.6",
+    "oxlint": "^1.95.0",
+    "oxlint-tsgolint": "^7.0.2008",
+    "tsrs": "7.1.0-beta.tsrs5"
+  }
+}
