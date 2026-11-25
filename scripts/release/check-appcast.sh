@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 sign_update=.build/artifacts/sparkle/Sparkle/bin/sign_update
 # WARNING: macOS ships LibreSSL, which cannot create Ed25519 keys.
 openssl="$(brew --prefix openssl@3)/bin/openssl"
@@ -19,8 +19,8 @@ plutil -replace SUPublicEDKey -string "$("$openssl" pkey -pubin -in "$work/publi
 version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
 archive="$work/Ciel-$version-arm64.zip"
 ditto -c -k --keepParent Resources "$archive"
-bash scripts/appcast.sh "$work/Info.plist" "$archive" "$work/key.env" "$work/appcast.xml"
-if bash scripts/appcast.sh "$plist" "$archive" "$work/key.env" "$work/wrong-key.xml" 2>"$work/wrong-key.err"; then
+bash scripts/release/appcast.sh "$work/Info.plist" "$archive" "$work/key.env" "$work/appcast.xml"
+if bash scripts/release/appcast.sh "$plist" "$archive" "$work/key.env" "$work/wrong-key.xml" 2>"$work/wrong-key.err"; then
     fail 'a key that does not match SUPublicEDKey in Resources/Info.plist still wrote an appcast.'
 fi
 grep -q 'does not match SUPublicEDKey' "$work/wrong-key.err" || fail 'a wrong key failed without saying so.'
@@ -30,7 +30,7 @@ printf 'SPARKLE_PRIVATE_ED_KEY=%s\n' "$sentinel" >"$work/sentinel.env"
 signer_output="$(printf '%s\n' "$sentinel" | "$sign_update" -p --ed-key-file - "$archive" || true)"
 [[ "$signer_output" == *"$sentinel"* ]] ||
     fail 'sign_update no longer prints a malformed key, so the tracing case below proves nothing.'
-if bash -x scripts/appcast.sh "$work/Info.plist" "$archive" "$work/sentinel.env" "$work/sentinel.xml" \
+if bash -x scripts/release/appcast.sh "$work/Info.plist" "$archive" "$work/sentinel.env" "$work/sentinel.xml" \
     >"$work/sentinel.out" 2>"$work/sentinel.err"; then
     fail 'a malformed key still wrote an appcast.'
 fi

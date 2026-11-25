@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 scratch=$(mktemp -d)
 trap 'chmod -R u+rwx "$scratch"; rm -rf "$scratch"' EXIT
@@ -8,7 +8,7 @@ failures=0
 
 expect() {
     local output status=0
-    output=$(bash "$3/scripts/lint-callbacks.sh" 2>&1) || status=$?
+    output=$(bash "$3/scripts/lint/lint-callbacks.sh" 2>&1) || status=$?
     if [ "$status" -ne "$1" ]; then
         echo "FAIL $2: exit $status, expected $1. Lint output:"
         echo "$output"
@@ -18,8 +18,8 @@ expect() {
 
 tree() {
     local root="$scratch/$1"
-    mkdir -p "$root/scripts" "$root/Sources/Ciel" "$root/Tests" "$(dirname "$root/$2")"
-    cp scripts/lint-callbacks.sh "$root/scripts/"
+    mkdir -p "$root/scripts/lint" "$root/Sources/Ciel" "$root/Tests" "$(dirname "$root/$2")"
+    cp scripts/lint/lint-callbacks.sh "$root/scripts/lint/"
     printf '%s\n' "$3" > "$root/$2"
     echo "$root"
 }

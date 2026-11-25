@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-process.chdir(fileURLToPath(new URL("..", import.meta.url)));
+process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
 
 const cap = 4096;
 const docLineCaps = {
@@ -64,18 +64,18 @@ for (const path of docs) {
   const count = lines.at(-1) === "" ? lines.length - 1 : lines.length;
   if (!(path in docLineCaps)) {
     problems.push(
-      `${path} is not on the docs list in scripts/check-docs.mjs. Put its facts in an existing doc, or add it to the list with a line cap.`,
+      `${path} is not on the docs list in scripts/lint/check-docs.mjs. Put its facts in an existing doc, or add it to the list with a line cap.`,
     );
   } else if (count > docLineCaps[path]) {
     problems.push(
-      `${path} has ${count} lines, over its cap of ${docLineCaps[path]} in scripts/check-docs.mjs. Cut it, or move the part only some readers need behind a pointer.`,
+      `${path} has ${count} lines, over its cap of ${docLineCaps[path]} in scripts/lint/check-docs.mjs. Cut it, or move the part only some readers need behind a pointer.`,
     );
   }
 }
 for (const path of Object.keys(docLineCaps)) {
   if (!docs.includes(path)) {
     problems.push(
-      `${path} is on the docs list in scripts/check-docs.mjs, but git does not track it. Remove it from the list.`,
+      `${path} is on the docs list in scripts/lint/check-docs.mjs, but git does not track it. Remove it from the list.`,
     );
   }
 }

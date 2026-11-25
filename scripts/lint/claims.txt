@@ -1,4 +1,4 @@
-# fact|file|exact words from one line of the file. scripts/lint-claims.sh lists these lines when the fact changes.
+# fact|file|exact words from one line of the file. scripts/lint/lint-claims.sh lists these lines when the fact changes.
 # A claim that rests on two facts gets one line for each fact.
 network|README.md|It makes two kinds of network request
 network|README.md|Ciel makes two kinds of network request

@@ -1,13 +1,13 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset $(git rev-parse --local-env-vars)
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
 passing=(
-    'bash scripts/check-syntax.sh scripts/*.sh .githooks/pre-push'
+    'bash scripts/lint/check-syntax.sh scripts/*.sh .githooks/pre-push'
     '    # bash -n a b in a comment line'
     'bash -x a b'
     'bash a.sh'
@@ -44,7 +44,7 @@ failing=(
     '"$BASH" -n a.sh b.sh'
     '${BASH} -n a b'
 )
-passing_yml='jobs:\n  a:\n    steps:\n      - run: bash scripts/check-syntax.sh scripts/*.sh\n'
+passing_yml='jobs:\n  a:\n    steps:\n      - run: bash scripts/lint/check-syntax.sh scripts/*.sh\n'
 failing_yml=(
     'jobs:\n  a:\n    steps:\n      - run: bash -n a b\n'
     'jobs:\n  a:\n    steps:\n      - run: "bash \\"-n\\" a.sh b.sh"\n'
@@ -65,43 +65,43 @@ expect() {
 }
 
 printf '%s\n' "${passing[@]}" > "$scratch/pass.sh"
-expect 0 bash scripts/lint-shell.sh "$scratch/pass.sh"
+expect 0 bash scripts/lint/lint-shell.sh "$scratch/pass.sh"
 printf "$passing_yml" > "$scratch/pass.yml"
-expect 0 bash scripts/lint-shell.sh "$scratch/pass.yml"
+expect 0 bash scripts/lint/lint-shell.sh "$scratch/pass.yml"
 for index in "${!failing[@]}"; do
     printf '%s\n' "${failing[$index]}" > "$scratch/fail$index.sh"
-    expect 1 bash scripts/lint-shell.sh "$scratch/fail$index.sh"
+    expect 1 bash scripts/lint/lint-shell.sh "$scratch/fail$index.sh"
 done
 for index in "${!failing_yml[@]}"; do
     printf "${failing_yml[$index]}" > "$scratch/fail$index.yml"
-    expect 1 bash scripts/lint-shell.sh "$scratch/fail$index.yml"
+    expect 1 bash scripts/lint/lint-shell.sh "$scratch/fail$index.yml"
 done
-expect 2 bash scripts/lint-shell.sh "$scratch/missing.sh"
-expect 0 bash scripts/lint-shell.sh scripts/check-syntax.sh
+expect 2 bash scripts/lint/lint-shell.sh "$scratch/missing.sh"
+expect 0 bash scripts/lint/lint-shell.sh scripts/lint/check-syntax.sh
 
 repo="$scratch/repo"
-mkdir -p "$repo/scripts" "$repo/site" "$repo/.github/workflows" "$repo/.githooks"
-cp scripts/lint-shell.sh scripts/check-syntax.sh "$repo/scripts/"
+mkdir -p "$repo/scripts/lint" "$repo/site" "$repo/.github/workflows" "$repo/.githooks"
+cp scripts/lint/lint-shell.sh scripts/lint/check-syntax.sh "$repo/scripts/lint/"
 printf 'echo ok\n' > "$repo/site/ação.sh"
 printf 'echo ok\n' > "$repo/site/a\"b.sh"
 git -C "$repo" init -q
 git -C "$repo" add -f -A
-expect 0 bash "$repo/scripts/lint-shell.sh"
+expect 0 bash "$repo/scripts/lint/lint-shell.sh"
 for tracked in site/tool.sh .github/workflows/test.yaml .githooks/pre-commit .agents/skills/x/scripts/run.sh; do
     mkdir -p "$repo/$(dirname "$tracked")"
     printf 'bash -n a.sh b.sh\n' > "$repo/$tracked"
     git -C "$repo" add -f "$tracked"
-    expect 1 bash "$repo/scripts/lint-shell.sh"
+    expect 1 bash "$repo/scripts/lint/lint-shell.sh"
     git -C "$repo" rm -qf "$tracked"
 done
 printf 'bash -n a.sh b.sh\n' > "$scratch/input=bad.sh"
-expect 1 bash -c 'cd "$1" && bash "$2" input=bad.sh </dev/null' _ "$scratch" "$PWD/scripts/lint-shell.sh"
+expect 1 bash -c 'cd "$1" && bash "$2" input=bad.sh </dev/null' _ "$scratch" "$PWD/scripts/lint/lint-shell.sh"
 
 printf 'echo ok\n' > "$scratch/good.sh"
 printf 'if then\n' > "$scratch/bad.sh"
-expect 0 bash scripts/check-syntax.sh "$scratch/good.sh" "$scratch/good.sh"
-expect 2 bash scripts/check-syntax.sh "$scratch/good.sh" "$scratch/bad.sh"
-expect 2 bash scripts/check-syntax.sh
+expect 0 bash scripts/lint/check-syntax.sh "$scratch/good.sh" "$scratch/good.sh"
+expect 2 bash scripts/lint/check-syntax.sh "$scratch/good.sh" "$scratch/bad.sh"
+expect 2 bash scripts/lint/check-syntax.sh
 printf 'if then\n' > "$scratch/-s"
-expect 2 bash -c 'cd "$1" && bash "$2" -s </dev/null' _ "$scratch" "$PWD/scripts/check-syntax.sh"
+expect 2 bash -c 'cd "$1" && bash "$2" -s </dev/null' _ "$scratch" "$PWD/scripts/lint/check-syntax.sh"
 exit "$failed"

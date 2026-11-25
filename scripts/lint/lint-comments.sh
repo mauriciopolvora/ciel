@@ -1,15 +1,15 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
-baseline=scripts/comment-baseline.txt
+baseline=scripts/lint/comment-baseline.txt
 update=0
 commit=
 usage() {
     cat >&2 <<'USAGE'
 Usage: lint-comments.sh [--update | --commit <sha>]
-Counts the comment lines in each tracked Swift file with scripts/comment-lines.awk, in the working tree, or in
-<sha> with the lint and scanner that <sha> holds. Fails when a file has more than scripts/comment-baseline.txt
+Counts the comment lines in each tracked Swift file with scripts/lint/comment-lines.awk, in the working tree, or in
+<sha> with the lint and scanner that <sha> holds. Fails when a file has more than scripts/lint/comment-baseline.txt
 allows, when the baseline allows more than a file has, or when the baseline rises above its copy at the base
 commit: CIEL_COMMENT_BASE, else the merge base with origin/main. A file that git sees as moved since the base keeps
 its base count, and --update maps the current baseline with the moves since HEAD. --update writes the counts only
@@ -51,9 +51,9 @@ if [[ -n "$commit" ]]; then
     export GIT_DIR="$git_dir" GIT_WORK_TREE="$scratch/tree" GIT_INDEX_FILE="$scratch/index"
     mkdir "$GIT_WORK_TREE"
     { git read-tree "$commit" && git checkout-index -a; } || broken "cannot extract $commit."
-    [[ -f "$GIT_WORK_TREE/scripts/lint-comments.sh" ]] ||
-        fail "$commit has no scripts/lint-comments.sh. Rebase it on origin/main, then push again."
-    CIEL_COMMENT_BASE="$base" bash "$GIT_WORK_TREE/scripts/lint-comments.sh"
+    [[ -f "$GIT_WORK_TREE/scripts/lint/lint-comments.sh" ]] ||
+        fail "$commit has no scripts/lint/lint-comments.sh. Rebase it on origin/main, then push again."
+    CIEL_COMMENT_BASE="$base" bash "$GIT_WORK_TREE/scripts/lint/lint-comments.sh"
     exit
 fi
 
@@ -63,7 +63,7 @@ while IFS= read -r -d '' file; do
     [[ ! -e "$file" ]] || files+=("$file")
 done <"$scratch/files"
 [[ ${#files[@]} -gt 0 ]] || broken "found no Swift files with git ls-files."
-awk -f scripts/comment-lines.awk "${files[@]}" >"$scratch/lines"
+awk -f scripts/lint/comment-lines.awk "${files[@]}" >"$scratch/lines"
 
 validate() {
     awk -v name="$1" '
@@ -132,7 +132,7 @@ if [[ "$update" == 1 ]]; then
     cp "$baseline" "$scratch/stored"
     errors=
 fi
-[[ -z "$errors" ]] || fail "$errors"$'\n'"Run bash scripts/lint-comments.sh --update to write it again."
+[[ -z "$errors" ]] || fail "$errors"$'\n'"Run bash scripts/lint/lint-comments.sh --update to write it again."
 
 awk -v baseline="$baseline" '
     function report(message) { print message > "/dev/stderr"; failed = 1 }
@@ -155,7 +155,7 @@ awk -v baseline="$baseline" '
         for (r = 1; r <= rows; r++) {
             file = stored[r]
             if (count[file] + 0 < allowed[file])
-                report(file ": " (count[file] + 0) " comment lines, and " baseline " still allows " allowed[file] ". Run bash scripts/lint-comments.sh --update to lower it.")
+                report(file ": " (count[file] + 0) " comment lines, and " baseline " still allows " allowed[file] ". Run bash scripts/lint/lint-comments.sh --update to lower it.")
             if (has_previous && allowed[file] > before[file] + 0)
                 report(baseline ": raises " file " from " (before[file] + 0) " to " allowed[file] " comment lines. The baseline only shrinks: delete the comment, or put a fact about code we cannot change on a // WARNING: line.")
         }

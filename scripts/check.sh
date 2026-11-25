@@ -10,10 +10,10 @@ if [[ "$(plutil -extract SUFeedURL raw Resources/Info.plist)" != https://* ]] ||
     ! plutil -extract SUPublicEDKey raw Resources/Info.plist | grep -qE '^[A-Za-z0-9+/]{43}=$'; then
     printf 'Info.plist needs an https SUFeedURL and a base64 Ed25519 SUPublicEDKey for updates.\n' >&2; exit 1
 fi
-swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift scripts/GenerateDMGBackground.swift scripts/VerifyUpdate.swift Package.swift
+swift format lint --strict --recursive Sources Tests scripts/GenerateIcon.swift scripts/release/GenerateDMGBackground.swift scripts/release/VerifyUpdate.swift Package.swift
 bash scripts/test.sh -c release -Xswiftc -warnings-as-errors
 bash scripts/benchmark.sh
-bash scripts/check-appcast.sh
+bash scripts/release/check-appcast.sh
 if [[ $# -eq 1 ]]; then exit 0; fi
 bash scripts/build.sh
 if [[ ! -d dist/Ciel.app/Contents/Frameworks/Sparkle.framework ]]; then

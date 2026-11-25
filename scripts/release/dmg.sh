@@ -5,7 +5,7 @@ unset CDPATH
 # WARNING: sort order and number formats follow the locale.
 export LC_ALL=C
 fail() { printf '%s\n' "$1" >&2; exit 1; }
-usage='Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg, or bash scripts/dmg.sh --layout'
+usage='Usage: bash scripts/release/dmg.sh path/to/Ciel.app output.dmg, or bash scripts/release/dmg.sh --layout'
 case $# in
     1) [[ "$1" == --layout ]] || fail "$usage" ;;
     2)
@@ -15,7 +15,7 @@ case $# in
         ;;
     *) fail "$usage" ;;
 esac
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 width=640
 height=380
 icon_size=128
@@ -48,7 +48,7 @@ detach() {
     attached=false
 }
 
-swift scripts/GenerateDMGBackground.swift Resources/CloudPainting.png "$work" \
+swift scripts/release/GenerateDMGBackground.swift Resources/CloudPainting.png "$work" \
     "$width" "$height" "$icon_size" "$icon_y" "$app_x" "$applications_x"
 tiffutil -cathidpicheck "$work/background.png" "$work/background@2x.png" -out "$work/background.tiff" 2>/dev/null
 
@@ -57,7 +57,7 @@ if [[ $# -eq 1 ]]; then
     python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' ||
         fail "dmgbuild needs python3 3.11 or later, and python3 is $(python3 --version 2>&1)."
     venv=.build/dmg-venv
-    requirements=scripts/dmg-requirements.txt
+    requirements=scripts/release/dmg-requirements.txt
     stamp="$({ python3 --version; cat "$requirements"; } | shasum -a 256)"
     if [[ "$(cat "$venv/requirements.sha256" 2>/dev/null)" != "$stamp" || ! -x "$venv/bin/dmgbuild" ]]; then
         rm -rf "$venv"
@@ -68,7 +68,7 @@ if [[ $# -eq 1 ]]; then
     fi
     # WARNING: Finder finds each icon by its file name, so an empty folder stands in for the app.
     mkdir "$work/Ciel.app"
-    "$venv/bin/dmgbuild" -s scripts/dmg-settings.py \
+    "$venv/bin/dmgbuild" -s scripts/release/dmg-settings.py \
         -D app="$work/Ciel.app" -D background="$work/background.tiff" \
         -D width="$width" -D window_height="$window_height" -D icon_size="$icon_size" -D text_size="$text_size" \
         -D icon_y="$icon_y" -D app_x="$app_x" -D applications_x="$applications_x" \
@@ -80,7 +80,7 @@ if [[ $# -eq 1 ]]; then
     exit 0
 fi
 
-[[ -f "$layout" ]] || fail "There is no $layout. Run bash scripts/dmg.sh --layout."
+[[ -f "$layout" ]] || fail "There is no $layout. Run bash scripts/release/dmg.sh --layout."
 hex() { xxd -p | tr -d '\n'; }
 # WARNING: a .DS_Store icon position record is the UTF-16 name, Iloc, blob, the length 16, x and y.
 layout_hex="$(hex <"$layout")"
@@ -92,7 +92,7 @@ placed() {
 # WARNING: .DS_Store icon view settings are icvp, blob, a 4-byte length, then a binary property list.
 settings_at="$(grep -abo icvpblob "$layout" | cut -d: -f1 || true)"
 [[ "$settings_at" =~ ^[0-9]+$ ]] ||
-    fail "$layout does not hold one set of icon view settings. Run bash scripts/dmg.sh --layout."
+    fail "$layout does not hold one set of icon view settings. Run bash scripts/release/dmg.sh --layout."
 tail -c "+$((settings_at + 13))" "$layout" | head -c "$((16#$(xxd -s "$((settings_at + 8))" -l 4 -p "$layout")))" >"$work/icvp.plist"
 setting() { plutil -extract "$1" raw "$work/icvp.plist"; }
 # WARNING: a .DS_Store background reference is a length, the path, and a zero byte of padding.
@@ -102,7 +102,7 @@ if ! placed Ciel.app "$app_x" || ! placed Applications "$applications_x" ||
     ! grep -aqF "{$width, $window_height}" "$layout" ||
     [[ "$(setting iconSize)" != "$(printf '%.6f' "$icon_size")" || "$(setting textSize)" != "$(printf '%.6f' "$text_size")" ]] ||
     [[ "$(setting backgroundType)" != 2 || "$(setting backgroundImageAlias | base64 -D | hex)" != *"$background_hex"* ]]; then
-    fail "$layout does not match the geometry in scripts/dmg.sh. Run bash scripts/dmg.sh --layout."
+    fail "$layout does not match the geometry in scripts/release/dmg.sh. Run bash scripts/release/dmg.sh --layout."
 fi
 
 stage="$work/stage"

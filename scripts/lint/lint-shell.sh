@@ -1,8 +1,8 @@
 #!/bin/bash
-# WARNING: bash -n checks only its first file, so only scripts/check-syntax.sh may call it.
+# WARNING: bash -n checks only its first file, so only scripts/lint/check-syntax.sh may call it.
 set -euo pipefail
 caller="$PWD"
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 files=()
 if [[ $# -gt 0 ]]; then
@@ -22,14 +22,14 @@ fi
 checked=()
 for file in ${files[@]+"${files[@]}"}; do
     [[ -f "$file" && -r "$file" ]] || { echo "lint-shell.sh: cannot read $file" >&2; exit 2; }
-    [[ "$file" -ef scripts/check-syntax.sh || "$file" -ef scripts/lint-shell.sh || "$file" -ef scripts/check-lint-shell.sh ]] || checked+=("$file")
+    [[ "$file" -ef scripts/lint/check-syntax.sh || "$file" -ef scripts/lint/lint-shell.sh || "$file" -ef scripts/lint/check-lint-shell.sh ]] || checked+=("$file")
 done
 [[ ${#checked[@]} -gt 0 ]] || exit 0
 
 awk '
 /^[ \t]*#/ { next }
 /(^|[^A-Za-z0-9_.-])((ba)?sh|BASH)([^A-Za-z0-9_.-].*)?[^A-Za-z0-9_-](-[A-Za-z]*n[A-Za-z]*|noexec)([^A-Za-z0-9_-]|$)/ {
-    printf "%s:%d: Check shell syntax with bash scripts/check-syntax.sh <file>..., not bash -n, sh -n or -o noexec. bash -n checks only its first file.\n", FILENAME, FNR
+    printf "%s:%d: Check shell syntax with bash scripts/lint/check-syntax.sh <file>..., not bash -n, sh -n or -o noexec. bash -n checks only its first file.\n", FILENAME, FNR
     failed = 1
 }
 END { exit failed }

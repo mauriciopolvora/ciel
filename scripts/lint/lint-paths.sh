@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 [[ $# -eq 0 ]] || {
     printf 'Usage: lint-paths.sh\nFails on each scripts/ or .agents/skills/<name>/scripts/ path that git does not track.\n' >&2
     exit 64
@@ -11,7 +11,7 @@ listed="$(git ls-files -z -- .github/workflows .githooks scripts .agents/skills 
 files=()
 while IFS= read -r file; do
     case "$file" in
-        "" | scripts/check-lint-*.sh) continue ;;
+        "" | scripts/lint/check-lint-*.sh) continue ;;
     esac
     [[ -f "$file" && ! -L "$file" ]] && files+=("$file")
 done <<<"$listed"

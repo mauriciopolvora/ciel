@@ -5,7 +5,7 @@ let arguments = CommandLine.arguments
 let numbers = arguments.dropFirst(3).compactMap { Double($0) }.map { CGFloat($0) }
 guard arguments.count == 9, numbers.count == 6, let painting = NSImage(contentsOfFile: arguments[1]) else {
     fatalError(
-        "Usage: swift scripts/GenerateDMGBackground.swift painting.png output-directory width height icon-size icon-y app-x applications-x"
+        "Usage: swift scripts/release/GenerateDMGBackground.swift painting.png output-directory width height icon-size icon-y app-x applications-x"
     )
 }
 let output = URL(fileURLWithPath: arguments[2])
