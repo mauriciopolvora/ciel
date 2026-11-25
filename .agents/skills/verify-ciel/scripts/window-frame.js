@@ -1,6 +1,3 @@
-// Prints the frame of a named window of an app, the screen Ciel acts on for it, that screen's visible area, and whether the window fills the left half of it.
-// The screen rule copies DisplaySnapshot.current and WindowGeometry.displayIndex: screens sorted by left edge then top edge, the most overlap wins, then the nearest center, then the first.
-// A third argument names the screen index to compare with, so a window that moved to another display never passes.
 ObjC.import("AppKit");
 function run(argv) {
     const [appName, windowName, expected] = argv;

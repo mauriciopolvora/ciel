@@ -1,19 +1,44 @@
 #!/bin/bash
-# Usage: check-fast.sh [--no-comment-lint]. The checks that run without macOS: check.sh runs them first. The pre-push
-# hook runs them with --no-comment-lint, then lints the comments in each pushed ref tip.
-set -euo pipefail
+set -uo pipefail
 cd "$(dirname "$0")/.."
 case "${1:-}" in
 "" | --no-comment-lint) ;;
-*) printf 'Usage: check-fast.sh [--no-comment-lint]\n' >&2; exit 64 ;;
+*)
+    printf 'Usage: check-fast.sh [--no-comment-lint]\nRuns the checks that need no macOS and lists each one that failed. The pre-push hook passes\n--no-comment-lint, then runs the Swift comment lint on each pushed ref tip.\n' >&2
+    exit 64
+    ;;
 esac
-bash scripts/check-syntax.sh scripts/*.sh .agents/skills/*/scripts/*.sh .githooks/pre-push
-bash scripts/lint-shell.sh
-bash scripts/check-lint-shell.sh
-bash scripts/lint-colors.sh
-bash scripts/lint-callbacks.sh
-bash scripts/check-lint-callbacks.sh
-bash scripts/lint-claims.sh
-bash scripts/check-lint-claims.sh
-bash scripts/check-lint-comments.sh
-[[ "${1:-}" == --no-comment-lint ]] || bash scripts/lint-comments.sh
+
+failed=()
+step() {
+    local name="$1"
+    shift
+    "$@" </dev/null || failed+=("$name")
+}
+
+step "shell syntax" bash scripts/check-syntax.sh scripts/*.sh .agents/skills/*/scripts/*.sh .githooks/pre-push
+step lint-shell bash scripts/lint-shell.sh
+step check-lint-shell bash scripts/check-lint-shell.sh
+step lint-colors bash scripts/lint-colors.sh
+step lint-callbacks bash scripts/lint-callbacks.sh
+step check-lint-callbacks bash scripts/check-lint-callbacks.sh
+step lint-claims bash scripts/lint-claims.sh
+step check-lint-claims bash scripts/check-lint-claims.sh
+step check-lint-comments bash scripts/check-lint-comments.sh
+[[ "${1:-}" == --no-comment-lint ]] || step lint-comments bash scripts/lint-comments.sh
+step check-docs node scripts/check-docs.mjs
+step check-lint-docs bash scripts/check-lint-docs.sh
+step check-comments node scripts/check-comments.mjs
+step check-lint-script-comments bash scripts/check-lint-script-comments.sh
+step lint-casts bash scripts/lint-casts.sh
+step check-lint-casts bash scripts/check-lint-casts.sh
+step lint-paths bash scripts/lint-paths.sh
+step check-lint-paths bash scripts/check-lint-paths.sh
+step check-lint-commits bash scripts/check-lint-commits.sh
+step check-cleanup-branches bash scripts/check-cleanup-branches.sh
+
+if [[ ${#failed[@]} -gt 0 ]]; then
+    printf 'check-fast: failed: %s\n' "$(IFS=,; echo "${failed[*]}" | sed 's/,/, /g')" >&2
+    exit 1
+fi
+echo "check-fast: ok"

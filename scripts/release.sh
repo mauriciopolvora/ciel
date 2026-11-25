@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# notarytool takes the Apple ID password as an argument, so this script never traces.
+# WARNING: notarytool takes the Apple ID password as an argument, so this script never traces.
 { set +x; } 2>/dev/null
 : "${SIGN_IDENTITY:?Set SIGN_IDENTITY to your Developer ID Application certificate.}"
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then

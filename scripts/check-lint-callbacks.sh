@@ -1,5 +1,4 @@
 #!/bin/bash
-# Self-test for scripts/lint-callbacks.sh: each case runs the lint in a scratch tree and checks its exact exit code.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -7,7 +6,6 @@ scratch=$(mktemp -d)
 trap 'chmod -R u+rwx "$scratch"; rm -rf "$scratch"' EXIT
 failures=0
 
-# expect <exit code> <case name> <root>
 expect() {
     local output status=0
     output=$(bash "$3/scripts/lint-callbacks.sh" 2>&1) || status=$?
@@ -18,7 +16,6 @@ expect() {
     fi
 }
 
-# tree <name> <file under the tree> <Swift line>: a scratch tree whose only Swift file holds the line.
 tree() {
     local root="$scratch/$1"
     mkdir -p "$root/scripts" "$root/Sources/Ciel" "$root/Tests"

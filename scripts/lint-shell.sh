@@ -1,6 +1,5 @@
 #!/bin/bash
-# Fails on each bash -n, sh -n or -o noexec call outside scripts/check-syntax.sh, because bash -n checks only its first file.
-# Usage: lint-shell.sh [file...]. With no files it reads every tracked shell script, hook and workflow.
+# WARNING: bash -n checks only its first file, so only scripts/check-syntax.sh may call it.
 set -euo pipefail
 caller="$PWD"
 cd "$(dirname "$0")/.."
@@ -14,7 +13,7 @@ if [[ $# -gt 0 ]]; then
         esac
     done
 else
-    # -z prints each name as it is. Without it, git quotes a name that holds " or \ even with core.quotePath=false.
+    # WARNING: without -z, git quotes a name that holds " or \ even with core.quotePath=false.
     listed="$(git ls-files -z -- '*.sh' '*.yml' '*.yaml' '.githooks/*' | tr '\0' '\n')" || { echo "lint-shell.sh: git ls-files failed" >&2; exit 2; }
     while IFS= read -r file; do
         [[ -n "$file" ]] && files+=("./$file")

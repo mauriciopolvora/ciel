@@ -7,7 +7,7 @@ if pgrep -f "^${app_path}/Contents/MacOS/Ciel( |$)" >/dev/null; then
     exit 1
 fi
 build_args=(-c release --product Ciel)
-# Speech to text ships a Metal engine for Apple Silicon only.
+# WARNING: the transcribe.cpp Metal engine builds for Apple Silicon only.
 case "${CIEL_ARCH:-native}" in
     native) ;;
     arm64) build_args+=(--arch arm64) ;;
@@ -33,7 +33,7 @@ mv "$staging_dir/CTranscribe" "$framework/Versions/A/CTranscribe"
 rm -rf "$framework/Headers" "$framework/Modules" "$framework/Versions/A/Headers" "$framework/Versions/A/Modules"
 sparkle="$staged_app/Contents/Frameworks/Sparkle.framework"
 ditto "$binary_dir/Sparkle.framework" "$sparkle"
-# Sparkle uses its XPC services only in sandboxed apps, and its sandboxing guide allows removing them otherwise.
+# WARNING: Sparkle uses its XPC services only in sandboxed apps, and its sandboxing guide allows removing them.
 rm -rf "$sparkle/XPCServices" "$sparkle/Versions/B/XPCServices"
 if ! otool -l "$staged_app/Contents/MacOS/Ciel" | grep -q 'path @executable_path/../Frameworks '; then
     install_name_tool -add_rpath @executable_path/../Frameworks "$staged_app/Contents/MacOS/Ciel"
@@ -52,14 +52,14 @@ if [[ "${SIGN_IDENTITY:--}" == "-" ]]; then
 else
     sign=(codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp)
 fi
-# Nested code is signed before the bundle that seals it.
+# WARNING: codesign must sign nested code before the bundle that seals it.
 "${sign[@]}" "$framework"
 "${sign[@]}" "$sparkle/Versions/B/Autoupdate"
 "${sign[@]}" "$sparkle/Versions/B/Updater.app"
 "${sign[@]}" "$sparkle"
 "${sign[@]}" --entitlements Resources/Ciel.entitlements "$staged_app"
 codesign --verify --strict --deep "$staged_app"
-# Under the hardened runtime, library validation loads a framework only when it shares the app's Team ID, and ad-hoc code has none.
+# WARNING: library validation loads a framework only when it shares the app's Team ID, and ad-hoc code has none.
 for code in "$staged_app" "$framework" "$sparkle" "$sparkle/Versions/B/Autoupdate" "$sparkle/Versions/B/Updater.app"; do
     details="$(codesign -dv "$code" 2>&1)"
     flags="$(sed -nE 's/.*flags=0x[0-9a-f]+\(([^)]*)\).*/,\1,/p' <<<"$details")"

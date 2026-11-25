@@ -1,15 +1,10 @@
 #!/bin/bash
-# Public copy states facts about the code. scripts/claims.txt lists each claim under the fact it rests on. A fact is
-# the set of source lines that match its probe, and scripts/claims-facts.txt holds that set from when someone last
-# read the claims. A new, changed or removed line lists every claim on its fact.
 set -uo pipefail
 export LC_ALL=C
 cd "$(dirname "$0")/.."
 ledger=scripts/claims.txt snapshot=scripts/claims-facts.txt known='network arch fullscreen spaces audio'
 fail() { printf 'lint-claims: %s\n' "$1" >&2; exit 2; }
 lines() { [ -z "$1" ] || printf '%s\n' "$1"; }
-# probe <fact> <extended regex> <file>... prints "fact|path: line" for each matching line that is not a comment.
-# Version numbers print as *, so a dependency bump does not change a fact.
 probe() {
     local fact=$1 regex=$2 found
     shift 2
@@ -24,20 +19,16 @@ facts() {
     found=$(find Sources -name '*.swift') || fail 'cannot read every folder in Sources.'
     while IFS= read -r file; do swift+=("$file"); done < <(lines "$found")
     [ "${#swift[@]}" -gt 0 ] || fail 'found no Swift files in Sources.'
-    # Sparkle reads each SU key in Info.plist, SPU types run it, and updater properties set what it sends and when.
-    # A .download( call starts the speech model download.
+    # WARNING: Sparkle reads each SU key in Info.plist, and its updater properties set what it sends and when.
     probe network 'URLSession|URLRequest|NWConnection|NWPathMonitor|https?://|(^|[^A-Za-z0-9_])SP?U[A-Z]|\.updater\.|sendsSystemProfile|updateCheckInterval|\.download\(|import (Network|Sparkle|WebKit)' \
         "${swift[@]}" Package.swift Resources/Info.plist scripts/appcast.sh
     probe arch 'arm64|x86_64|universal|lipo|-thin|--arch|ARCH' \
         scripts/build.sh scripts/release.sh Package.swift .github/workflows/*.yml
-    # Ciel's own panels set .fullScreenAuxiliary, which is not window command handling.
     probe fullscreen '[Ff]ull[Ss]creen([^A]|$)' "${swift[@]}"
-    # Ciel moves no window between Spaces, so no line matches today. .canJoinAllSpaces only places Ciel's own panels.
     probe spaces 'SLS[A-Z]|CGS[A-Za-z]*Space|[Ss]pace(ID|Id|s?For)|[Aa]ctiveSpace' "${swift[@]}"
     probe audio 'AVAudioFile|AVAudioRecorder|ExtAudioFile|AudioFileCreate|installTap|OffMainCallbacks\.tap|FileHandle|FileManager|createFile|\.write\(|fopen|fwrite|UserDefaults' \
         Sources/Ciel/Dictation.swift Sources/Ciel/TranscribeCppTranscriber.swift Sources/CielCore/LiveTranscript.swift \
         Sources/CielCore/Speech.swift Sources/Ciel/OffMainCallbacks.swift
-    # Any file that holds the dictated samples is on the audio path, also a new one.
     probe audio 'AudioClip|AVAudioPCMBuffer' "${swift[@]}"
 }
 live=$(facts) || exit 2

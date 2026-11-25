@@ -1,6 +1,4 @@
 #!/bin/bash
-# Checks scripts/comment-lines.awk on Swift snippets under each awk on this host, then checks the baseline rules of
-# scripts/lint-comments.sh in a scratch repository.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 here="$PWD"
@@ -14,7 +12,6 @@ for candidate in awk gawk mawk "busybox awk"; do
 done
 
 failed=0
-# expect <file> <counted lines>: the snippet on stdin must count exactly those lines.
 expect() {
     local file="$scratch/$1" want="$2" got candidate
     cat >"$file"
@@ -152,14 +149,13 @@ expect package/Package.swift "2" <<'EOF'
 // swift-tools-version: 6.0
 EOF
 
-# A pre-push hook exports these, and they would point the scratch repository at this one.
+# WARNING: a pre-push hook exports these, and they would point the scratch repository at this one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 repo="$scratch/repo"
 scratch_git() {
     git -C "$repo" -c user.name=check -c user.email=check@example.test -c commit.gpgsign=false \
         -c core.excludesFile=/dev/null -c core.hooksPath=/dev/null "$@"
 }
-# lint <expected exit> <expected text> [option...]: runs the lint in the scratch repository with CIEL_COMMENT_BASE=$base.
 lint() {
     local want_status="$1" want_text="$2" output status=0
     shift 2
@@ -195,7 +191,6 @@ lint 0 ""
 scratch_git add -A
 scratch_git commit -q -m baseline
 base="$(scratch_git rev-parse HEAD)"
-# unchanged_baseline <step>: the baseline must still match the last commit after a failed --update.
 unchanged_baseline() {
     if ! scratch_git diff --quiet HEAD -- scripts/comment-baseline.txt; then
         printf 'check-lint-comments: %s changed the baseline:\n%s\n' "$1" "$(scratch_git diff HEAD)" >&2
@@ -209,6 +204,38 @@ printf '// one\nlet x = 1\n// two\n' >"$repo/Sources/With Space.swift"
 lint 1 "raises Sources/With Space.swift from 1 to 2" --update
 unchanged_baseline "an --update above the current baseline"
 lint 1 "2 comment lines, and scripts/comment-baseline.txt allows 1"
+scratch_git reset -q --hard "$base"
+scratch_git mv "Sources/With Space.swift" Sources/Moved.swift
+lint 0 "" --update
+if [[ "$(cat "$repo/scripts/comment-baseline.txt")" != "2 Sources/Moved.swift" ]]; then
+    printf 'check-lint-comments: --update after git mv wrote:\n%s\n' "$(cat "$repo/scripts/comment-baseline.txt")" >&2
+    failed=1
+fi
+lint 0 ""
+scratch_git checkout -q -- scripts/comment-baseline.txt
+printf '// three\n' >>"$repo/Sources/Moved.swift"
+lint 1 "raises Sources/Moved.swift from 2 to 3" --update
+unchanged_baseline "an --update above the baseline after git mv"
+scratch_git reset -q --hard "$base"
+scratch_git mv "Sources/With Space.swift" Sources/Moved.swift
+printf '2 Sources/Moved.swift\n' >"$repo/scripts/comment-baseline.txt"
+lint 0 ""
+lint 0 "" --update
+scratch_git commit -q -am "move"
+scratch_git mv Sources/Moved.swift Sources/Again.swift
+lint 0 "" --update
+if [[ "$(cat "$repo/scripts/comment-baseline.txt")" != "2 Sources/Again.swift" ]]; then
+    printf 'check-lint-comments: --update after a second git mv wrote:\n%s\n' "$(cat "$repo/scripts/comment-baseline.txt")" >&2
+    failed=1
+fi
+scratch_git reset -q --hard HEAD
+lint 0 "" --commit HEAD
+printf '// three\n' >>"$repo/Sources/Moved.swift"
+printf '3 Sources/Moved.swift\n' >"$repo/scripts/comment-baseline.txt"
+lint 1 "raises Sources/Moved.swift from 2 to 3"
+lint 1 "raises Sources/Moved.swift from 2 to 3" --update
+scratch_git commit -q -am "move and comment"
+lint 1 "raises Sources/Moved.swift from 2 to 3" --commit HEAD
 scratch_git reset -q --hard "$base"
 printf '// three\n' >>"$repo/Sources/With Space.swift"
 lint 1 "raises Sources/With Space.swift from 2 to 3" --update

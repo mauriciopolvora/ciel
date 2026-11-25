@@ -8,7 +8,7 @@ sign_update="$(dirname "$0")/../.build/artifacts/sparkle/Sparkle/bin/sign_update
 version="$(plutil -extract CFBundleVersion raw "$plist")"
 short_version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
 minimum_system="$(plutil -extract LSMinimumSystemVersion raw "$plist")"
-# On a malformed key sign_update prints the key, so tracing stays off until only a well-formed signature is left.
+# WARNING: on a malformed key sign_update prints the key, so tracing stays off until the signature is well formed.
 tracing="${-//[^x]/}"
 { set +x; } 2>/dev/null
 signature="$(sed -n 's/^SPARKLE_PRIVATE_ED_KEY=//p' "$key_file" | "$sign_update" -p --ed-key-file - "$archive" 2>/dev/null)" ||

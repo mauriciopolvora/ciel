@@ -1,4 +1,3 @@
-# Times release to paste for the speech model on a real Mac, only when a PR changes the speech path, so speech latency is measured before it ships.
 name: Time speech to text
 on:
   pull_request:

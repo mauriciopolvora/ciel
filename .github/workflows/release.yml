@@ -1,4 +1,3 @@
-# Builds, signs, notarizes and publishes a release by hand from main. It reads the Check Ciel push run on the commit it releases.
 name: Release Ciel
 on:
   workflow_dispatch:
@@ -64,14 +63,14 @@ jobs:
             if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
               fail "Tag v$version already exists. Pick a new version."
             fi
-            # Sparkle offers an update only for a higher CFBundleVersion, and --latest must never move back to an older version.
+            # WARNING: Sparkle offers an update only for a higher CFBundleVersion, so --latest never moves back.
             latest_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
             [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not read the latest release tag."
             IFS=. read -r a b c <<<"${latest_tag#v}"
             IFS=. read -r x y z <<<"$version"
             (( x * 1000000 + y * 1000 + z > a * 1000000 + b * 1000 + c )) || fail "Version $version is not newer than the latest release $latest_tag."
             has_appcast=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '[.assets[].name] | index("appcast.xml") != null')
-            # Releases before 0.6.0 have no appcast, so there is no build to compare.
+            # WARNING: releases before 0.6.0 have no appcast, so there is no build to compare.
             if [[ "$has_appcast" == true ]]; then
               latest_build=$(gh release download "$latest_tag" --repo "$GITHUB_REPOSITORY" --pattern appcast.xml --output - |
                 sed -n 's/.*<sparkle:version>\([0-9]*\)<\/sparkle:version>.*/\1/p')
@@ -99,10 +98,10 @@ jobs:
           security import "$p12" -k "$KEYCHAIN" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign
           rm -f "$p12"
           curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
-          # The .p12 may already hold the intermediate certificate.
+          # WARNING: the .p12 may already hold the intermediate certificate.
           security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN" || printf 'The intermediate certificate is already in the keychain.\n'
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$KEYCHAIN" >/dev/null
-          # Runner keychain paths have no spaces, so xargs can strip the quotes.
+          # WARNING: runner keychain paths have no spaces, so xargs can strip the quotes.
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | xargs)
           if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -qF "\"$SIGN_IDENTITY\""; then
             printf 'The certificate does not hold the identity %s.\n' "$SIGN_IDENTITY" >&2; exit 1
@@ -137,7 +136,7 @@ jobs:
           mkdir -p "$check"
           latest="https://github.com/$GITHUB_REPOSITORY/releases/latest/download"
           enclosure="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/Ciel-$VERSION-arm64.zip"
-          # The latest links can lag behind a new release for a few seconds, so each file gets ten tries to match this build.
+          # WARNING: the GitHub latest links can lag a new release for a few seconds, so each file gets ten tries.
           fetch() {
             local url="$1" output="$2" expected="$3" code
             for _ in 1 2 3 4 5 6 7 8 9 10; do

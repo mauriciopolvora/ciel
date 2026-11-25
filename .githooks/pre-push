@@ -1,36 +1,85 @@
 #!/usr/bin/env bash
-# Runs scripts/check-fast.sh, then the comment lint on each pushed ref tip and gitleaks on the pushed commits.
-# Set it once per clone: git config core.hooksPath .githooks. The macOS checks (scripts/check.sh) run only in CI.
 set -euo pipefail
-set -f # $range below is split into words and must not glob
+set -f
 cd "$(git rev-parse --show-toplevel)"
+
+remote=$1
+updates=()
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ $local_sha =~ ^0+$ ]] && continue
+  updates+=("$local_ref $local_sha $remote_ref $remote_sha")
+done
+[ ${#updates[@]} -gt 0 ] || exit 0
 
 if ! command -v gitleaks >/dev/null; then
   echo "pre-push: gitleaks is not installed. Install it (https://github.com/gitleaks/gitleaks#installing), then push again." >&2
   exit 1
 fi
 
-bash scripts/check-fast.sh --no-comment-lint </dev/null
+checkout=
+remove_checkout() {
+  [ -n "$checkout" ] || return 0
+  git worktree remove --force "$checkout/tree" 2>/dev/null || true
+  rm -rf "$checkout"
+  checkout=
+}
+trap remove_checkout EXIT
+trap 'exit 1' INT TERM
 
-remote=$1
-while read -r _ local_sha _ remote_sha; do
-  [[ $local_sha =~ ^0+$ ]] && continue # a deleted branch has no commits to scan
+head=$(git rev-parse -q --verify HEAD) || head=
+clean=0
+if [ -z "$(git status --porcelain --untracked-files=normal --ignore-submodules=none)" ] && ! git ls-files -v | grep '^[a-zS]' >/dev/null; then
+  clean=1
+fi
+checked=$'\n'
+for update in "${updates[@]}"; do
+  read -r _ local_sha remote_ref remote_sha <<<"$update"
+  tip=$(git rev-parse "$local_sha^{commit}")
+  tree=$PWD
+  if [ "$tip" != "$head" ] || [ "$clean" != 1 ]; then
+    echo "pre-push: $tip is not a clean checkout of HEAD, so its own check scripts run in a detached checkout of it." >&2
+    parent=$(git rev-parse --path-format=absolute --git-path ciel-pre-push)
+    mkdir -p "$parent"
+    checkout=$(mktemp -d "$parent/XXXXXX")
+    git worktree add -q --detach "$checkout/tree" "$tip"
+    tree=$checkout/tree
+  fi
+  if [[ $remote_ref != refs/tags/* ]] && ! [ -f "$tree/scripts/check-fast.sh" ]; then
+    echo "pre-push: $tip has no scripts/check-fast.sh. Rebase it on origin/main, then push again." >&2
+    exit 1
+  fi
+  helpers=$tree
+  [ -f "$tree/scripts/lint-comments.sh" ] && [ -f "$tree/scripts/check-commits.sh" ] || helpers=$PWD
+  if [[ $remote_ref != refs/tags/* && $checked != *$'\n'$tip$'\n'* ]]; then
+    checked+=$tip$'\n'
+    (
+      # WARNING: a hook can export GIT_DIR and GIT_INDEX_FILE, which would point git in the detached checkout at this one.
+      unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_PREFIX
+      cd "$tree"
+      bash scripts/check-fast.sh --no-comment-lint </dev/null
+    )
+  fi
+
   main="refs/remotes/$remote/main"
-  git rev-parse -q --verify "$main" >/dev/null || main=refs/remotes/origin/main # a push to a URL
+  git rev-parse -q --verify "$main" >/dev/null || main=refs/remotes/origin/main
   base=$(git merge-base "$local_sha" "$main") || {
     echo "pre-push: cannot find the merge base of $local_sha with $main. Run git fetch, then push again." >&2
     exit 1
   }
-  CIEL_COMMENT_BASE=$base bash scripts/lint-comments.sh --commit "$local_sha" </dev/null
-  if ! git remote | grep -qxF -- "$remote"; then
-    range=$local_sha # a push to a URL: no tracking refs say what the remote has, so scan all history
-  elif [[ $remote_sha =~ ^0+$ ]] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
-    # Skip commits that this remote already has. The --exclude keeps out the refs of a remote named "$remote/<name>".
-    range="$local_sha --not --exclude=$remote/*/* --remotes=$remote"
-  else
+  CIEL_COMMENT_BASE=$base bash "$helpers/scripts/lint-comments.sh" --commit "$local_sha" </dev/null
+  if ! [[ $remote_sha =~ ^0+$ ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
     range="$remote_sha..$local_sha"
+  elif ! git remote | grep -qxF -- "$remote"; then
+    # WARNING: a push to a URL has no tracking refs that say what the remote has, so scan all history.
+    range=$local_sha
+  else
+    # WARNING: --remotes=$remote also matches the refs of a remote named $remote/<name>. The exclude drops them, and it also drops branch names with a slash, so gitleaks scans those commits again.
+    range="$local_sha --not --exclude=$remote/*/* --remotes=$remote"
   fi
-  # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
-  git rev-list $range >/dev/null # unquoted: $range holds several arguments, and none has a space
+  # WARNING: gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
+  git rev-list $range >/dev/null
+  # WARNING: a remote can already hold commits with trailers from before this hook, so skip commits that any remote has. In rev-list, the second --not cancels the first.
+  bash "$helpers/scripts/check-commits.sh" --not --remotes --not $range
   gitleaks git --no-banner --redact --log-opts="$range -m" .
+  remove_checkout
 done
