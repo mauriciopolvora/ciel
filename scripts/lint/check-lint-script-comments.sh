@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -17,12 +17,12 @@ expect() {
     local want="$1" name="$2" file="$3" text="$4" root output status=0
     case_number=$((case_number + 1))
     root="$scratch/$case_number"
-    mkdir -p "$root/scripts" "$(dirname "$root/$file")"
-    cp scripts/check-comments.mjs "$root/scripts/"
+    mkdir -p "$root/scripts/lint" "$(dirname "$root/$file")"
+    cp scripts/lint/check-comments.mjs "$root/scripts/lint/"
     printf '%s\n' "$text" >"$root/$file"
     git -C "$root" init -q
     [[ "${track:-yes}" == no ]] || git -C "$root" add -A
-    output="$(node "$root/scripts/check-comments.mjs" 2>&1)" || status=$?
+    output="$(node "$root/scripts/lint/check-comments.mjs" 2>&1)" || status=$?
     if [[ "$status" -ne "$want" || ( "$want" -eq 1 && "$output" != *"$file:"* ) ]]; then
         printf 'FAIL %s: exit %s, expected %s. Output:\n%s\n' "$name" "$status" "$want" "$output"
         failures=$((failures + 1))
@@ -64,7 +64,7 @@ expect 0 "a JS WARNING line" site/a.js "$slashes WARNING: Safari fires this twic
 expect 0 "a vendored file" site/public/assets/lenis/lenis.min.js "$slashes vendored"
 expect 0 "a Swift file" Sources/A.swift "$slashes Swift is checked by lint-comments.sh"
 track=no expect 0 "an untracked file" scripts/a.sh "$hash note"
-output="$(node scripts/check-comments.mjs 2>&1)" || { printf 'FAIL the current tree:\n%s\n' "$output"; failures=$((failures + 1)); }
+output="$(node scripts/lint/check-comments.mjs 2>&1)" || { printf 'FAIL the current tree:\n%s\n' "$output"; failures=$((failures + 1)); }
 
 if [[ "$failures" -gt 0 ]]; then
     printf 'check-lint-script-comments: %s cases failed\n' "$failures" >&2

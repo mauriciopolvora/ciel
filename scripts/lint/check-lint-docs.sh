@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -10,7 +10,7 @@ trap 'rm -rf "$scratch"' EXIT
 failures=0
 dash="$(printf '\342\200\224')"
 
-git ls-files -z -- '*.md' .claude scripts/check-docs.mjs >"$scratch/listed"
+git ls-files -z -- '*.md' .claude scripts/lint/check-docs.mjs >"$scratch/listed"
 tar -cf "$scratch/repo.tar" --null -T "$scratch/listed"
 
 expect() {
@@ -19,7 +19,7 @@ expect() {
     git -C "$root" init -q && git -C "$root" add -A
     (cd "$root" && eval "$4") ||
         { printf 'check-lint-docs: %s: the command that breaks the copy failed.\n' "$name" >&2; exit 1; }
-    output="$(node "$root/scripts/check-docs.mjs" 2>&1)" || status=$?
+    output="$(node "$root/scripts/lint/check-docs.mjs" 2>&1)" || status=$?
     if [[ "$status" -ne "$want" || "$output" != *"$text"* ]]; then
         printf 'FAIL %s: exit %s, expected %s with "%s". Output:\n%s\n' "$name" "$status" "$want" "$text" "$output"
         failures=$((failures + 1))

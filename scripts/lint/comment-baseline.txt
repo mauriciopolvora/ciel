@@ -28,4 +28,4 @@
 1 Sources/CielCore/WindowAction.swift
 1 Tests/CielAppTests/SettingsSpotlightTests.swift
 4 Tests/CielAppTests/SpeechModelStoreTests.swift
-3 scripts/GenerateDMGBackground.swift
+3 scripts/release/GenerateDMGBackground.swift

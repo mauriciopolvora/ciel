@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 if [[ $# -ne 4 ]]; then
-    printf 'Usage: bash scripts/appcast.sh <Info.plist> <archive.zip> <key file> <appcast.xml>\n' >&2; exit 1
+    printf 'Usage: bash scripts/release/appcast.sh <Info.plist> <archive.zip> <key file> <appcast.xml>\n' >&2; exit 1
 fi
 plist="$1" archive="$2" key_file="$3" appcast="$4"
-sign_update="$(dirname "$0")/../.build/artifacts/sparkle/Sparkle/bin/sign_update"
+sign_update="$(dirname "$0")/../../.build/artifacts/sparkle/Sparkle/bin/sign_update"
 version="$(plutil -extract CFBundleVersion raw "$plist")"
 short_version="$(plutil -extract CFBundleShortVersionString raw "$plist")"
 minimum_system="$(plutil -extract LSMinimumSystemVersion raw "$plist")"

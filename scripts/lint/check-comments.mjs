@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-process.chdir(fileURLToPath(new URL("..", import.meta.url)));
+process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
 const allowed = /^(WARNING:|shellcheck )/;
 const vendored = /^site\/public\/assets\/lenis\//;
 const git = (...args) => execFileSync("git", args, { encoding: "utf8", maxBuffer: 1 << 28 });

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 listed="$scratch/files"
@@ -14,7 +14,7 @@ edit() {
 expect() {
     rm -rf "$scratch/repo" && mkdir "$scratch/repo" && tar -xf "$scratch/repo.tar" -C "$scratch/repo"
     (cd "$scratch/repo" && eval "$4") || { printf 'check-lint-claims: %s: the command that breaks the copy failed.\n' "$1" >&2; exit 1; }
-    status=0 && bash "$scratch/repo/scripts/lint-claims.sh" 2>"$scratch/err" || status=$?
+    status=0 && bash "$scratch/repo/scripts/lint/lint-claims.sh" 2>"$scratch/err" || status=$?
     if [ "$status" != "$2" ] || ! { [ -z "$3" ] || grep -qF -- "$3" "$scratch/err"; }; then
         printf 'check-lint-claims: %s: expected exit %s with "%s", got exit %s:\n' "$1" "$2" "$3" "$status" >&2
         cat "$scratch/err" >&2 && exit 1
@@ -54,6 +54,6 @@ expect 'a Spaces call' 1 'spaces README.md:' \
 expect 'samples saved from a new file' 1 'audio site/public/index.html:' \
     'printf "func saveSample(_ clip: AudioClip) {}\n" >Sources/Ciel/AudioDiagnostics.swift'
 expect 'two fact names in one ledger line' 2 "unknown fact 'network arch'" \
-    'edit "s/^network|README.md|It makes/network arch|README.md|It makes/" scripts/claims.txt'
-expect 'a missing ledger' 2 'cannot read scripts/claims.txt' 'rm scripts/claims.txt'
-expect 'a missing probed file' 2 'the network probe cannot read' 'rm scripts/appcast.sh'
+    'edit "s/^network|README.md|It makes/network arch|README.md|It makes/" scripts/lint/claims.txt'
+expect 'a missing ledger' 2 'cannot read scripts/lint/claims.txt' 'rm scripts/lint/claims.txt'
+expect 'a missing probed file' 2 'the network probe cannot read' 'rm scripts/release/appcast.sh'

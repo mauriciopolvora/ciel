@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -14,17 +14,17 @@ expect() {
     local want="$1" name="$2" file="$3" text="$4" root output status=0
     case_number=$((case_number + 1))
     root="$scratch/$case_number"
-    mkdir -p "$root/scripts" "$root/.agents/skills/v/scripts"
-    cp scripts/lint-paths.sh "$root/scripts/"
+    mkdir -p "$root/scripts/lint" "$root/.agents/skills/v/scripts"
+    cp scripts/lint/lint-paths.sh "$root/scripts/lint/"
     printf 'echo run\n' >"$root/scripts/real.sh"
-    printf 'echo run\n' >"$root/scripts/check-lint-paths.sh"
+    printf 'echo run\n' >"$root/scripts/lint/check-lint-paths.sh"
     printf 'echo run\n' >"$root/.agents/skills/v/scripts/run.sh"
     mkdir -p "$(dirname "$root/$file")"
     printf '%s\n' "$text" >"$root/$file"
     git -C "$root" init -q
     git -C "$root" add -A
     [[ -z "${untracked:-}" ]] || printf 'echo run\n' >"$root/$untracked"
-    output="$(bash "$root/scripts/lint-paths.sh" 2>&1)" || status=$?
+    output="$(bash "$root/scripts/lint/lint-paths.sh" 2>&1)" || status=$?
     if [[ "$status" -ne "$want" ]]; then
         printf 'FAIL %s: exit %s, expected %s. Lint output:\n%s\n' "$name" "$status" "$want" "$output"
         failures=$((failures + 1))
@@ -56,7 +56,7 @@ expect 1 "a skill path outside that skill" README.md 'Run scripts/run.sh.'
 expect 0 "a URL" README.md 'https://example.test/scripts/missing.sh'
 expect 0 "a path under a variable" scripts/other.sh '"$here/scripts/missing.sh"'
 expect 0 "a file outside the scanned set" Sources/Other.swift '"scripts/missing.sh"'
-expect 0 "a lint self-test" scripts/check-lint-other.sh 'bash scripts/missing.sh'
+expect 0 "a lint self-test" scripts/lint/check-lint-other.sh 'bash scripts/missing.sh'
 untracked=scripts/new.sh expect 1 "a path to an untracked file" README.md 'Run scripts/new.sh'
 
 if [[ "$failures" -gt 0 ]]; then

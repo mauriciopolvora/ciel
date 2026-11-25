@@ -27,7 +27,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: pip
-    directory: /scripts
+    directory: /scripts/release
     schedule:
       interval: weekly
       day: monday

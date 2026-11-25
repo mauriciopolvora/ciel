@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 wrapper=Sources/Ciel/App/OffMainCallbacks.swift
 apis='openApplication[(]|[.]requestAccess[(]|requestAuthorization[(]|completionHandler|installTap[(]'

@@ -1,4 +1,4 @@
-# dmgbuild settings for bash scripts/dmg.sh --layout, which passes every value as a -D define.
+# dmgbuild settings for bash scripts/release/dmg.sh --layout, which passes every value as a -D define.
 width = int(defines["width"])
 icon_y = int(defines["icon_y"])
 

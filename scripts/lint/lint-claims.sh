@@ -1,8 +1,8 @@
 #!/bin/bash
 set -uo pipefail
 export LC_ALL=C
-cd "$(dirname "$0")/.."
-ledger=scripts/claims.txt snapshot=scripts/claims-facts.txt known='network arch fullscreen spaces audio'
+cd "$(dirname "$0")/../.."
+ledger=scripts/lint/claims.txt snapshot=scripts/lint/claims-facts.txt known='network arch fullscreen spaces audio'
 fail() { printf 'lint-claims: %s\n' "$1" >&2; exit 2; }
 lines() { [ -z "$1" ] || printf '%s\n' "$1"; }
 probe() {
@@ -21,7 +21,7 @@ facts() {
     [ "${#swift[@]}" -gt 0 ] || fail 'found no Swift files in Sources.'
     # WARNING: Sparkle reads each SU key in Info.plist, and its updater properties set what it sends and when.
     probe network 'URLSession|URLRequest|NWConnection|NWPathMonitor|https?://|(^|[^A-Za-z0-9_])SP?U[A-Z]|\.updater\.|sendsSystemProfile|updateCheckInterval|\.download\(|import (Network|Sparkle|WebKit)' \
-        "${swift[@]}" Package.swift Resources/Info.plist scripts/appcast.sh
+        "${swift[@]}" Package.swift Resources/Info.plist scripts/release/appcast.sh
     probe arch 'arm64|x86_64|universal|lipo|-thin|--arch|ARCH' \
         scripts/build.sh scripts/release.sh Package.swift .github/workflows/*.yml
     probe fullscreen '[Ff]ull[Ss]creen([^A]|$)' "${swift[@]}"
@@ -35,7 +35,7 @@ live=$(facts) || exit 2
 live=$(lines "$live" | sort -u) || fail 'sort failed on the facts.'
 if [ "${1:-}" = --facts ]; then lines "$live"; exit 0; fi
 for file in "$ledger" "$snapshot"; do [ -f "$file" ] && [ -r "$file" ] || fail "cannot read $file."; done
-sort -cu "$snapshot" 2>/dev/null || fail "$snapshot is not sorted. Write it with: bash scripts/lint-claims.sh --facts > $snapshot"
+sort -cu "$snapshot" 2>/dev/null || fail "$snapshot is not sorted. Write it with: bash scripts/lint/lint-claims.sh --facts > $snapshot"
 claims=$(grep -v -e '^#' -e '^$' "$ledger")
 [ $? -le 1 ] || fail "cannot read $ledger."
 while IFS='|' read -r fact file quote; do
@@ -57,7 +57,7 @@ if [ -n "$changes" ]; then
             printf '  %s %s:%s: %s\n' "$fact" "$file" "${line%%:*}" "$quote" >&2
         done < <(lines "$claims")
     done
-    printf 'Then run: bash scripts/lint-claims.sh --facts > %s\n' "$snapshot" >&2
+    printf 'Then run: bash scripts/lint/lint-claims.sh --facts > %s\n' "$snapshot" >&2
     status=1
 fi
 while IFS='|' read -r fact file quote; do

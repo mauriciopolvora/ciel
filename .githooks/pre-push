@@ -49,7 +49,7 @@ for update in "${updates[@]}"; do
     exit 1
   fi
   helpers=$tree
-  [ -f "$tree/scripts/lint-comments.sh" ] && [ -f "$tree/scripts/check-commits.sh" ] || helpers=$PWD
+  [ -f "$tree/scripts/lint/lint-comments.sh" ] && [ -f "$tree/scripts/lint/check-commits.sh" ] || helpers=$PWD
   if [[ $remote_ref != refs/tags/* && $checked != *$'\n'$tip$'\n'* ]]; then
     checked+=$tip$'\n'
     (
@@ -66,7 +66,7 @@ for update in "${updates[@]}"; do
     echo "pre-push: cannot find the merge base of $local_sha with $main. Run git fetch, then push again." >&2
     exit 1
   }
-  CIEL_COMMENT_BASE=$base bash "$helpers/scripts/lint-comments.sh" --commit "$local_sha" </dev/null
+  CIEL_COMMENT_BASE=$base bash "$helpers/scripts/lint/lint-comments.sh" --commit "$local_sha" </dev/null
   if ! [[ $remote_sha =~ ^0+$ ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
     range="$remote_sha..$local_sha"
   elif ! git remote | grep -qxF -- "$remote"; then
@@ -79,7 +79,7 @@ for update in "${updates[@]}"; do
   # WARNING: gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
   git rev-list $range >/dev/null
   # WARNING: a remote can already hold commits with trailers from before this hook, so skip commits that any remote has. In rev-list, the second --not cancels the first.
-  bash "$helpers/scripts/check-commits.sh" --not --remotes --not $range
+  bash "$helpers/scripts/lint/check-commits.sh" --not --remotes --not $range
   gitleaks git --no-banner --redact --log-opts="$range -m" .
   remove_checkout
 done

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -11,7 +11,7 @@ failures=0
 
 expect() {
     local want="$1" name="$2" root="$3" output status=0
-    output="$(bash "$root/scripts/lint-casts.sh" 2>&1)" || status=$?
+    output="$(bash "$root/scripts/lint/lint-casts.sh" 2>&1)" || status=$?
     if [[ "$status" -ne "$want" ]]; then
         printf 'FAIL %s: exit %s, expected %s. Lint output:\n%s\n' "$name" "$status" "$want" "$output"
         failures=$((failures + 1))
@@ -20,8 +20,8 @@ expect() {
 
 tree() {
     local root="$scratch/$1" path="$2" count="$3" line="$4"
-    mkdir -p "$root/scripts" "$root/Sources/Ciel" "$(dirname "$root/$path")"
-    cp scripts/lint-casts.sh "$root/scripts/"
+    mkdir -p "$root/scripts/lint" "$root/Sources/Ciel" "$(dirname "$root/$path")"
+    cp scripts/lint/lint-casts.sh "$root/scripts/lint/"
     printf 'let ok = 1\n' >"$root/Sources/Ciel/Clean.swift"
     : >"$root/$path"
     for ((i = 0; i < count; i++)); do printf '%s\n' "$line" >>"$root/$path"; done

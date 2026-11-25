@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 [[ $# -eq 0 ]] || { printf 'Usage: lint-casts.sh\nFails on each as! in a tracked Swift file under Sources, Tests or scripts.\n' >&2; exit 64; }
 
 listed="$(git ls-files -z -- 'Sources/*.swift' 'Tests/*.swift' 'scripts/*.swift' | tr '\0' '\n')" ||

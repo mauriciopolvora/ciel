@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -9,8 +9,8 @@ scratch="$(mktemp -d "$PWD/.build/check-lint-commits.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 failures=0
 repo="$scratch/repo"
-mkdir -p "$repo/scripts"
-cp scripts/check-commits.sh "$repo/scripts/"
+mkdir -p "$repo/scripts/lint"
+cp scripts/lint/check-commits.sh "$repo/scripts/lint/"
 scratch_git() {
     git -C "$repo" -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
 }
@@ -23,7 +23,7 @@ commit() {
 expect() {
     local want="$1" name="$2" output status=0
     shift 2
-    output="$(cd "$repo" && bash scripts/check-commits.sh "$@" 2>&1)" || status=$?
+    output="$(cd "$repo" && bash scripts/lint/check-commits.sh "$@" 2>&1)" || status=$?
     if [[ "$status" -ne "$want" ]]; then
         printf 'FAIL %s: exit %s, expected %s. Output:\n%s\n' "$name" "$status" "$want" "$output"
         failures=$((failures + 1))

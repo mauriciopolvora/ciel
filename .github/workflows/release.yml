@@ -155,7 +155,7 @@ jobs:
           grep -qF "<sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>" "$check/appcast.xml"
           grep -qF "<enclosure url=\"$enclosure\"" "$check/appcast.xml"
           signature=$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' "$check/appcast.xml")
-          swift scripts/VerifyUpdate.swift "$(plutil -extract SUPublicEDKey raw Resources/Info.plist)" "$signature" "$check/Ciel-$VERSION-arm64.zip"
+          swift scripts/release/VerifyUpdate.swift "$(plutil -extract SUPublicEDKey raw Resources/Info.plist)" "$signature" "$check/Ciel-$VERSION-arm64.zip"
           printf 'The appcast lists %s, and its EdDSA signature matches SUPublicEDKey.\n' "$VERSION"
           ditto -x -k "$check/Ciel.zip" "$check"
           xcrun stapler validate "$check/Ciel.app"
