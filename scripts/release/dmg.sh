@@ -115,9 +115,14 @@ cp "$work/background.tiff" "$stage/.background.tiff"
 cp "$layout" "$stage/.DS_Store"
 # WARNING: hdiutil create sometimes fails with Resource busy while the system still holds the new image, and leaves that file attached.
 for attempt in 1 2 3 4 5; do
+    status=0
     hdiutil create -srcfolder "$stage" -volname Ciel -fs HFS+ -format UDZO -imagekey zlib-level=9 \
-        "$work/Ciel-$attempt.dmg" >/dev/null && break
-    [[ "$attempt" -lt 5 ]] || fail 'hdiutil create failed 5 times.'
+        "$work/Ciel-$attempt.dmg" >/dev/null || status=$?
+    [[ "$status" -ne 0 ]] || break
+    if [[ "$attempt" -eq 5 ]]; then
+        printf 'hdiutil create failed 5 times. The last attempt exited %s.\n' "$status" >&2
+        exit "$status"
+    fi
     printf 'hdiutil create failed on attempt %s of 5. Trying again in 2 s.\n' "$attempt" >&2
     sleep 2
 done

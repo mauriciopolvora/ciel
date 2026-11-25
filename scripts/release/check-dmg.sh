@@ -16,7 +16,11 @@ expect() {
     stubs="$scratch/stubs-$case_number"
     mkdir "$stubs"
     while [[ $# -gt 0 ]]; do
-        printf '#!/bin/sh\nexit %s\n' "$2" >"$stubs/$1"
+        if [[ "$2" =~ ^[0-9]+$ ]]; then
+            printf '#!/bin/sh\nexit %s\n' "$2" >"$stubs/$1"
+        else
+            printf '#!/bin/sh\n%s\n' "$2" >"$stubs/$1"
+        fi
         chmod +x "$stubs/$1"
         shift 2
     done
@@ -30,6 +34,12 @@ expect() {
 line_of() { grep -n -m 1 "$1" scripts/release/dmg.sh | cut -d: -f1; }
 expect "a failed top level command" 3 '^dmg\.sh:[0-9]+: swift .* exited 3$' swift 3
 expect "a failed command inside a function" 4 "^dmg\.sh:$(line_of '^hex() '): .* exited 4\$" swift 0 tiffutil 0 xxd 4
+expect "hdiutil create failing on every attempt" 17 '^hdiutil create failed on attempt 1 of 5\. ' \
+    swift 0 sleep 0 hdiutil 17 \
+    tiffutil 'while [ $# -gt 1 ]; do [ "$1" = -out ] && : >"$2"; shift; done' \
+    ditto 'mkdir -p "$2"' \
+    plutil 'case $2 in iconSize) echo 128.000000 ;; textSize) echo 13.000000 ;; backgroundType) echo 2 ;; *) echo alias ;; esac' \
+    base64 "printf '\\000\\025Ciel:.background.tiff\\000'"
 
 if [[ "$failures" -gt 0 ]]; then
     exit 1
