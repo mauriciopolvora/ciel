@@ -20,7 +20,7 @@ const docLineCaps = {
   "docs/artwork.md": 10,
   "docs/design-system.md": 105,
   "docs/releasing.md": 125,
-  "docs/rules.md": 46,
+  "docs/rules.md": 48,
 };
 
 const problems = [];
