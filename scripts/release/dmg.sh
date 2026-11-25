@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "dmg.sh:%s: %s exited %s\n" "$LINENO" "$BASH_COMMAND" "$?" >&2' ERR
 # WARNING: with CDPATH set, cd prints the directory and corrupts the paths read from it.
 unset CDPATH
 # WARNING: sort order and number formats follow the locale.
@@ -31,6 +32,7 @@ mkdir -p .build
 work="$(mktemp -d "$PWD/.build/ciel-dmg.XXXXXX")"
 mountpoint="$work/mount"
 attached=false
+# WARNING: hdiutil -quiet closes stderr too, so a failed hdiutil step would print no reason.
 cleanup() {
     if [[ "$attached" == true ]]; then
         hdiutil detach "$mountpoint" -quiet || hdiutil detach "$mountpoint" -force -quiet || true
@@ -40,11 +42,11 @@ cleanup() {
 trap cleanup EXIT
 attach() {
     mkdir "$mountpoint"
-    hdiutil attach "$1" -readonly -nobrowse -noautoopen -mountpoint "$mountpoint" -quiet
+    hdiutil attach "$1" -readonly -nobrowse -noautoopen -mountpoint "$mountpoint" >/dev/null
     attached=true
 }
 detach() {
-    hdiutil detach "$mountpoint" -quiet
+    hdiutil detach "$mountpoint" >/dev/null
     attached=false
 }
 
@@ -111,7 +113,7 @@ ditto "$app" "$stage/Ciel.app"
 ln -s /Applications "$stage/Applications"
 cp "$work/background.tiff" "$stage/.background.tiff"
 cp "$layout" "$stage/.DS_Store"
-hdiutil create -srcfolder "$stage" -volname Ciel -fs HFS+ -format UDZO -imagekey zlib-level=9 -quiet "$work/Ciel.dmg"
+hdiutil create -srcfolder "$stage" -volname Ciel -fs HFS+ -format UDZO -imagekey zlib-level=9 "$work/Ciel.dmg" >/dev/null
 
 attach "$work/Ciel.dmg"
 codesign --verify --strict --deep "$mountpoint/Ciel.app" || fail 'Ciel.app in the disk image fails codesign --verify.'

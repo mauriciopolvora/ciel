@@ -36,6 +36,7 @@ step lint-paths bash scripts/lint/lint-paths.sh
 step check-lint-paths bash scripts/lint/check-lint-paths.sh
 step check-lint-commits bash scripts/lint/check-lint-commits.sh
 step check-cleanup-branches bash scripts/check-cleanup-branches.sh
+step check-dmg bash scripts/release/check-dmg.sh
 
 if [[ ${#failed[@]} -gt 0 ]]; then
     printf 'check-fast: failed: %s\n' "$(IFS=,; echo "${failed[*]}" | sed 's/,/, /g')" >&2
