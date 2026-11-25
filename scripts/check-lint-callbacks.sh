@@ -18,7 +18,7 @@ expect() {
 
 tree() {
     local root="$scratch/$1"
-    mkdir -p "$root/scripts" "$root/Sources/Ciel" "$root/Tests"
+    mkdir -p "$root/scripts" "$root/Sources/Ciel" "$root/Tests" "$(dirname "$root/$2")"
     cp scripts/lint-callbacks.sh "$root/scripts/"
     printf '%s\n' "$3" > "$root/$2"
     echo "$root"
@@ -43,7 +43,7 @@ i=0
 for call in "${calls[@]}"; do
     i=$((i + 1))
     expect 1 "call $i outside the wrapper: $call" "$(tree "call$i" "$other" "$call")"
-    expect 0 "call $i inside the wrapper: $call" "$(tree "wrapped$i" Sources/Ciel/OffMainCallbacks.swift "$call")"
+    expect 0 "call $i inside the wrapper: $call" "$(tree "wrapped$i" Sources/Ciel/App/OffMainCallbacks.swift "$call")"
 done
 expect 1 "a call in Tests" "$(tree tests Tests/MicrophoneTests.swift 'AVCaptureDevice.requestAccess(for: .audio) { _ in }')"
 expect 0 "a call in a comment" "$(tree comment "$other" '    // NSWorkspace.shared.openApplication(at: url)')"

@@ -44,11 +44,11 @@ mutate() {
         M1) swap Sources/CielCore/LauncherPlacement.swift 's/\bhorizontal\b/horizontalFraction/g' ;;
         M2) swap Sources/CielCore/WindowAction.swift 's/case maximize, /case maximize = "maximise"\n    case /' ;;
         M3)
-            swap Sources/Ciel/HotKeys.swift 's/let keyCode: UInt32/let code: UInt32/' &&
-                swap Sources/Ciel/HotKeys.swift 's/keyName\(keyCode\)/keyName(code)/' &&
-                swap Sources/Ciel/HotKeys.swift 's/rawValue: keyCode\)/rawValue: code)/' &&
-                swap Sources/Ciel/HotKeys.swift 's/Shortcut\(keyCode:/Shortcut(code:/g' &&
-                swap Sources/Ciel/HotKeys.swift 's/shortcut\.keyCode/shortcut.code/g'
+            swap Sources/Ciel/Shortcuts/HotKeys.swift 's/let keyCode: UInt32/let code: UInt32/' &&
+                swap Sources/Ciel/Shortcuts/HotKeys.swift 's/keyName\(keyCode\)/keyName(code)/' &&
+                swap Sources/Ciel/Shortcuts/HotKeys.swift 's/rawValue: keyCode\)/rawValue: code)/' &&
+                swap Sources/Ciel/Shortcuts/HotKeys.swift 's/Shortcut\(keyCode:/Shortcut(code:/g' &&
+                swap Sources/Ciel/Shortcuts/HotKeys.swift 's/shortcut\.keyCode/shortcut.code/g'
             ;;
         M4)
             swap Sources/CielCore/WindowAction.swift 's/bottomRight, minimize\n/bottomRight, minimize, leftThird\n/' &&
@@ -57,70 +57,70 @@ mutate() {
             ;;
         M5) swap Sources/CielCore/Search.swift 's/case settings, rescan/case settings = "preferences", rescan/' ;;
         M6)
-            swap Sources/Ciel/LauncherView.swift \
+            swap Sources/Ciel/Launcher/LauncherView.swift \
                 's/(insertTab\(_:\)\):\n\s+selectFilter\()filter == nil \? 1 : filter == \.application \? 2 : 0/${1}filter == nil ? 2 : filter == .application ? 0 : 1/' &&
-                swap Sources/Ciel/LauncherView.swift \
+                swap Sources/Ciel/Launcher/LauncherView.swift \
                     's/(insertBacktab\(_:\)\):\n\s+selectFilter\()filter == nil \? 2 : filter == \.application \? 0 : 1/${1}filter == nil ? 1 : filter == .application ? 2 : 0/'
             ;;
-        M7) swap Sources/Ciel/WindowOperationEngine.swift 's/(\.positionLimited\s*\}\n\s+return )\.applied/$1.sizeLimited/' ;;
-        M8) swap Sources/Ciel/AppIdentity.swift 's/"app\.mauriciopolvora\.ciel"/"app.mauriciopolvora.ciel-app"/' ;;
+        M7) swap Sources/Ciel/Windows/WindowOperationEngine.swift 's/(\.positionLimited\s*\}\n\s+return )\.applied/$1.sizeLimited/' ;;
+        M8) swap Sources/Ciel/App/AppIdentity.swift 's/"app\.mauriciopolvora\.ciel"/"app.mauriciopolvora.ciel-app"/' ;;
         M9)
             swap Sources/Ciel/Diagnostics/LaunchMode.swift \
                 's/\n\s+guard bundleIdentifier == AppIdentity\.checksBundleIdentifier else \{\n[^\n]*\n\s+\}//'
             ;;
         M10) swap Sources/Ciel/Diagnostics/LaunchMode.swift 's/default: return nil/default: self = .app/' ;;
         M11)
-            swap Sources/Ciel/AppCatalog.swift \
+            swap Sources/Ciel/Launcher/AppCatalog.swift \
                 's/canonicalRoots = roots\.map \{ CatalogPaths\.canonical\(\$0\.path\) \}/canonicalRoots = roots.map(\\.path)/g'
             ;;
-        M12) swap Sources/Ciel/HotKeys.swift 's/case \.window\(let action\): action\.id/case .window(let action): "win." + action.rawValue/' ;;
+        M12) swap Sources/Ciel/Shortcuts/HotKeys.swift 's/case \.window\(let action\): action\.id/case .window(let action): "win." + action.rawValue/' ;;
         M13)
-            swap Sources/Ciel/HotKeys.swift \
+            swap Sources/Ciel/Shortcuts/HotKeys.swift \
                 's/(registrations\[command\] != nil \{ return \}\n)\s+try register\(command, shortcut\)\n/$1/'
             ;;
         M14)
-            swap Sources/Ciel/WindowController.swift \
+            swap Sources/Ciel/Windows/WindowController.swift \
                 's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
             ;;
-        M15) swap Sources/Ciel/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
-        M16) swap Sources/Ciel/FrameSettle.swift 's/needsVisibilityCorrection, !isUnchanged, /needsVisibilityCorrection, /' ;;
-        M17) swap Sources/Ciel/FrameSettle.swift 's/(unchangedRetryDelay: TimeInterval = )0\.2\n/${1}0.25\n/' ;;
-        M18) swap Sources/Ciel/WindowOperationEngine.swift 's/try update\(window, from: settle\.last,/try update(window, from: original,/' ;;
-        M19) swap Sources/Ciel/FrameSettle.swift 's/tolerance: CGFloat = 3/tolerance: CGFloat = 2/' ;;
-        M20) swap Sources/Ciel/FrameSettle.swift 's/\n\s+guard Self\.matches\(last, retryFrame\) else \{ return \.keepPolling \}//' ;;
-        M21) swap Sources/Ciel/IconCache.swift 's/guard loads\[path\] === load else/guard loads[path] != nil else/' ;;
+        M15) swap Sources/Ciel/App/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
+        M16) swap Sources/Ciel/Windows/FrameSettle.swift 's/needsVisibilityCorrection, !isUnchanged, /needsVisibilityCorrection, /' ;;
+        M17) swap Sources/Ciel/Windows/FrameSettle.swift 's/(unchangedRetryDelay: TimeInterval = )0\.2\n/${1}0.25\n/' ;;
+        M18) swap Sources/Ciel/Windows/WindowOperationEngine.swift 's/try update\(window, from: settle\.last,/try update(window, from: original,/' ;;
+        M19) swap Sources/Ciel/Windows/FrameSettle.swift 's/tolerance: CGFloat = 3/tolerance: CGFloat = 2/' ;;
+        M20) swap Sources/Ciel/Windows/FrameSettle.swift 's/\n\s+guard Self\.matches\(last, retryFrame\) else \{ return \.keepPolling \}//' ;;
+        M21) swap Sources/Ciel/Launcher/IconCache.swift 's/guard loads\[path\] === load else/guard loads[path] != nil else/' ;;
         M22)
-            swap Sources/Ciel/IconCache.swift \
+            swap Sources/Ciel/Launcher/IconCache.swift \
                 's/\n(\s+)loadsInFlight -= 1\n(\s+defer \{ startQueuedLoads\(\) \}\n\s+guard loads\[path\] === load else \{ return \}\n)/\n$2$1loadsInFlight -= 1\n/'
             ;;
-        M23) swap Sources/Ciel/SpeechModelStore.swift 's/guard digest == model\.sha256 else/guard !digest.isEmpty else/' ;;
-        M24) swap Sources/Ciel/SpotlightGuide.swift 's/if spotlight\.owns\(shortcut\) \{/if false {/' ;;
+        M23) swap Sources/Ciel/Dictation/SpeechModelStore.swift 's/guard digest == model\.sha256 else/guard !digest.isEmpty else/' ;;
+        M24) swap Sources/Ciel/Onboarding/SpotlightGuide.swift 's/if spotlight\.owns\(shortcut\) \{/if false {/' ;;
         M25)
-            swap Sources/Ciel/SpotlightShortcuts.swift \
+            swap Sources/Ciel/Shortcuts/SpotlightShortcuts.swift \
                 's/guard let entry = saved\[id\] as\? \[String: Any\] else \{ return shipped \}/guard let entry = saved[id] as? [String: Any] else { return nil }/'
             ;;
         M26)
-            swap Sources/Ciel/SettingsController.swift \
+            swap Sources/Ciel/Settings/SettingsController.swift \
                 's/\n\s+launcher\.onRecord = \{ \[weak self\] shortcut in self\?\.spotlightGuide\.choose\(shortcut\) \}//'
             ;;
         M27)
-            swap Sources/Ciel/Dictation.swift \
+            swap Sources/Ciel/Dictation/Dictation.swift \
                 's/case \.downloading\(let fraction\): return \.downloading\(percent: Int\(fraction \* 100\)\)/case .downloading: return .notReady/'
             ;;
         M28)
-            swap Sources/Ciel/HotKeys.swift \
+            swap Sources/Ciel/Shortcuts/HotKeys.swift \
                 's/do \{ try register\(command, shortcut\) \} catch HotKeyError\.needsAccess \{\}/try register(command, shortcut)/'
             ;;
         M29)
-            swap Sources/Ciel/WindowOperationEngine.swift \
+            swap Sources/Ciel/Windows/WindowOperationEngine.swift \
                 's/= try leaveFullScreen\(window, check: budget\)\n/= try { () throws -> Bool in if try window.isFullScreen(timeout: budget.timeout()) { throw WindowError.fullScreen }; return false }()\n/'
             ;;
         M30)
-            swap Sources/Ciel/LauncherResults.swift \
+            swap Sources/Ciel/Launcher/LauncherResults.swift \
                 's/\n\s+override var interiorBackgroundStyle: NSView\.BackgroundStyle \{ \.normal \}//'
             ;;
-        M31) swap Sources/Ciel/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
-        M32) swap Sources/Ciel/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
+        M31) swap Sources/Ciel/Shortcuts/SpotlightShortcuts.swift 's/\.extension\?Spotlight"/.extension"/' ;;
+        M32) swap Sources/Ciel/Onboarding/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
         M33) swap Sources/CielCore/Search.swift 's/where pick\.query\.hasPrefix\(key\)/where pick.query == key/' ;;
     esac
 }

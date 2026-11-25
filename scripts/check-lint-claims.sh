@@ -22,7 +22,7 @@ expect() {
 }
 expect 'the repo as it is' 0 '' ':'
 expect 'a new network call' 1 'network README.md:' \
-    'printf "let (data, _) = try await URLSession.shared.data(from: url)\n" >>Sources/Ciel/Updater.swift'
+    'printf "let (data, _) = try await URLSession.shared.data(from: url)\n" >>Sources/Ciel/App/Updater.swift'
 expect 'a changed feed URL' 1 'network site/public/privacy.html:' \
     'edit "s#releases/latest/download#releases/download/beta#" Resources/Info.plist'
 expect 'a new architecture' 1 'arch README.md:' \
@@ -30,14 +30,14 @@ expect 'a new architecture' 1 'arch README.md:' \
 expect 'a changed architecture line' 1 'arch site/public/index.html:' \
     'edit "s/-thin arm64/-thin \"\$slice\"/" scripts/build.sh'
 expect 'a new full screen line' 1 'fullscreen README.md:' \
-    'printf "let fullScreen = false\n" >>Sources/Ciel/WindowOperationEngine.swift'
+    'printf "let fullScreen = false\n" >>Sources/Ciel/Windows/WindowOperationEngine.swift'
 expect 'a changed full screen line' 1 'fullscreen site/public/index.html:' \
-    'edit "s/try window.exitFullScreen(timeout: budget.timeout())/throw WindowError.fullScreen/" Sources/Ciel/WindowOperationEngine.swift'
+    'edit "s/try window.exitFullScreen(timeout: budget.timeout())/throw WindowError.fullScreen/" Sources/Ciel/Windows/WindowOperationEngine.swift'
 expect 'a new audio write' 1 'audio README.md:' \
-    'printf "try FileHandle(forWritingTo: url).write(contentsOf: data)\n" >>Sources/Ciel/Dictation.swift'
+    'printf "try FileHandle(forWritingTo: url).write(contentsOf: data)\n" >>Sources/Ciel/Dictation/Dictation.swift'
 expect 'a changed audio tap' 1 'audio site/public/privacy.html:' \
-    'edit "s/bufferSize: [0-9]*/bufferSize: 1/" Sources/Ciel/Dictation.swift'
-expect 'a comment' 0 '' 'printf "// URLSession and full screen\n" >>Sources/Ciel/Updater.swift'
+    'edit "s/bufferSize: [0-9]*/bufferSize: 1/" Sources/Ciel/Dictation/Dictation.swift'
+expect 'a comment' 0 '' 'printf "// URLSession and full screen\n" >>Sources/Ciel/App/Updater.swift'
 expect 'a version bump' 0 '' 'edit "s/exact: \"2\.[0-9.]*\"/exact: \"9.9.9\"/" Package.swift && ! grep -q "exact: \"2\." Package.swift'
 expect 'a lost quote' 1 'README.md no longer contains' \
     'grep -vF "It makes two kinds" README.md >"$scratch/readme" && mv "$scratch/readme" README.md'
@@ -46,11 +46,11 @@ expect 'a new Sparkle key' 1 'network site/public/privacy.html:' \
 expect 'a changed Sparkle setting' 1 'network README.md:' \
     'edit "s#<key>SUEnableAutomaticChecks</key><true/>#<key>SUEnableAutomaticChecks</key><false/>#" Resources/Info.plist'
 expect 'a system profile turned on' 1 'network site/public/privacy.html:' \
-    'edit "s/controller.updater.automaticallyChecksForUpdates = newValue/&; controller.updater.sendsSystemProfile = true/" Sources/Ciel/Updater.swift'
+    'edit "s/controller.updater.automaticallyChecksForUpdates = newValue/&; controller.updater.sendsSystemProfile = true/" Sources/Ciel/App/Updater.swift'
 expect 'a model download on a new path' 1 'network README.md:' \
-    'printf "func start(_ speech: SpeechModelStore) { speech.download() }\n" >>Sources/Ciel/SettingsController.swift'
+    'printf "func start(_ speech: SpeechModelStore) { speech.download() }\n" >>Sources/Ciel/Settings/SettingsController.swift'
 expect 'a Spaces call' 1 'spaces README.md:' \
-    'printf "let space = CGSGetActiveSpace(connection)\n" >>Sources/Ciel/WindowOperationEngine.swift'
+    'printf "let space = CGSGetActiveSpace(connection)\n" >>Sources/Ciel/Windows/WindowOperationEngine.swift'
 expect 'samples saved from a new file' 1 'audio site/public/index.html:' \
     'printf "func saveSample(_ clip: AudioClip) {}\n" >Sources/Ciel/AudioDiagnostics.swift'
 expect 'two fact names in one ledger line' 2 "unknown fact 'network arch'" \

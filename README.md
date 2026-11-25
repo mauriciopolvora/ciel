@@ -100,9 +100,8 @@ bash scripts/check.sh
 
 Native UI checks open temporary windows. They run only under a separate bundle identifier, so they keep your Ciel preferences unchanged. Unit tests need no Accessibility access. Run `bash scripts/check.sh --unit-only` for checks that do not open windows. The window check moves only its own temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally, and CI fails.
 
-- `Sources/Ciel`: the testable CielApp library, with AppKit UI, catalog, hotkeys, window controller, and settings.
+- `Sources/Ciel`: the testable CielApp library, one folder per feature: `App` (startup, preferences, design tokens, updates), `Launcher` (panel, results, app catalog, icons), `Windows`, `Dictation`, `Shortcuts` (hotkeys and Spotlight shortcuts), `Settings`, `Onboarding`, and `Diagnostics` (explicit native launcher, catalog, and window checks).
 - `Sources/CielMain`: the app executable entry point.
-- `Sources/Ciel/Diagnostics`: explicit native launcher, catalog, and window checks.
 - `Sources/CielCore`: search, usage history, app discovery, window geometry, and speech model state.
 - `Sources/CielBenchmarks`: release search benchmarks with JSON reports and configurable budgets.
 - `Tests/CielCoreTests`: discovered Swift Testing tests for core behavior.

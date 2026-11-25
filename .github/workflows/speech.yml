@@ -5,8 +5,8 @@ on:
     paths:
       - Sources/CielCore/LiveTranscript.swift
       - Sources/CielCore/Speech.swift
-      - Sources/Ciel/Dictation.swift
-      - Sources/Ciel/TranscribeCppTranscriber.swift
+      - Sources/Ciel/Dictation/Dictation.swift
+      - Sources/Ciel/Dictation/TranscribeCppTranscriber.swift
       - Tests/CielAppTests/SpeechBenchTests.swift
       - Package.swift
       - .github/workflows/speech.yml
