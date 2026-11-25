@@ -453,7 +453,8 @@ journey_settings() {
     wait_for 'AXWindow title="Ciel Settings"' 5 || fail "settings: Return on Ciel Settings did not open Ciel Settings."
     wait_gone 'Search apps and commands' 5 || fail "settings: Return on Ciel Settings did not close the launcher."
     step "settings: Return on the Ciel Settings command opens Ciel Settings"
-    click_button 'Ciel Settings' 'Keyboard Guide…'
+    click_button 'Ciel Settings' 'Keyboard Guide…' ||
+        fail_with_evidence settings-guide-missing "settings: cannot click Keyboard Guide… in Ciel Settings."
     wait_for 'AXWindow title="Ciel Keyboard Guide"' 5 ||
         fail_with_evidence settings-guide-missing "settings: Keyboard Guide… did not open Ciel Keyboard Guide."
     wait_for 'value="Change search category"' 5 ||
@@ -463,7 +464,8 @@ journey_settings() {
     close_window 'Ciel Keyboard Guide'
     wait_gone 'AXWindow title="Ciel Keyboard Guide"' 5 || fail "settings: the close button did not close Ciel Keyboard Guide."
     step "settings: Keyboard Guide… opens Ciel Keyboard Guide with the key list, and its close button closes it"
-    click_button 'Ciel Settings' 'About Ciel…'
+    click_button 'Ciel Settings' 'About Ciel…' ||
+        fail_with_evidence settings-about-missing "settings: cannot click About Ciel… in Ciel Settings."
     wait_for 'AXWindow title="About Ciel"' 5 ||
         fail_with_evidence settings-about-missing "settings: About Ciel… did not open About Ciel."
     snapshot settings-about >/dev/null
@@ -479,12 +481,14 @@ journey_onboarding() {
     snapshot onboarding >/dev/null
     shot onboarding >/dev/null
     step "onboarding: the first launch opens Set Up Ciel at Choose a shortcut"
-    click_button 'Set Up Ciel' 'Continue'
+    click_button 'Set Up Ciel' 'Continue' ||
+        fail_with_evidence onboarding-continue-missing "onboarding: cannot click Continue in Set Up Ciel."
     wait_for 'Search apps and commands|Allow window control' 5 ||
         fail_with_evidence onboarding-continue-missing "onboarding: Continue did not open the launcher or the Allow window control page."
     if ! ax_match 'Search apps and commands'; then
         step "onboarding: Continue opens Allow window control, because the Ciel copy has no Accessibility access"
-        click_button 'Set Up Ciel' 'Not Now'
+        click_button 'Set Up Ciel' 'Not Now' ||
+            fail_with_evidence onboarding-not-now-missing "onboarding: cannot click Not Now in Set Up Ciel."
         wait_for 'Search apps and commands' 5 || fail_with_evidence onboarding-not-now-missing "onboarding: Not Now did not open the launcher."
     fi
     wait_gone 'AXWindow title="Set Up Ciel"' 5 || fail "onboarding: Set Up Ciel is still open after the launcher opened."
