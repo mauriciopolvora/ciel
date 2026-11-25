@@ -9,6 +9,7 @@ jq -r --arg root "$2" '
     def pct: (.percent * 10 | round) / 10 | tostring + "%";
     def row($name): "| \($name) | \(.lines | pct) (\(.lines.covered)/\(.lines.count)) | \(.functions | pct) |";
     .data[0] as $data
+    | if ($data.files | length) == 0 then error("the coverage export lists no source files") else . end
     | "## Unit test coverage", "",
       "| File | Lines | Functions |", "| --- | ---: | ---: |",
       ($data.totals | row("**Total**")),
