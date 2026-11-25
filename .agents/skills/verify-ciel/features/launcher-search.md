@@ -25,7 +25,7 @@ Preconditions:
 - **Close.** Press Escape. Run `ciel-verify.sh press escape`, then `ciel-verify.sh wait-gone 'Search apps and commands' 5`. The launcher window is gone.
 - **Open.** Press the shortcut. Run `ciel-verify.sh press ctrl+opt+space`, then `ciel-verify.sh wait-for 'Search apps and commands' 5`. The search field is back.
 - **Match.** Type `left half`. Run `ciel-verify.sh type "left half"`, then `ciel-verify.sh wait-for 'Left Half' 5`. The tree lists a `Left Half` row.
-- **Category.** Press Tab three times. Run `ciel-verify.sh press tab` and `ciel-verify.sh wait-for 'Search category: Apps' 5`: the `Left Half` row is gone. A second Tab gives `Search category: Windows` and `Left Half` is back. A third gives `Search category: All`. The journey saves `launcher-search-windows.ax.txt`.
+- **Category.** Press Tab three times. Run `ciel-verify.sh press tab` and `ciel-verify.sh wait-for 'Search category: Apps' 5`: the `Left Half` row is gone. A second Tab gives `Search category: Windows` and `Left Half` is back. A third gives `Search category: All` with `Left Half` listed. The journey saves `launcher-search-windows.ax.txt`.
 - **No match.** Type `zzqx` after it. Run `ciel-verify.sh type zzqx`, then `ciel-verify.sh wait-for 'value="No matches"' 5`. The tree shows `No matches` and no `AXRow`.
 - **Proof.** `journey launcher-search` saves `launcher-search.ax.txt`, `launcher-search.png` and `launcher-search-no-match.ax.txt`.
 

@@ -21,7 +21,7 @@ Usage: ciel-verify.sh <command>
   doctor                  check that the instance is ours, alive and driveable.
   press <key>             press a key: ctrl+opt+space, escape, return, tab, down, up, cmd+comma.
   close <title>           click the close button of Ciel's window with that title.
-  click <title> <button>  press the button with that title in Ciel's window with that title.
+  click <title> <button>  click the button with that title in Ciel's window with that title.
   type <text>             type text into the focused field.
   snapshot <name>         write the accessibility tree of Ciel's windows to <name>.ax.txt and print it.
   shot <name>             write a screenshot to <name>.png.
@@ -221,7 +221,15 @@ click_button() {
     local pid
     guard_input click
     pid="$(ciel_pid)"
-    osa -l JavaScript "$here/press-button.js" "$pid" "$1" "$2" >/dev/null
+    osa -e 'on run argv' -e 'tell application "System Events" to tell (first process whose unix id is (item 1 of argv as integer))' \
+        -e 'click (first button of window (item 2 of argv) whose title is (item 3 of argv))' -e 'end tell' -e 'end run' \
+        "$pid" "$1" "$2" >/dev/null
+}
+
+fail_with_evidence() {
+    snapshot "$1" >/dev/null 2>&1 || true
+    shot "$1" >/dev/null 2>&1 || true
+    fail "$2 See $1.ax.txt and $1.png."
 }
 
 type_text() {
@@ -319,7 +327,8 @@ journey_launcher_search() {
     step "launcher-search: a second Tab switches to Windows, which lists Left Half again"
     press tab
     wait_for 'description="Search category: All"' 5 || fail "launcher-search: a third Tab did not switch the category back to All."
-    step "launcher-search: a third Tab switches back to All"
+    wait_for 'AXCell description="Left Half, ' 5 || fail "launcher-search: the All category does not list Left Half."
+    step "launcher-search: a third Tab switches back to All, which lists Left Half"
     type_text "zzqx"
     wait_for 'value="No matches"' 5 || fail "launcher-search: a query with no match does not say No matches."
     snapshot launcher-search-no-match >/dev/null
@@ -445,15 +454,18 @@ journey_settings() {
     wait_gone 'Search apps and commands' 5 || fail "settings: Return on Ciel Settings did not close the launcher."
     step "settings: Return on the Ciel Settings command opens Ciel Settings"
     click_button 'Ciel Settings' 'Keyboard Guide…'
-    wait_for 'AXWindow title="Ciel Keyboard Guide"' 5 || fail "settings: Keyboard Guide… did not open Ciel Keyboard Guide."
-    wait_for 'value="Change search category"' 5 || fail "settings: Ciel Keyboard Guide does not list the Tab key."
+    wait_for 'AXWindow title="Ciel Keyboard Guide"' 5 ||
+        fail_with_evidence settings-guide-missing "settings: Keyboard Guide… did not open Ciel Keyboard Guide."
+    wait_for 'value="Change search category"' 5 ||
+        fail_with_evidence settings-guide-missing "settings: Ciel Keyboard Guide does not list the Tab key."
     snapshot settings-guide >/dev/null
     shot settings-guide >/dev/null
     close_window 'Ciel Keyboard Guide'
     wait_gone 'AXWindow title="Ciel Keyboard Guide"' 5 || fail "settings: the close button did not close Ciel Keyboard Guide."
     step "settings: Keyboard Guide… opens Ciel Keyboard Guide with the key list, and its close button closes it"
     click_button 'Ciel Settings' 'About Ciel…'
-    wait_for 'AXWindow title="About Ciel"' 5 || fail "settings: About Ciel… did not open About Ciel."
+    wait_for 'AXWindow title="About Ciel"' 5 ||
+        fail_with_evidence settings-about-missing "settings: About Ciel… did not open About Ciel."
     snapshot settings-about >/dev/null
     close_window 'About Ciel'
     wait_gone 'AXWindow title="About Ciel"' 5 || fail "settings: the close button did not close About Ciel."
@@ -469,11 +481,11 @@ journey_onboarding() {
     step "onboarding: the first launch opens Set Up Ciel at Choose a shortcut"
     click_button 'Set Up Ciel' 'Continue'
     wait_for 'Search apps and commands|Allow window control' 5 ||
-        fail "onboarding: Continue did not open the launcher or the Allow window control page."
+        fail_with_evidence onboarding-continue-missing "onboarding: Continue did not open the launcher or the Allow window control page."
     if ! ax_match 'Search apps and commands'; then
         step "onboarding: Continue opens Allow window control, because the Ciel copy has no Accessibility access"
         click_button 'Set Up Ciel' 'Not Now'
-        wait_for 'Search apps and commands' 5 || fail "onboarding: Not Now did not open the launcher."
+        wait_for 'Search apps and commands' 5 || fail_with_evidence onboarding-not-now-missing "onboarding: Not Now did not open the launcher."
     fi
     wait_gone 'AXWindow title="Set Up Ciel"' 5 || fail "onboarding: Set Up Ciel is still open after the launcher opened."
     snapshot onboarding-done >/dev/null
@@ -509,6 +521,7 @@ launch)
 doctor) doctor ;;
 press) [[ $# -eq 1 ]] || usage; press "$1" ;;
 close) [[ $# -eq 1 ]] || usage; close_window "$1" ;;
+click) [[ $# -eq 2 ]] || usage; click_button "$1" "$2" ;;
 type) [[ $# -eq 1 ]] || usage; type_text "$1" ;;
 snapshot) [[ $# -eq 1 ]] || usage; snapshot "$1" ;;
 shot) [[ $# -eq 1 ]] || usage; shot "$1" ;;

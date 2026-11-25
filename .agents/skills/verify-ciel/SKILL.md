@@ -40,7 +40,7 @@ To drive by hand, launch, then use the same commands the journeys use. `press`, 
 | --- | --- |
 | `press ctrl+opt+space` | The launcher shortcut. Also `escape`, `return`, `tab`, `down`, `up`, `cmd+comma` |
 | `close 'Ciel Settings'` | Clicks the close button of that Ciel window. Settings has no Command-W: Ciel has no main menu |
-| `click 'Ciel Settings' 'Keyboard Guide…'` | Presses the button with that title in that Ciel window |
+| `click 'Ciel Settings' 'Keyboard Guide…'` | Clicks the button with that title in that Ciel window. A failed click step saves `<step>-missing.ax.txt` and `.png` |
 | `type "left half"` | Types into the focused field |
 | `wait-for 'Left Half' 5` | Waits up to 5 s for a read of the accessibility tree to match an extended regex |
 | `wait-gone 'Search apps and commands'` | Waits for a full read that no longer matches, such as the launcher closing. A failed read, or a tree with an `AXReadError` line, never counts as gone |

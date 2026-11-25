@@ -52,8 +52,8 @@ try {
   await page.screenshot({ path: evidence + "site-home.png" });
   pass("/ answers 200 with nosniff and shows the heading");
 
-  const hrefs = await page.locator('a[href*="/releases/"]').evaluateAll((links) => links.map((a) => a.href));
-  if (hrefs.length === 0 || hrefs.some((href) => href !== download)) fail("Download links are " + hrefs.join(", "));
+  const hrefs = await page.locator("a").filter({ hasText: "Download for Mac" }).evaluateAll((links) => links.map((a) => a.href));
+  if (hrefs.length !== 4 || hrefs.some((href) => href !== download)) fail("Download links are " + hrefs.join(", "));
   pass(hrefs.length + " Download links go to " + download);
 
   const input = page.locator("#demo-input");
@@ -97,13 +97,18 @@ try {
   pass("Tab cycles the demo category from All to Apps to Windows: " + (await chip.textContent()).trim());
 
   await input.press("Escape");
-  await expect("Escape closes the demo launcher and it opens again, empty", () => ready());
+  await expect("Escape closes the demo launcher", () =>
+    page.waitForFunction(() => document.querySelector("[data-launcher]").classList.contains("closed"), null, {
+      timeout: 800,
+    }),
+  );
+  await expect("the demo launcher opens again, empty", () => ready());
   await input.pressSequentially("calculator");
   await input.press("Enter");
   await expect("Return on Calculator opens it in the demo window", () =>
     page.waitForFunction(() => document.querySelector(".win-title [data-app-name]").textContent === "Calculator"),
   );
-  pass("Return on Calculator shows Calculator in the demo window");
+  pass("Escape closes the demo launcher, and Return on Calculator shows Calculator in the demo window");
 
   await page.locator('.nav-links a[href="#features"]').click();
   await expect("the Features link scrolls to the Features section", () =>

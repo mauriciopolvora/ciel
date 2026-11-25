@@ -1,12 +1,12 @@
 # Site
 
-The site in `site/` is a static Cloudflare Worker. Its home page has a launcher demo that answers typing, Tab, Return and Escape like the app, and four Download links to the latest release DMG. It runs on Linux, so this is the one recipe an agent host can run itself.
+The site in `site/` is a static Cloudflare Worker. Its home page has a launcher demo that answers typing, Tab, Return and Escape like the app, and four `Download for Mac` links to the latest release DMG. The recipe finds them by their text, so a link with a wrong address fails. It runs on Linux, so this is the one recipe an agent host can run itself.
 
 ## Sub-features
 
 - `site-home` answers 200 with `X-Content-Type-Options: nosniff` and shows the heading.
 - `site-download` points every Download link at the latest release DMG, and that link answers 200.
-- `site-demo` lists Left Half for `left half`, moves the demo window on Return, cycles the category with Tab, and opens Calculator.
+- `site-demo` lists Left Half for `left half`, moves the demo window on Return, cycles the category with Tab, closes on Escape, and opens Calculator.
 - `site-pages` opens Features, Privacy and the 404 page, and the phone menu at 390 points.
 
 ## How to get to it (user POV)

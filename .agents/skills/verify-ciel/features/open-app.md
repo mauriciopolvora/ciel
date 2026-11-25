@@ -27,5 +27,6 @@ Preconditions:
 
 ## Gotchas
 
+- The Rescan step proves that the command runs and shows its message. It does not prove that a newly installed app shows up.
 - TextEdit opens its Open dialog at launch. That is TextEdit's behavior, not a Ciel failure.
 - In CI, cleanup stops TextEdit by the pid the journey saved, after it checks that the pid still runs TextEdit. On your Mac it leaves TextEdit running and prints its pid, because the TextEdit that Return used can be one you opened.
