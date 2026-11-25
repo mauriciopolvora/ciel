@@ -1,3 +1,4 @@
+import AppKit
 import Carbon
 import CielCore
 import Foundation
@@ -219,6 +220,49 @@ struct HotKeysTests {
             hotKeys = nil
             #expect(registrar.liveShortcuts.isEmpty)
         }
+    }
+
+    @Test func aShortcutThatAnotherCommandUsesIsRefused() throws {
+        try withEmptyDefaults { defaults in
+            let registrar = FakeHotKeyRegistrar()
+            var pressed: [HotKeyCommand] = []
+            let hotKeys = HotKeys(
+                defaults: defaults, registrar: registrar, onPress: { pressed.append($0) }, onChange: {})
+            try hotKeys.update(.window(.maximize), to: f13)
+            let saved = defaults.data(forKey: "shortcuts")
+            #expect(throws: HotKeyError.duplicate) { try hotKeys.update(.window(.center), to: f13) }
+            registrar.press(f13)
+            #expect(pressed == [.window(.maximize)])
+            #expect(hotKeys.shortcut(for: .window(.center)) == nil)
+            #expect(defaults.data(forKey: "shortcuts") == saved)
+        }
+    }
+
+    private nonisolated static let recordedKeyPresses: [(NSEvent.ModifierFlags, Int, Int)] = [
+        ([.control, .option], kVK_Space, controlKey | optionKey),
+        ([.command, .shift], kVK_ANSI_A, cmdKey | shiftKey),
+        ([.control, .capsLock, .function], kVK_F13, controlKey),
+    ]
+
+    @Test(arguments: recordedKeyPresses)
+    func aKeyPressWithCommandControlOrOptionRecordsItsKeyAndModifiers(
+        flags: NSEvent.ModifierFlags, keyCode: Int, modifiers: Int
+    ) throws {
+        let expected = Shortcut(keyCode: UInt32(keyCode), modifiers: UInt32(modifiers))
+        #expect(Shortcut.from(try keyDown(keyCode, flags)) == expected)
+    }
+
+    @Test(arguments: [[], [.shift], [.shift, .capsLock]] as [NSEvent.ModifierFlags])
+    func aKeyPressWithoutCommandControlOrOptionRecordsNothing(flags: NSEvent.ModifierFlags) throws {
+        #expect(Shortcut.from(try keyDown(kVK_ANSI_A, flags)) == nil)
+    }
+
+    private func keyDown(_ keyCode: Int, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
+        let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false,
+            keyCode: UInt16(keyCode))
+        return try #require(event)
     }
 }
 

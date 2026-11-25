@@ -73,6 +73,19 @@ struct LaunchModeTests {
         #expect(resolved == .success(mode))
     }
 
+    @Test func anUnknownArgumentErrorNamesTheArgumentsAndTheCheckScript() {
+        let error = LaunchError.unknownArguments("--ui-tset")
+        #expect(error.description.contains("--ui-tset"))
+        #expect(error.description.contains("bash scripts/check.sh"))
+    }
+
+    @Test func aWrongIdentityErrorNamesBothIdentitiesAndTheCheckScript() {
+        let error = LaunchError.wrongIdentity(AppIdentity.bundleIdentifier)
+        #expect(error.description.contains("as \(AppIdentity.checksBundleIdentifier), not"))
+        #expect(error.description.contains("not \(AppIdentity.bundleIdentifier)"))
+        #expect(error.description.contains("bash scripts/check.sh"))
+    }
+
     private func checksBundleIdentifier() throws -> String {
         try #require(infoPlist()["CFBundleIdentifier"] as? String) + ".checks"
     }
