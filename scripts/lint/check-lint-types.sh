@@ -11,7 +11,7 @@ scratch="$(mktemp -d "$PWD/.build/check-lint-types.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 failures=0
 
-git ls-files -z -- 'tsconfig*.json' oxlint.config.ts site scripts/lint .agents/skills >"$scratch/listed"
+git ls-files -z -- 'tsconfig*.json' '*.[cm][jt]s' '*.[jt]s' '*.[jt]sx' '*package.json' scripts/lint/type-baseline.txt >"$scratch/listed"
 tar -cf "$scratch/repo.tar" --null -T "$scratch/listed"
 
 expect() {
@@ -47,10 +47,12 @@ expect 1 "a count above the errors" "Lower its count to 0" \
 expect 1 "a count raised over main" "The baseline only shrinks" \
     "printf '%s\n' '$error' >>scripts/lint/check-docs.mjs && printf '1 scripts/lint/check-docs.mjs\n' >>scripts/lint/type-baseline.txt"
 expect 1 "a line at 0" "expected <count> <path>" "printf '0 scripts/lint/check-docs.mjs\n' >>scripts/lint/type-baseline.txt"
-expect 1 "a path listed twice" "is listed again" "tail -1 scripts/lint/type-baseline.txt >>scripts/lint/type-baseline.txt"
+expect 1 "a path listed twice" "is listed again" "printf '1 scripts/lint/check-docs.mjs\\n1 scripts/lint/check-docs.mjs\\n' >>scripts/lint/type-baseline.txt"
 expect 1 "a file in no project" "in no project" "printf 'export {};\n' >scripts/new.mjs && git add scripts/new.mjs"
 expect 1 "a file dropped from its project" "in no project" \
     "sed -i.bak 's#\\.agents/skills/verify-ciel/scripts/\\*\\.js#.agents/skills/verify-ciel/scripts/window-frame.js#' tsconfig.jxa.json"
+expect 1 "a type error in a repo declaration" "lenis.d.ts has 1 type errors" \
+    "printf '%s\\n' 'type Missing = Absent;' >>scripts/lint/types/lenis.d.ts"
 expect 1 "a compiler that writes to stderr" "output on stderr" \
     "rm node_modules && mkdir -p node_modules/.bin && printf '#!/bin/sh\necho broken >&2\n' >node_modules/.bin/tsrs && chmod +x node_modules/.bin/tsrs"
 expect 1 "CI with no main" "cannot find the merge base" "git update-ref -d refs/remotes/origin/main" CI=1

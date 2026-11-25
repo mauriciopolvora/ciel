@@ -119,7 +119,7 @@ try {
   console.error("check-types: no origin/main, so this run does not compare the baseline with main.");
 }
 const atBase =
-  base && spawnSync("git", ["cat-file", "-e", `${base}:${baselineFile}`]).status === 0
+  base && execFileSync("git", ["ls-tree", "--name-only", base, "--", baselineFile], { encoding: "utf8" }) !== ""
     ? execFileSync("git", ["show", `${base}:${baselineFile}`], { encoding: "utf8" })
     : null;
 if (atBase !== null) {

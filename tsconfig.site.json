@@ -2,7 +2,8 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["es2024", "dom", "dom.iterable"],
-    "types": []
+    "types": [],
+    "skipLibCheck": false
   },
   "include": ["site/public/assets/site.js", "scripts/lint/types/lenis.d.ts"]
 }
