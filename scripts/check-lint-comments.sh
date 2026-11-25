@@ -206,6 +206,18 @@ unchanged_baseline "an --update above the current baseline"
 lint 1 "2 comment lines, and scripts/comment-baseline.txt allows 1"
 scratch_git reset -q --hard "$base"
 scratch_git mv "Sources/With Space.swift" Sources/Moved.swift
+lint 0 "" --update
+if [[ "$(cat "$repo/scripts/comment-baseline.txt")" != "2 Sources/Moved.swift" ]]; then
+    printf 'check-lint-comments: --update after git mv wrote:\n%s\n' "$(cat "$repo/scripts/comment-baseline.txt")" >&2
+    failed=1
+fi
+lint 0 ""
+scratch_git checkout -q -- scripts/comment-baseline.txt
+printf '// three\n' >>"$repo/Sources/Moved.swift"
+lint 1 "raises Sources/Moved.swift from 2 to 3" --update
+unchanged_baseline "an --update above the baseline after git mv"
+scratch_git reset -q --hard "$base"
+scratch_git mv "Sources/With Space.swift" Sources/Moved.swift
 printf '2 Sources/Moved.swift\n' >"$repo/scripts/comment-baseline.txt"
 lint 0 ""
 lint 0 "" --update

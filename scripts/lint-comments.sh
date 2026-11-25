@@ -72,7 +72,15 @@ validate() {
     ' "$2"
 }
 : >"$scratch/previous"
+: >"$scratch/moves"
 has_previous=0
+apply_moves() {
+    awk -F '\t' 'which == "moves" { to[$1] = $2; next }
+        { space = index($0, " "); path = substr($0, space + 1) }
+        { print (path in to) ? substr($0, 1, space) to[path] : $0 }' \
+        which=moves "$scratch/moves" which=rows "$1" >"$scratch/moved"
+    mv "$scratch/moved" "$1"
+}
 if [[ -n "$base" ]]; then
     git cat-file -e "$base^{commit}" 2>/dev/null ||
         fail "cannot read the base commit $base. Fetch it with git fetch --unshallow, or check out with fetch-depth: 0."
@@ -84,15 +92,10 @@ if [[ -n "$base" ]] && git cat-file -e "$base:$baseline" 2>/dev/null; then
     [[ -z "$errors" ]] || fail "$errors"$'\n'"Fix the baseline at the base commit, or set CIEL_COMMENT_BASE to a commit with a valid one."
     git diff -z -M --name-status --diff-filter=R "$base" -- '*.swift' >"$scratch/renames" ||
         broken "cannot list the files moved since $base with git diff."
-    : >"$scratch/moves"
     while IFS= read -r -d '' _ && IFS= read -r -d '' from && IFS= read -r -d '' to; do
         printf '%s\t%s\n' "$from" "$to" >>"$scratch/moves"
     done <"$scratch/renames"
-    awk -F '\t' 'which == "moves" { to[$1] = $2; next }
-        { space = index($0, " "); path = substr($0, space + 1) }
-        { print (path in to) ? substr($0, 1, space) to[path] : $0 }' \
-        which=moves "$scratch/moves" which=previous "$scratch/previous" >"$scratch/moved"
-    mv "$scratch/moved" "$scratch/previous"
+    apply_moves "$scratch/previous"
 fi
 
 cp "$baseline" "$scratch/stored" 2>/dev/null || : >"$scratch/stored"
@@ -100,6 +103,7 @@ errors="$(validate "$baseline" "$scratch/stored")"
 if [[ "$update" == 1 ]]; then
     has_current=0
     [[ ! -f "$baseline" || -n "$errors" ]] || has_current=1
+    apply_moves "$scratch/stored"
     awk -F '\t' '{ if (!($1 in count)) order[++files] = $1; count[$1]++ }
         END { for (f = 1; f <= files; f++) print count[order[f]], order[f] }' "$scratch/lines" >"$scratch/proposed"
     awk -v baseline="$baseline" '
