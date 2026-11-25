@@ -40,9 +40,6 @@ audio|Sources/Ciel/Dictation/TranscribeCppTranscriber.swift: func transcribe(_ c
 audio|Sources/Ciel/Dictation/TranscribeCppTranscriber.swift: private func run(_ clip: AudioClip) throws -> Transcript {
 audio|Sources/CielCore/Speech.swift: func transcribe(_ clip: AudioClip) async throws -> Transcript
 audio|Sources/CielCore/Speech.swift: public struct AudioClip: Sendable {
-fullscreen|Sources/Ciel/Windows/FrameSettle.swift: guard fullScreen == false, let frame else {
-fullscreen|Sources/Ciel/Windows/FrameSettle.swift: mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
-fullscreen|Sources/Ciel/Windows/FrameSettle.swift: struct FullScreenExit {
 fullscreen|Sources/Ciel/Windows/WindowAccessibility.swift: else { throw WindowError.fullScreen }
 fullscreen|Sources/Ciel/Windows/WindowAccessibility.swift: func exitFullScreen(timeout: TimeInterval) throws
 fullscreen|Sources/Ciel/Windows/WindowAccessibility.swift: func exitFullScreen(timeout: TimeInterval) throws {
@@ -76,6 +73,9 @@ fullscreen|Sources/Ciel/Windows/WindowOperationEngine.swift: try budget.pause(Fu
 fullscreen|Sources/Ciel/Windows/WindowOperationEngine.swift: try window.exitFullScreen(timeout: budget.timeout())
 fullscreen|Sources/Ciel/Windows/WindowOperationEngine.swift: var exit = FullScreenExit()
 fullscreen|Sources/Ciel/Windows/WindowOperationEngine.swift: var lastFullScreen = true
+fullscreen|Sources/CielCore/FrameSettle.swift: guard fullScreen == false, let frame else {
+fullscreen|Sources/CielCore/FrameSettle.swift: public mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
+fullscreen|Sources/CielCore/FrameSettle.swift: public struct FullScreenExit {
 network|Package.swift: "https://github.com/handy-computer/transcribe.cpp/releases/download/v*/TranscribeCpp.xcframework.zip",
 network|Package.swift: .package(url: "https://github.com/ordo-one/FuzzyMatch.git", exact: "*"),
 network|Package.swift: .package(url: "https://github.com/sparkle-project/Sparkle", exact: "*"),

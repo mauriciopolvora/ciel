@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-struct FrameSettle {
-    enum Decision: Equatable {
+public struct FrameSettle {
+    public enum Decision: Equatable {
         case matched
         case constrained
         case yieldForVisibilityCorrection
@@ -10,20 +10,20 @@ struct FrameSettle {
         case keepPolling
     }
 
-    static let settleInterval: TimeInterval = 0.12
-    static let unchangedRetryDelay: TimeInterval = 0.2
-    static let visibilityCorrectionReserve: TimeInterval = 0.05
+    public static let settleInterval: TimeInterval = 0.12
+    public static let unchangedRetryDelay: TimeInterval = 0.2
+    public static let visibilityCorrectionReserve: TimeInterval = 0.05
     static let tolerance: CGFloat = 3
 
     private let original: CGRect
     private let desired: CGRect
     private let visible: CGRect?
     private let started: TimeInterval
-    private(set) var last: CGRect
+    public private(set) var last: CGRect
     private var stableSince: TimeInterval
     private var retryFrame: CGRect?
 
-    init(original: CGRect, desired: CGRect, visible: CGRect?, first: CGRect, at now: TimeInterval) {
+    public init(original: CGRect, desired: CGRect, visible: CGRect?, first: CGRect, at now: TimeInterval) {
         self.original = original
         self.desired = desired
         self.visible = visible
@@ -32,9 +32,9 @@ struct FrameSettle {
         stableSince = now
     }
 
-    var isUnchanged: Bool { Self.matches(last, original) }
+    public var isUnchanged: Bool { Self.matches(last, original) }
 
-    func decide(now: TimeInterval, remaining: TimeInterval) -> Decision {
+    public func decide(now: TimeInterval, remaining: TimeInterval) -> Decision {
         if Self.matches(last, desired) { return .matched }
         guard now - stableSince >= Self.settleInterval else { return .keepPolling }
         guard let retryFrame else {
@@ -49,12 +49,12 @@ struct FrameSettle {
         return .keepPolling
     }
 
-    mutating func observe(_ frame: CGRect, at now: TimeInterval) {
+    public mutating func observe(_ frame: CGRect, at now: TimeInterval) {
         if !Self.matches(frame, last) { stableSince = now }
         last = frame
     }
 
-    mutating func retried(_ frame: CGRect, at now: TimeInterval) {
+    public mutating func retried(_ frame: CGRect, at now: TimeInterval) {
         last = frame
         retryFrame = frame
         stableSince = now
@@ -69,30 +69,32 @@ struct FrameSettle {
         return !Self.matches(last.origin, Self.reachableOrigin(last, in: visible))
     }
 
-    static func matches(_ actual: CGRect, _ desired: CGRect) -> Bool {
+    public static func matches(_ actual: CGRect, _ desired: CGRect) -> Bool {
         matches(actual.origin, desired.origin) && matches(actual.size, desired.size)
     }
-    static func matches(_ actual: CGPoint, _ desired: CGPoint) -> Bool {
+    public static func matches(_ actual: CGPoint, _ desired: CGPoint) -> Bool {
         abs(actual.x - desired.x) <= tolerance && abs(actual.y - desired.y) <= tolerance
     }
-    static func matches(_ actual: CGSize, _ desired: CGSize) -> Bool {
+    public static func matches(_ actual: CGSize, _ desired: CGSize) -> Bool {
         abs(actual.width - desired.width) <= tolerance && abs(actual.height - desired.height) <= tolerance
     }
-    static func reachableOrigin(_ frame: CGRect, in visible: CGRect) -> CGPoint {
+    public static func reachableOrigin(_ frame: CGRect, in visible: CGRect) -> CGPoint {
         CGPoint(
             x: max(visible.minX, min(frame.minX, visible.maxX - frame.width)),
             y: max(visible.minY, min(frame.minY, visible.maxY - frame.height)))
     }
 }
 
-struct FullScreenExit {
-    static let budget: TimeInterval = 1.5
-    static let pollInterval: TimeInterval = 0.03
+public struct FullScreenExit {
+    public static let budget: TimeInterval = 1.5
+    public static let pollInterval: TimeInterval = 0.03
 
     private var last: CGRect?
     private var stableSince: TimeInterval?
 
-    mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
+    public init() {}
+
+    public mutating func observe(fullScreen: Bool?, frame: CGRect?, at now: TimeInterval) -> Bool {
         guard fullScreen == false, let frame else {
             last = nil
             stableSince = nil

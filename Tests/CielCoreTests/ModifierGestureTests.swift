@@ -1,6 +1,6 @@
 import Testing
 
-@testable import CielApp
+@testable import CielCore
 
 struct ModifierGestureTests {
     private static let alone: [ModifierKey: UInt] = [

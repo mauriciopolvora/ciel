@@ -1,4 +1,5 @@
 import AppKit
+import CielCore
 import QuartzCore
 
 @MainActor final class DictationPill {
