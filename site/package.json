@@ -2,6 +2,7 @@
   "name": "ciel-site",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "dev": "cf dev",
     "predeploy": "bash check-downloads.sh && bash release-version.sh",
