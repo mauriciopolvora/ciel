@@ -42,5 +42,7 @@ Each rule names the check that fails when someone breaks it. `bash scripts/mutan
 | Swift code has no `as!`, except up to 4 CoreFoundation casts in `WindowAccessibility.swift` | `scripts/lint/lint-casts.sh` in `check-fast.sh`, and `scripts/lint/check-lint-casts.sh` |
 | Each `scripts/` path in a workflow, hook, script, skill or doc names a tracked file | `scripts/lint/lint-paths.sh` in `check-fast.sh`, and `scripts/lint/check-lint-paths.sh` |
 | Commits carry no trailers and no Co-authored-by lines. Dependabot may sign off its own commits | `scripts/lint/check-commits.sh` in the pre-push hook and on the pull request commits in CI, and `scripts/lint/check-lint-commits.sh` |
+| Commits carry no secrets | gitleaks on the staged changes in `.githooks/pre-commit`, on the pushed commits in the pre-push hook, and on the new commits of each pull request and push to main in CI |
+| Dependencies carry no high or critical advisory (CVSS 7.0 or more) | `scripts/lint/audit.sh` (osv-scanner on `Package.resolved`, `site/bun.lock` and the dmgbuild requirements) in the `check` job of `checks.yml`, and `scripts/lint/check-lint-audit.sh` |
 | A window or utility command with no verify recipe is listed in `VerifyRecipeTests`, and leaves the list when it gains one | `VerifyRecipeTests` |
 | Swift code holds no declaration that nothing uses. A property that only keeps a `Cleanup` or a dispatch source alive, and a `Codable` field, count as used | `scripts/lint/dead-code.sh` (periphery, settings in `.periphery.yml`) in the `dead-code` job of `checks.yml` |

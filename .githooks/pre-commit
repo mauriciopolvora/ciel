@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v gitleaks >/dev/null; then
+  echo "pre-commit: gitleaks is not installed. Install it (https://github.com/gitleaks/gitleaks#installing), then commit again." >&2
+  exit 1
+fi
+exec gitleaks git --pre-commit --staged --no-banner --redact .

@@ -16,7 +16,7 @@ step() {
     "$@" </dev/null || failed+=("$name")
 }
 
-step "shell syntax" bash scripts/lint/check-syntax.sh scripts/*.sh scripts/*/*.sh .agents/skills/*/scripts/*.sh .githooks/pre-push
+step "shell syntax" bash scripts/lint/check-syntax.sh scripts/*.sh scripts/*/*.sh .agents/skills/*/scripts/*.sh .githooks/pre-push .githooks/pre-commit
 step lint-shell bash scripts/lint/lint-shell.sh
 step check-lint-shell bash scripts/lint/check-lint-shell.sh
 step lint-colors bash scripts/lint/lint-colors.sh
@@ -37,6 +37,7 @@ step check-lint-paths bash scripts/lint/check-lint-paths.sh
 step check-lint-commits bash scripts/lint/check-lint-commits.sh
 step check-cleanup-branches bash scripts/check-cleanup-branches.sh
 step check-dmg bash scripts/release/check-dmg.sh
+step check-lint-audit bash scripts/lint/check-lint-audit.sh
 
 if [[ ${#failed[@]} -gt 0 ]]; then
     printf 'check-fast: failed: %s\n' "$(IFS=,; echo "${failed[*]}" | sed 's/,/, /g')" >&2

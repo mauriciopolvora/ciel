@@ -11,8 +11,8 @@ This file stays under 4 KB, and `CLAUDE.md` is a symlink to it. A rule that a ma
 
 ## Checks
 
-- `git config core.hooksPath .githooks` turns on `.githooks/pre-push` once per clone. It runs `scripts/check-fast.sh`, the comment lint on each pushed ref tip, then `scripts/lint/check-commits.sh` and gitleaks on the pushed commits. It fails when gitleaks is not installed. Never push with `--no-verify`.
-- `bash scripts/check-fast.sh` runs every check that needs no macOS and lists each one that failed. Agent hosts run Linux, so the Swift build, tests, format and mutants run only in CI.
+- `git config core.hooksPath .githooks` turns on the hooks once per clone. `pre-commit` runs gitleaks on staged changes. `pre-push` runs `scripts/check-fast.sh`, the comment lint on each pushed tip, then `scripts/lint/check-commits.sh` and gitleaks on pushed commits. Both fail without gitleaks. Never use `--no-verify`.
+- `bash scripts/check-fast.sh` runs every check that needs no macOS and lists each failure. Agent hosts run Linux, so the Swift build, tests, format and mutants run only in CI.
 - `bash scripts/check.sh` is the full check, and CI (`.github/workflows/checks.yml`) runs it on macOS. `--unit-only` stops before the app build. The window check needs Accessibility access for the app that runs it.
 - Format first: `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/release/GenerateDMGBackground.swift scripts/release/VerifyUpdate.swift Package.swift`. Run tests with `bash scripts/test.sh`, not bare `swift test`.
 - Never rerun a failed CI job to get it green. Reproduce the failure, then fix it.

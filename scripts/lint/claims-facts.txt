@@ -1,5 +1,6 @@
 arch|.github/workflows/checks.yml: CIEL_ARCH: arm64
 arch|.github/workflows/checks.yml: curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+arch|.github/workflows/checks.yml: curl -fsSL -o "$RUNNER_TEMP/osv-scanner" "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_darwin_arm64"
 arch|.github/workflows/checks.yml: lipo dist/Ciel.app/Contents/Frameworks/Sparkle.framework/Sparkle -verify_arch arm64
 arch|.github/workflows/checks.yml: test "$(lipo -archs dist/Ciel.app/Contents/Frameworks/CTranscribe.framework/CTranscribe)" = arm64
 arch|.github/workflows/checks.yml: test "$(lipo -archs dist/Ciel.app/Contents/MacOS/Ciel)" = arm64

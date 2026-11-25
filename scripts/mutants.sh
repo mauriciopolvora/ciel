@@ -2,6 +2,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root="$PWD"
+shard=1
+shards=1
+if [[ $# -eq 2 && "$1" == --shard && "$2" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] && ((BASH_REMATCH[1] <= BASH_REMATCH[2])); then
+    shard=${BASH_REMATCH[1]}
+    shards=${BASH_REMATCH[2]}
+elif [[ $# -ne 0 ]]; then
+    printf 'Usage: bash scripts/mutants.sh [--shard <n>/<total>]\nWith --shard, runs every mutant whose 0-based index modulo <total> is <n> - 1.\n' >&2
+    exit 64
+fi
 
 mutants=(
     "M1|Rename a LauncherPlacement field"
@@ -157,7 +166,9 @@ fi
 
 failures=0
 printf '| Mutant | Mistake | Result |\n| --- | --- | --- |\n'
-for entry in "${mutants[@]}"; do
+for index in "${!mutants[@]}"; do
+    ((index % shards == shard - 1)) || continue
+    entry="${mutants[index]}"
     id="${entry%%|*}"
     touched=()
     if ! mutate "$id"; then
