@@ -39,6 +39,8 @@ expect 1 "a HIGH advisory with no score" 1 "$(finding '' '{"severity":"HIGH"}')"
 expect 1 "a critical advisory in lower case" 1 "$(finding '' '{"severity":"critical"}')"
 expect 2 "a scanner error" 127 '{}'
 expect 2 "no packages found" 128 '{}'
+expect 2 "an empty report with advisories found" 1 ''
+expect 2 "a report with no results list" 0 '{}'
 
 if [[ "$failures" -gt 0 ]]; then
     printf 'check-lint-audit: %s cases failed\n' "$failures" >&2

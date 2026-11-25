@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   check:
@@ -52,6 +52,9 @@ jobs:
           # WARNING: gitleaks exits 0 on a range git cannot read, so check the range first.
           git rev-list "${range[@]}" >/dev/null
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="${range[*]} -m" .
+      - name: Fail when Package.resolved does not match Package.swift
+        if: ${{ !cancelled() }}
+        run: swift package resolve --force-resolved-versions
       - name: Fail on a high or critical advisory in a dependency
         if: ${{ !cancelled() }}
         env:

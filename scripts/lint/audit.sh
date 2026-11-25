@@ -15,6 +15,10 @@ if [[ $status -ne 0 && $status -ne 1 ]]; then
     printf 'audit.sh: osv-scanner exited %d, so the audit did not run.\n' "$status" >&2
     exit 2
 fi
+if ! jq -e '.results | type == "array"' "$report" >/dev/null 2>&1; then
+    printf 'audit.sh: osv-scanner wrote no JSON report with a results list, so the audit did not run.\n' >&2
+    exit 2
+fi
 
 high="$(jq -r '
   [.results[]?.packages[]? | . as $p | .groups[]?
