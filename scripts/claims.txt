@@ -26,7 +26,6 @@ arch|site/public/index.html|"processorRequirements": "Apple silicon"
 arch|site/public/index.html|macOS 14 or later · Apple silicon · Free and MIT licensed
 arch|site/public/index.html|macOS 14 or later · Apple silicon · Signed and notarized
 arch|site/public/index.html|It does not run on Intel Macs.
-arch|docs/architecture-plan.md|an Apple silicon build
 arch|docs/releasing.md|Ciel runs on Apple Silicon only
 arch|docs/releasing.md|keeps only its arm64 slice
 fullscreen|README.md|A command on a full screen window first takes it out of full screen

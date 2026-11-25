@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/app-icon.png" width="112" alt="Ciel cloud painting icon"></p>
+<p align="center"><img src="assets/app-icon.png" width="112" alt="Ciel cloud painting icon"></p>
 
 # Ciel
 
@@ -10,11 +10,11 @@ Website: [cielmac.app](https://cielmac.app)
 
 Ciel uses Swift and AppKit. It runs locally, with no account, server, or analytics. It makes two kinds of network request: the speech model download you start in Settings, and app updates. The interface stays black in both macOS light and dark appearance. Its icon is an original Monet-inspired cloud painting.
 
-![Ciel opens as a blank black input box](docs/launcher-empty.png)
+![Ciel opens as a blank black input box](assets/launcher-empty.png)
 
 Results appear after you type. Clearing the input returns to the empty box.
 
-![Ciel search results](docs/launcher-search.png)
+![Ciel search results](assets/launcher-search.png)
 
 ## Build and install
 
@@ -58,7 +58,7 @@ The cloud icon in the menu bar provides Settings, Keyboard Guide, Window Shortcu
 
 To hide the cloud icon, turn off **Settings → Show menu bar icon**. This takes effect immediately and stays off after restart. Open the launcher and press **Command–Comma** to return to Settings and show the icon again. You can also open Ciel from Applications if the launcher shortcut is unavailable.
 
-![Ciel settings](docs/settings-dark.png)
+![Ciel settings](assets/settings-dark.png)
 
 ## Window commands
 
@@ -84,7 +84,7 @@ The model is a 550 MB download. Ciel checks its size and SHA-256 against pinned 
 
 ## Privacy and resource use
 
-Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
+Preferences and launch history are stored in the `app.mauriciopolvora.ciel` defaults domain. Launch history includes your newest 500 picks: the text you typed and the result you chose. The app catalog is cached at `~/Library/Caches/app.mauriciopolvora.ciel/apps.json`.
 
 Ciel makes two kinds of network request: the speech model download and app updates. The speech model download starts only when you choose **Download** in Settings. App updates are checks and downloads from Ciel's GitHub releases. A check fetches the appcast about once a day and sends only the Ciel and Sparkle versions. An update downloads when you choose to install it, or without asking after you turn on automatic installs. Turn automatic checks off with **Settings → Automatically check for updates**, or check by hand with **Check for Updates…** in the menu bar. Dictated audio stays in memory on your Mac and is never saved or sent anywhere.
 
@@ -108,14 +108,15 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `Tests/CielCoreTests`: discovered Swift Testing tests for core behavior.
 - `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
 - `Resources`: app metadata, artwork, and dependency notices.
+- `assets`: images for the README and the design system.
 - `scripts`: build, install, checks, and notarized release packaging.
 - `site`: the [cielmac.app](https://cielmac.app) landing page, a static Cloudflare Worker. Deploy it with `cd site && bun install --frozen-lockfile && bun run deploy`. The deploy also needs Node.js 22.23 or later on the `PATH`, because wrangler loads its config with Node.
 
 Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/VerifyUpdate.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
 
-Swift 6 checks actor ownership and values that cross worker boundaries. Search and native performance reports are saved under `.build/performance`. For benchmark options and measurement limits, see the [architecture plan](docs/architecture-plan.md).
+Swift 6 checks actor ownership and values that cross worker boundaries. Search and native performance reports are saved under `.build/performance`. Compare search speed with a passing report from the same Mac and toolchain, saved apart from the current output: `bash scripts/benchmark.sh --baseline .build/performance/previous-search-engine.json`. `bash scripts/benchmark.sh --help` lists the other options.
 
-See [contributing](CONTRIBUTING.md), [design system](docs/design-system.md), and [verification](docs/verification.md).
+See [contributing](CONTRIBUTING.md) and [design system](docs/design-system.md).
 
 ## License
 
