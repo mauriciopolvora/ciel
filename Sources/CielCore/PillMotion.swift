@@ -158,8 +158,6 @@ public struct TranscriptLayout {
         width = ceil(widths.max() ?? 0)
     }
 
-    public var height: CGFloat { CGFloat(lines.count) * Self.lineHeight }
-
     public static func start(of width: CGFloat, in space: CGFloat) -> CGFloat { (space - width) / 2 }
 }
 
