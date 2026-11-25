@@ -241,6 +241,7 @@ struct HotKeysTests {
     private nonisolated static let recordedKeyPresses: [(NSEvent.ModifierFlags, Int, Int)] = [
         ([.control, .option], kVK_Space, controlKey | optionKey),
         ([.command, .shift], kVK_ANSI_A, cmdKey | shiftKey),
+        ([.command], kVK_ANSI_A, cmdKey),
         ([.option], kVK_ANSI_A, optionKey),
         ([.control, .capsLock, .function], kVK_F13, controlKey),
     ]
