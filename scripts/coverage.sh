@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd -P "$(dirname "$0")/.."
 [[ $# -eq 0 ]] || {
     printf 'Usage: bash scripts/coverage.sh\nRuns the unit tests with code coverage and writes .build/coverage/summary.md, report.txt and html/.\n' >&2
     exit 64
