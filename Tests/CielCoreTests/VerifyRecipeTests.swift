@@ -5,10 +5,10 @@ import Testing
 @Suite struct VerifyRecipeTests {
     private static let commandsWithoutARecipe: Set<String> = [
         "window.rightHalf", "window.firstThreeFourths", "window.lastThreeFourths",
-        "window.centerThreeFourths", "window.maximize", "window.almostMaximize", "window.center",
-        "window.nextDisplay", "window.previousDisplay", "window.restore", "window.topHalf",
-        "window.bottomHalf", "window.topLeft", "window.topRight", "window.bottomLeft",
-        "window.bottomRight", "window.minimize", "settings", "rescan",
+        "window.centerThreeFourths", "window.almostMaximize", "window.center",
+        "window.nextDisplay", "window.previousDisplay", "window.topHalf", "window.bottomHalf",
+        "window.topLeft", "window.topRight", "window.bottomLeft", "window.bottomRight",
+        "window.minimize",
     ]
 
     private static var commands: [(id: String, title: String)] {

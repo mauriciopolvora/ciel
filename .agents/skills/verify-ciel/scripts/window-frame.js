@@ -34,16 +34,17 @@ function run(argv) {
     const compare = expected === undefined ? best : Number(expected);
     if (!(compare >= 0 && compare < screens.length)) throw new Error("no screen with index " + expected);
     const visible = screens[compare].visible;
-    const leftHalf =
+    const fills = (share) =>
         best === compare &&
         near(x, visible.x) &&
         near(y, visible.y) &&
-        near(width, visible.width / 2) &&
+        near(width, visible.width * share) &&
         near(height, visible.height);
     return [
         "window " + [x, y, width, height].join(" "),
         "screen " + best,
         "visible " + [visible.x, visible.y, visible.width, visible.height].join(" "),
-        "left-half " + (leftHalf ? "yes" : "no"),
+        "left-half " + (fills(0.5) ? "yes" : "no"),
+        "maximized " + (fills(1) ? "yes" : "no"),
     ].join("\n");
 }

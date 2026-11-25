@@ -7,7 +7,7 @@ description: Drives the real Ciel macOS app the way a user does (the launcher sh
 
 Ciel is a menu bar launcher for macOS. A user presses Control-Option-Space, types, and presses Return to open an app or run a window command. This skill drives a disposable copy of the built app through those keys with System Events, reads Ciel's windows through the accessibility tree, and saves the proof.
 
-Every command below runs from the repo root on a Mac. Agent hosts run Linux: there, this skill runs only in CI, where the `Drive the built app with verify-ciel` step of `.github/workflows/checks.yml` runs `journey all` and uploads the `Ciel-verify-evidence` artifact.
+Every command below runs from the repo root on a Mac. Agent hosts run Linux: there, the app journeys run only in CI, where the `Drive the built app with verify-ciel` step of `.github/workflows/checks.yml` runs `journey all` and uploads the `Ciel-verify-evidence` artifact. The site recipe, [features/site.md](features/site.md), runs on Linux.
 
 ## Launch
 
@@ -32,7 +32,7 @@ One feature end to end, with launch, doctor and cleanup included:
 bash .agents/skills/verify-ciel/scripts/ciel-verify.sh journey launcher-search
 ```
 
-The features are `launcher-search`, `open-app`, `window-commands`, `settings` and `onboarding`. `journey all` runs each one in a new instance. Every step prints a `PASS` line. The first failure prints one `FAIL` line, exits 1, and still cleans up.
+The app features are `launcher-search`, `open-app`, `window-commands`, `settings` and `onboarding`. `journey all` runs each one in a new instance. Every step prints a `PASS` line. The first failure prints one `FAIL` line, exits 1, and still cleans up.
 
 To drive by hand, launch, then use the same commands the journeys use. `press`, `type` and `close` refuse to send input when the copy is not running or another Ciel runs, so the keys never drive the installed Ciel:
 
@@ -40,13 +40,14 @@ To drive by hand, launch, then use the same commands the journeys use. `press`, 
 | --- | --- |
 | `press ctrl+opt+space` | The launcher shortcut. Also `escape`, `return`, `tab`, `down`, `up`, `cmd+comma` |
 | `close 'Ciel Settings'` | Clicks the close button of that Ciel window. Settings has no Command-W: Ciel has no main menu |
+| `click 'Ciel Settings' 'Keyboard Guide…'` | Clicks the button with that title in that Ciel window. A failed click step saves `<step>-missing.ax.txt` and `.png` |
 | `type "left half"` | Types into the focused field |
 | `wait-for 'Left Half' 5` | Waits up to 5 s for a read of the accessibility tree to match an extended regex |
 | `wait-gone 'Search apps and commands'` | Waits for a full read that no longer matches, such as the launcher closing. A failed read, or a tree with an `AXReadError` line, never counts as gone |
 | `snapshot <name>` | Saves and prints the accessibility tree |
 | `shot <name>` | Saves a screenshot of the whole screen |
 
-Assert on the accessibility labels Ciel sets, never on coordinates or row order. The search field is `Search apps and commands`, the result list is `Search results`, each result row is `<title>, <subtitle>`, and the category button is `Search category: <name>`. Window titles are `Ciel` (the launcher), `Ciel Settings`, `Window Shortcuts` and `Set Up Ciel`. [features/README.md](features/README.md) maps each feature to its recipe.
+Assert on the accessibility labels Ciel sets, never on coordinates or row order. The search field is `Search apps and commands`, the result list is `Search results`, each result row is `<title>, <subtitle>`, and the category button is `Search category: <name>`. Window titles are `Ciel` (the launcher), `Ciel Settings`, `Ciel Keyboard Guide`, `About Ciel`, `Window Shortcuts` and `Set Up Ciel`. [features/README.md](features/README.md) maps each feature to its recipe.
 
 ## Evidence
 
@@ -65,3 +66,4 @@ A proof drives the user path: the shortcut, the keys and the visible result. It 
 - The accessibility tree treats an attribute it cannot read as empty. A `wait-gone` on a label can pass when only that label fails to read. Read the saved tree when a pass looks wrong.
 - `journey open-app` fails at once when TextEdit is already running, because then it cannot prove that Return opened it. Quit TextEdit first.
 - Dictation needs a microphone and the 600 MB speech model, so no journey covers it. The native checks in `check.sh` cover its pill and the press before the model is ready.
+- No journey opens the menu bar icon's menu, so Window Shortcuts, License Notices and the other menu items stay unproven here.
