@@ -37,6 +37,9 @@ expect 1 "a comment in a hook" .githooks/pre-push $'#!/usr/bin/env bash\n'"$hash
 expect 1 "a comment in site shell" site/check.sh "$hash note"
 expect 0 "a WARNING line" scripts/a.sh "$hash WARNING: git quotes odd names without -z."
 expect 1 "a warning that is not at the start" scripts/a.sh "$hash note, WARNING: x"
+expect 1 "a WARNING with no colon" scripts/a.sh "$hash WARNING git quotes odd names."
+expect 1 "a lowercase warning" scripts/a.sh "$hash warning: git quotes odd names."
+expect 1 "a shellcheck word with no directive" scripts/a.sh "$hash shellcheckdisable=SC2086"
 expect 1 "a #! line after the first" scripts/a.sh $'echo hi\n'"$hash"'! note'
 expect 0 "a shellcheck directive" scripts/a.sh "$hash shellcheck disable=SC2086"
 expect 0 "a hash in quotes" scripts/a.sh $'echo "'"$hash"$' not a comment" \'a '"$hash"$' b\''
