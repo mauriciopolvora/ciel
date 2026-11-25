@@ -124,7 +124,7 @@ mutate() {
         M32) swap Sources/Ciel/Onboarding/SpotlightGuide.swift 's/\n\s+companion\.show\(\)//' ;;
         M33) swap Sources/CielCore/Search.swift 's/where pick\.query\.hasPrefix\(key\)/where pick.query == key/' ;;
         M34)
-            swap Tests/CielAppTests/WaitUntil.swift \
+            swap Tests/CielAppTests/Support/WaitUntil.swift \
                 's/for _ in 0\.\.<polls \{\n\s+if condition\(\) \{ return \}\n(\s+try await Task\.sleep\(for: \.milliseconds\(1\)\)\n)\s+\}\n\s+guard condition\(\) else \{ throw WaitTimedOut\(\) \}/let deadline = ContinuousClock.now.advanced(by: .milliseconds(polls))\n    while !condition() {\n        guard ContinuousClock.now < deadline else { throw WaitTimedOut() }\n$1    }/'
             ;;
     esac

@@ -105,7 +105,7 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 - `Sources/CielCore`: search, usage history, app discovery, window geometry, and speech model state.
 - `Sources/CielBenchmarks`: release search benchmarks with JSON reports and configurable budgets.
 - `Tests/CielCoreTests`: discovered Swift Testing tests for core behavior.
-- `Tests/CielAppTests`: launcher state, icon loading, catalog, window adapter, and performance budget tests.
+- `Tests/CielAppTests`: app tests, in the same feature folders as `Sources/Ciel`, and shared test helpers in `Support`.
 - `Resources`: app metadata, artwork, and dependency notices.
 - `assets`: images for the README and the design system.
 - `scripts`: build, install, checks, and notarized release packaging.

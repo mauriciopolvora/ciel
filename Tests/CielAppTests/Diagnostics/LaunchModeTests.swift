@@ -74,10 +74,6 @@ struct LaunchModeTests {
     }
 
     private func checksBundleIdentifier() throws -> String {
-        let plist = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Resources/Info.plist")
-        let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil)
-        return try #require((info as? [String: Any])?["CFBundleIdentifier"] as? String) + ".checks"
+        try #require(infoPlist()["CFBundleIdentifier"] as? String) + ".checks"
     }
 }
