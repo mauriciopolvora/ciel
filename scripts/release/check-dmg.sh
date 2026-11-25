@@ -39,7 +39,7 @@ expect "hdiutil create failing on every attempt" 17 '^hdiutil create failed on a
     tiffutil 'while [ $# -gt 1 ]; do [ "$1" = -out ] && : >"$2"; shift; done' \
     ditto 'mkdir -p "$2"' \
     plutil 'case $2 in iconSize) echo 128.000000 ;; textSize) echo 13.000000 ;; backgroundType) echo 2 ;; *) echo alias ;; esac' \
-    base64 "printf '\\000\\025Ciel:.background.tiff\\000'"
+    base64 "cat >/dev/null; printf '\\000\\025Ciel:.background.tiff\\000'"
 
 if [[ "$failures" -gt 0 ]]; then
     exit 1
