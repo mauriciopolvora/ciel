@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-tokens=Sources/Ciel/DesignSystem.swift
+tokens=Sources/Ciel/App/DesignSystem.swift
 files=()
 while IFS= read -r file; do files+=("$file"); done < <(find Sources -name '*.swift' ! -path "$tokens" | sort)
 

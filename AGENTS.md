@@ -6,7 +6,7 @@ This file stays under 4 KB (`scripts/check-docs.mjs`), and `CLAUDE.md` is a syml
 
 ## Layout
 
-- `Sources/CielCore`: search, ranking, usage history, speech and window geometry, with no AppKit. `Sources/Ciel`: the app. `Sources/CielMain`: the entry point. `Sources/CielBenchmarks`: the search benchmark.
+- `Sources/CielCore`: search, ranking, usage history, speech and window geometry, with no AppKit. `Sources/Ciel`: the app, by feature. `Sources/CielMain`: the entry point. `Sources/CielBenchmarks`: the search benchmark.
 - `Tests`: Swift Testing suites. `scripts`: build, release and checks. `site`: the website, a Cloudflare Worker. `docs`: design, artwork and release notes, and the rules table.
 
 ## Checks

@@ -2,7 +2,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-wrapper=Sources/Ciel/OffMainCallbacks.swift
+wrapper=Sources/Ciel/App/OffMainCallbacks.swift
 apis='openApplication[(]|[.]requestAccess[(]|requestAuthorization[(]|completionHandler|installTap[(]'
 apis="$apis|runAnimationGroup|getNotificationSettings"
 apis="$apis|(data|download|upload)Task[(]"

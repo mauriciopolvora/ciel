@@ -27,8 +27,8 @@ facts() {
     probe fullscreen '[Ff]ull[Ss]creen([^A]|$)' "${swift[@]}"
     probe spaces 'SLS[A-Z]|CGS[A-Za-z]*Space|[Ss]pace(ID|Id|s?For)|[Aa]ctiveSpace' "${swift[@]}"
     probe audio 'AVAudioFile|AVAudioRecorder|ExtAudioFile|AudioFileCreate|installTap|OffMainCallbacks\.tap|FileHandle|FileManager|createFile|\.write\(|fopen|fwrite|UserDefaults' \
-        Sources/Ciel/Dictation.swift Sources/Ciel/TranscribeCppTranscriber.swift Sources/CielCore/LiveTranscript.swift \
-        Sources/CielCore/Speech.swift Sources/Ciel/OffMainCallbacks.swift
+        Sources/Ciel/Dictation/Dictation.swift Sources/Ciel/Dictation/TranscribeCppTranscriber.swift Sources/CielCore/LiveTranscript.swift \
+        Sources/CielCore/Speech.swift Sources/Ciel/App/OffMainCallbacks.swift
     probe audio 'AudioClip|AVAudioPCMBuffer' "${swift[@]}"
 }
 live=$(facts) || exit 2
