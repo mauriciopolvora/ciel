@@ -1,8 +1,7 @@
 #!/bin/bash
-# Proves that lint-shell.sh fails each bash -n or sh -n call, and that check-syntax.sh checks every file it gets.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# A hook sets GIT_DIR and other git variables. Unset them, so the scratch repo below never writes to the real one.
+# WARNING: a hook sets GIT_DIR and other git variables, which would point the scratch repo at the real one.
 unset $(git rev-parse --local-env-vars)
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
@@ -86,7 +85,6 @@ cp scripts/lint-shell.sh scripts/check-syntax.sh "$repo/scripts/"
 printf 'echo ok\n' > "$repo/site/ação.sh"
 printf 'echo ok\n' > "$repo/site/a\"b.sh"
 git -C "$repo" init -q
-# -f adds a file that a global ignore rule matches.
 git -C "$repo" add -f -A
 expect 0 bash "$repo/scripts/lint-shell.sh"
 for tracked in site/tool.sh .github/workflows/test.yaml .githooks/pre-commit .agents/skills/x/scripts/run.sh; do

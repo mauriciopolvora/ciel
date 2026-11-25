@@ -2,12 +2,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 sign_update=.build/artifacts/sparkle/Sparkle/bin/sign_update
-# macOS ships LibreSSL, which cannot create Ed25519 keys.
+# WARNING: macOS ships LibreSSL, which cannot create Ed25519 keys.
 openssl="$(brew --prefix openssl@3)/bin/openssl"
 work="$(mktemp -d "$PWD/.build/appcast-check.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 fail() { printf 'Appcast check: %s\n' "$1" >&2; exit 1; }
-# A throwaway key made the same way as the release key: its 32 byte Ed25519 seed, which sign_update reads.
+# WARNING: sign_update reads the 32 byte Ed25519 seed, so the test key is made the same way as the release key.
 umask 077
 "$openssl" genpkey -algorithm ed25519 -outform DER -out "$work/key.der"
 printf 'SPARKLE_PRIVATE_ED_KEY=%s\n' "$(tail -c 32 "$work/key.der" | base64)" >"$work/key.env"

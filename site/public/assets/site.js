@@ -3,13 +3,11 @@
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* Smooth scroll: wheel and anchor jumps glide to a stop instead of stepping */
 
 const lenis = reduceMotion
   ? null
   : new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - 2 ** (-10 * t)), autoRaf: true, anchors: true });
 
-/* Scroll reveal */
 
 const revealer = new IntersectionObserver(
   (entries) => {
@@ -23,7 +21,6 @@ const revealer = new IntersectionObserver(
 );
 document.querySelectorAll(".reveal").forEach((el) => revealer.observe(el));
 
-/* Navigation */
 
 const burger = document.querySelector(".burger");
 const menu = document.getElementById("menu");
@@ -71,7 +68,6 @@ const sectionSpy = new IntersectionObserver(
 );
 document.querySelectorAll("main section").forEach((section) => sectionSpy.observe(section));
 
-/* Tagline: words light up one at a time in reading order as the block scrolls past */
 
 const tagline = document.querySelector("[data-words]");
 if (tagline) {
@@ -104,7 +100,6 @@ if (tagline) {
   }
 }
 
-/* Window commands, with the same geometry as WindowAction.swift */
 
 const WINDOW_COMMANDS = [
   ["Left Half", [0, 0, 0.5, 1]],
@@ -180,7 +175,6 @@ if (shapes) {
   }
 }
 
-/* Dictation, with the same bar math as PillView in DictationPill.swift */
 
 const DICTATED = [
   "Move the design review to Thursday at ten.",
@@ -304,7 +298,6 @@ function initTalk(stage) {
   })();
 }
 
-/* Search: prefixes, abbreviations, typing errors, accents, and words in any order */
 
 const fold = (text) =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -350,7 +343,6 @@ function score(entry, query) {
   return 0;
 }
 
-/* Interactive launcher */
 
 const demo = document.getElementById("demo");
 if (demo) initDemo(demo);
@@ -563,7 +555,6 @@ function initDemo(stage) {
   stage.addEventListener("pointerdown", takeOver);
   input.addEventListener("focus", takeOver);
 
-  // Control Option Space opens the demo launcher, as it opens Ciel.
   addEventListener("keydown", (event) => {
     if (!(event.ctrlKey && event.altKey && event.code === "Space")) return;
     event.preventDefault();

@@ -1,20 +1,17 @@
 #!/bin/bash
-# Proves lint-claims.sh sees a new and an edited line for each fact, ignores comments and version bumps, and fails
-# on a lost quote, a missing ledger and an unreadable probed file, each in a scratch copy of the repo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
-# Only tracked files that exist, so an untracked file or symlink never enters the copy. -z keeps each name as it is.
 listed="$scratch/files"
 git ls-files -z | while IFS= read -r -d '' file; do
     if [ -e "$file" ] || [ -L "$file" ]; then printf '%s\0' "$file"; fi
 done >"$listed"
 tar -cf "$scratch/repo.tar" --null -T "$listed"
-edit() { # edit <sed script> <file>. Fails when the script changes nothing, so a stale case says so.
+edit() {
     sed -e "$1" "$2" >"$2.new" && ! cmp -s "$2" "$2.new" && mv "$2.new" "$2"
 }
-expect() { # expect <name> <exit status> <text the error must contain> <command to break the copy>
+expect() {
     rm -rf "$scratch/repo" && mkdir "$scratch/repo" && tar -xf "$scratch/repo.tar" -C "$scratch/repo"
     (cd "$scratch/repo" && eval "$4") || { printf 'check-lint-claims: %s: the command that breaks the copy failed.\n' "$1" >&2; exit 1; }
     status=0 && bash "$scratch/repo/scripts/lint-claims.sh" 2>"$scratch/err" || status=$?

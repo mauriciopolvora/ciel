@@ -1,5 +1,4 @@
 #!/bin/bash
-# Drives a disposable copy of dist/Ciel.app the way a user does. Run it with no arguments for the usage.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../../../.." && pwd)"
@@ -80,7 +79,6 @@ other_ciel() {
     done
 }
 
-# Holds an flock on fd 9 until this process exits. The Ciel copy gets fd 9 closed, so the lock never outlives the run.
 take_lock() {
     mkdir -p "$run_dir"
     exec 9>>"$lock"
@@ -123,7 +121,6 @@ ax_tree() {
     osa -l JavaScript "$here/ax-tree.js" "$pid"
 }
 
-# Returns 0 on a match, 1 on a full read with no match, and 3 when the read failed or, with "complete", was partial.
 ax_match() {
     local tree status=0
     tree="$(ax_tree 2>/dev/null)" || return 3

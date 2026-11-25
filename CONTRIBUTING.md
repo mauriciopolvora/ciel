@@ -10,7 +10,7 @@ bash scripts/check.sh
 
 Native UI checks run only under a separate bundle identifier. They do not change your installed Ciel preferences. Use `bash scripts/check.sh --unit-only` when you do not need native UI checks. Unit tests need no Accessibility access. The window check moves only temporary test windows. It needs Accessibility access for the app that runs `check.sh`, such as your terminal. Without access it is skipped locally, and CI fails.
 
-[CLAUDE.md](CLAUDE.md) lists the test and mutant commands, and pairs each repository rule with the check that enforces it. Agents read it as their instructions.
+[AGENTS.md](AGENTS.md) lists the check and test commands, and [docs/rules.md](docs/rules.md) pairs each repository rule with the check that enforces it. Agents read AGENTS.md as their instructions.
 
 Format Swift changes before running checks:
 

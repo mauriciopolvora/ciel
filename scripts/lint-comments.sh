@@ -1,22 +1,26 @@
 #!/bin/bash
-# Usage: lint-comments.sh [--update | --commit <sha>]. Counts the comment lines in each Swift file that git tracks with
-# scripts/comment-lines.awk, in the working tree, or in <sha> with the lint and scanner that <sha> holds. Fails when a
-# file has more than scripts/comment-baseline.txt allows, when the baseline allows more than a file has, or when the
-# baseline rises above its copy at the base commit: CIEL_COMMENT_BASE, else the merge base with origin/main. Exits 2
-# when it cannot list or extract the files. --update writes the counts to the baseline only when no count is above the
-# current baseline or the base baseline. Else it exits 1 and does not change the file. When it finds no merge base, it
-# compares with the current baseline only.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 baseline=scripts/comment-baseline.txt
 update=0
 commit=
+usage() {
+    cat >&2 <<'USAGE'
+Usage: lint-comments.sh [--update | --commit <sha>]
+Counts the comment lines in each tracked Swift file with scripts/comment-lines.awk, in the working tree, or in
+<sha> with the lint and scanner that <sha> holds. Fails when a file has more than scripts/comment-baseline.txt
+allows, when the baseline allows more than a file has, or when the baseline rises above its copy at the base
+commit: CIEL_COMMENT_BASE, else the merge base with origin/main. A file that git sees as moved since the base keeps
+its base count. --update writes the counts only when no count rises. Exit 2: it cannot list or extract the files.
+USAGE
+    exit 64
+}
 case "${1:-}" in
 "") ;;
 --update) update=1 ;;
---commit) commit="${2:?Usage: lint-comments.sh --commit <sha>}" ;;
-*) printf 'Usage: lint-comments.sh [--update | --commit <sha>]\n' >&2; exit 64 ;;
+--commit) commit="${2:-}"; [[ -n "$commit" ]] || usage ;;
+*) usage ;;
 esac
 
 fail() {
@@ -41,9 +45,7 @@ mkdir -p .build
 scratch="$(mktemp -d "$PWD/.build/lint-comments.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
 if [[ -n "$commit" ]]; then
-    # The commit's own lint and scanner judge it, so a change in the working tree cannot make it pass. A temporary index
-    # extracts every file of the commit, since git archive drops the files that an export-ignore attribute names. The
-    # child runs in the extracted tree, so the git directory must be absolute.
+    # WARNING: git archive drops the files an export-ignore attribute names, so a temporary index extracts the commit.
     git_dir="$(git rev-parse --absolute-git-dir)" || broken "cannot find the git directory."
     export GIT_DIR="$git_dir" GIT_WORK_TREE="$scratch/tree" GIT_INDEX_FILE="$scratch/index"
     mkdir "$GIT_WORK_TREE"
@@ -57,13 +59,11 @@ fi
 git ls-files -z -- '*.swift' >"$scratch/files" || broken "cannot list the Swift files with git ls-files."
 files=()
 while IFS= read -r -d '' file; do
-    # A file deleted from the working tree but not from the index has no comments.
     [[ ! -e "$file" ]] || files+=("$file")
 done <"$scratch/files"
 [[ ${#files[@]} -gt 0 ]] || broken "found no Swift files with git ls-files."
 awk -f scripts/comment-lines.awk "${files[@]}" >"$scratch/lines"
 
-# Prints nothing for a valid baseline: one "<count> <path>" row per path, with a count above 0.
 validate() {
     awk -v name="$1" '
         !/^[1-9][0-9]* [^ ]/ { print name ":" NR ": expected <count> <path>, with a count above 0"; next }
@@ -82,12 +82,22 @@ if [[ -n "$base" ]] && git cat-file -e "$base:$baseline" 2>/dev/null; then
     git show "$base:$baseline" >"$scratch/previous"
     errors="$(validate "$base:$baseline" "$scratch/previous")"
     [[ -z "$errors" ]] || fail "$errors"$'\n'"Fix the baseline at the base commit, or set CIEL_COMMENT_BASE to a commit with a valid one."
+    git diff -z -M --name-status --diff-filter=R "$base" -- '*.swift' >"$scratch/renames" ||
+        broken "cannot list the files moved since $base with git diff."
+    : >"$scratch/moves"
+    while IFS= read -r -d '' _ && IFS= read -r -d '' from && IFS= read -r -d '' to; do
+        printf '%s\t%s\n' "$from" "$to" >>"$scratch/moves"
+    done <"$scratch/renames"
+    awk -F '\t' 'which == "moves" { to[$1] = $2; next }
+        { space = index($0, " "); path = substr($0, space + 1) }
+        { print (path in to) ? substr($0, 1, space) to[path] : $0 }' \
+        which=moves "$scratch/moves" which=previous "$scratch/previous" >"$scratch/moved"
+    mv "$scratch/moved" "$scratch/previous"
 fi
 
 cp "$baseline" "$scratch/stored" 2>/dev/null || : >"$scratch/stored"
 errors="$(validate "$baseline" "$scratch/stored")"
 if [[ "$update" == 1 ]]; then
-    # A missing or malformed baseline sets no limit, so --update can write it again. The base baseline still applies.
     has_current=0
     [[ ! -f "$baseline" || -n "$errors" ]] || has_current=1
     awk -F '\t' '{ if (!($1 in count)) order[++files] = $1; count[$1]++ }

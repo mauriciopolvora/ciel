@@ -1,5 +1,5 @@
 name: Check Ciel
-# Push runs only on main, because release.yml needs a passed push run on the commit it releases.
+# WARNING: release.yml finds the passed push run of this workflow on main by this file path.
 on:
   push:
     branches: [main]
@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-# A new commit on a pull request cancels the run for the commit it replaces. A run on main never cancels. A newer push to main can replace a pending run for an older commit, and release.yml releases the head of main. The event name keeps a manual run from replacing the push run that release.yml reads.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -48,13 +47,18 @@ jobs:
           curl -fsSL -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
           echo "$GITLEAKS_SHA256  $RUNNER_TEMP/gitleaks.tar.gz" | shasum -a 256 -c -
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
-          # gitleaks exits 0 on a range git cannot read, so check the range first. -m scans the changes in merge commits.
+          # WARNING: gitleaks exits 0 on a range git cannot read, so check the range first.
           git rev-list "$BASE..$HEAD" >/dev/null
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="$BASE..$HEAD -m" .
+      - name: No trailers in the PR commits
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/check-commits.sh "$BASE..$HEAD"
       - name: Check format, scripts, metadata, unit tests, search budgets, and native app
         if: ${{ !cancelled() }}
         env:
-          # The comment baseline may not rise above its copy here. A push to main compares with the main it replaced.
           CIEL_COMMENT_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/check.sh
       - name: Archive performance report
@@ -89,7 +93,6 @@ jobs:
       - name: Build and check the disk image
         timeout-minutes: 5
         run: bash scripts/dmg.sh dist/Ciel.app dist/Ciel-development.dmg
-      # Only --layout runs dmgbuild, so this step is what tests a dmgbuild update.
       - name: Write the layout with dmgbuild and build an image from it
         timeout-minutes: 5
         run: |
@@ -161,7 +164,7 @@ jobs:
           path: .build/mutants
           if-no-files-found: warn
           retention-days: 14
-  # The ruleset requires this job, so one required check covers every job above.
+  # WARNING: the GitHub ruleset on main requires only this job, so it must need every job above.
   ci:
     needs: [check, mutants]
     if: ${{ always() }}

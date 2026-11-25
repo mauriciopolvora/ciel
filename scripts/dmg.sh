@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
-# With CDPATH set, cd prints the directory and corrupts the paths read from it.
+# WARNING: with CDPATH set, cd prints the directory and corrupts the paths read from it.
 unset CDPATH
-# The checks compare sorted names and formatted numbers, and both follow the locale.
+# WARNING: sort order and number formats follow the locale.
 export LC_ALL=C
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 usage='Usage: bash scripts/dmg.sh path/to/Ciel.app output.dmg, or bash scripts/dmg.sh --layout'
@@ -16,7 +16,6 @@ case $# in
     *) fail "$usage" ;;
 esac
 cd "$(dirname "$0")/.."
-# Window geometry in points. Each build draws the background from it, and --layout writes it into the layout file.
 width=640
 height=380
 icon_size=128
@@ -24,9 +23,8 @@ text_size=13
 icon_y=172
 app_x=172
 applications_x=468
-# Finder stores window bounds with the title bar, which is 28 points tall.
+# WARNING: Finder stores window bounds with the title bar, which is 28 points tall.
 window_height=$((height + 28))
-# The Finder window layout, a .DS_Store. A build copies it into the image, so no third-party code runs in a release.
 layout=Resources/DiskImage.DS_Store
 
 mkdir -p .build
@@ -68,7 +66,7 @@ if [[ $# -eq 1 ]]; then
             --require-hashes --only-binary :all: -r "$requirements"
         printf '%s\n' "$stamp" >"$venv/requirements.sha256"
     fi
-    # Finder finds each icon by its file name, so an empty folder stands in for the app.
+    # WARNING: Finder finds each icon by its file name, so an empty folder stands in for the app.
     mkdir "$work/Ciel.app"
     "$venv/bin/dmgbuild" -s scripts/dmg-settings.py \
         -D app="$work/Ciel.app" -D background="$work/background.tiff" \
@@ -84,20 +82,20 @@ fi
 
 [[ -f "$layout" ]] || fail "There is no $layout. Run bash scripts/dmg.sh --layout."
 hex() { xxd -p | tr -d '\n'; }
-# An icon position record: the file name in UTF-16, then Iloc, blob, the length 16, x and y.
+# WARNING: a .DS_Store icon position record is the UTF-16 name, Iloc, blob, the length 16, x and y.
 layout_hex="$(hex <"$layout")"
 placed() {
     local name_hex
     name_hex="$(printf '%s' "$1" | iconv -f UTF-8 -t UTF-16BE | hex)"
     [[ "$layout_hex" == *"${name_hex}496c6f63626c6f6200000010$(printf '%08x%08x' "$2" "$icon_y")"* ]]
 }
-# The icon view settings: icvp, blob, a 4-byte length, then a binary property list.
+# WARNING: .DS_Store icon view settings are icvp, blob, a 4-byte length, then a binary property list.
 settings_at="$(grep -abo icvpblob "$layout" | cut -d: -f1 || true)"
 [[ "$settings_at" =~ ^[0-9]+$ ]] ||
     fail "$layout does not hold one set of icon view settings. Run bash scripts/dmg.sh --layout."
 tail -c "+$((settings_at + 13))" "$layout" | head -c "$((16#$(xxd -s "$((settings_at + 8))" -l 4 -p "$layout")))" >"$work/icvp.plist"
 setting() { plutil -extract "$1" raw "$work/icvp.plist"; }
-# The background reference holds its target as a length, the path, and a zero byte of padding.
+# WARNING: a .DS_Store background reference is a length, the path, and a zero byte of padding.
 background_path='Ciel:.background.tiff'
 background_hex="$(printf '%04x' "${#background_path}")$(printf '%s' "$background_path" | hex)00"
 if ! placed Ciel.app "$app_x" || ! placed Applications "$applications_x" ||

@@ -1,9 +1,4 @@
 #!/bin/bash
-# Fails when Swift code calls an Apple API that runs its handler off the main thread anywhere but
-# Sources/Ciel/OffMainCallbacks.swift. That file types each handler @Sendable, so the compiler rejects a main actor
-# closure, which traps on entry. The check matches names only, so it also flags a safe form, such as the async
-# openApplication, and any use of the name completionHandler.
-# Exit 0: clean. Exit 1: a call outside the wrapper file. Exit 2: Sources or Tests is unreadable.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
