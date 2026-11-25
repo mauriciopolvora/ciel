@@ -73,6 +73,18 @@ struct LaunchModeTests {
         #expect(resolved == .success(mode))
     }
 
+    @Test func anUnknownArgumentErrorNamesTheArgumentsAndTheCheckScript() {
+        let expected = "Ciel does not recognize --ui-tset. Run native checks with bash scripts/check.sh."
+        #expect(LaunchError.unknownArguments("--ui-tset").description == expected)
+    }
+
+    @Test func aWrongIdentityErrorNamesBothIdentitiesAndTheCheckScript() {
+        let expected =
+            "Native checks run only as \(AppIdentity.checksBundleIdentifier), not com.example.other."
+            + " Run them with bash scripts/check.sh."
+        #expect(LaunchError.wrongIdentity("com.example.other").description == expected)
+    }
+
     private func checksBundleIdentifier() throws -> String {
         try #require(infoPlist()["CFBundleIdentifier"] as? String) + ".checks"
     }

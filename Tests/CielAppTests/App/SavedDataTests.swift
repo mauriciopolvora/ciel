@@ -56,6 +56,16 @@ struct SavedDataTests {
         }
     }
 
+    @Test func onboardingStaysUnfinishedUntilSetUnderItsShippedKey() {
+        withEmptyDefaults { defaults in
+            let preferences = Preferences(defaults: defaults)
+            #expect(!preferences.onboarded)
+            preferences.onboarded = true
+            #expect(defaults.object(forKey: "onboarded") as? Bool == true)
+            #expect(Preferences(defaults: defaults).onboarded)
+        }
+    }
+
     @Test func aDesignChosenInAPrototypeBuildIsDropped() {
         withEmptyDefaults { defaults in
             defaults.set("b", forKey: "designPreview.settings")
