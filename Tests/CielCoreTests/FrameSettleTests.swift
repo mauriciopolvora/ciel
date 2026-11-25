@@ -1,7 +1,7 @@
 import CoreGraphics
 import Testing
 
-@testable import CielApp
+@testable import CielCore
 
 @Suite("Frame settle decisions")
 struct FrameSettleTests {

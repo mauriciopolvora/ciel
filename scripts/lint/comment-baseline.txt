@@ -14,7 +14,6 @@
 1 Sources/Ciel/Onboarding/AccessibilityHelper.swift
 1 Sources/Ciel/Settings/SettingsCompanion.swift
 2 Sources/Ciel/Shortcuts/HotKeys.swift
-2 Sources/Ciel/Shortcuts/ModifierGesture.swift
 3 Sources/Ciel/Shortcuts/SpotlightShortcuts.swift
 1 Sources/Ciel/Windows/WindowAccessibility.swift
 5 Sources/Ciel/Windows/WindowController.swift
@@ -22,6 +21,7 @@
 3 Sources/CielCore/ApplicationScanner.swift
 2 Sources/CielCore/LauncherPlacement.swift
 8 Sources/CielCore/LiveTranscript.swift
+2 Sources/CielCore/ModifierGesture.swift
 1 Sources/CielCore/Search.swift
 2 Sources/CielCore/Speech.swift
 1 Sources/CielCore/UsageHistory.swift

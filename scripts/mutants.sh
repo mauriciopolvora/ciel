@@ -84,11 +84,11 @@ mutate() {
                 's/guard let pid, pid != ProcessInfo\.processInfo\.processIdentifier else/guard let pid else/'
             ;;
         M15) swap Sources/Ciel/App/Preferences.swift 's/defaults\.object\(forKey: key\) == nil \|\| //' ;;
-        M16) swap Sources/Ciel/Windows/FrameSettle.swift 's/needsVisibilityCorrection, !isUnchanged, /needsVisibilityCorrection, /' ;;
-        M17) swap Sources/Ciel/Windows/FrameSettle.swift 's/(unchangedRetryDelay: TimeInterval = )0\.2\n/${1}0.25\n/' ;;
+        M16) swap Sources/CielCore/FrameSettle.swift 's/needsVisibilityCorrection, !isUnchanged, /needsVisibilityCorrection, /' ;;
+        M17) swap Sources/CielCore/FrameSettle.swift 's/(unchangedRetryDelay: TimeInterval = )0\.2\n/${1}0.25\n/' ;;
         M18) swap Sources/Ciel/Windows/WindowOperationEngine.swift 's/try update\(window, from: settle\.last,/try update(window, from: original,/' ;;
-        M19) swap Sources/Ciel/Windows/FrameSettle.swift 's/tolerance: CGFloat = 3/tolerance: CGFloat = 2/' ;;
-        M20) swap Sources/Ciel/Windows/FrameSettle.swift 's/\n\s+guard Self\.matches\(last, retryFrame\) else \{ return \.keepPolling \}//' ;;
+        M19) swap Sources/CielCore/FrameSettle.swift 's/tolerance: CGFloat = 3/tolerance: CGFloat = 2/' ;;
+        M20) swap Sources/CielCore/FrameSettle.swift 's/\n\s+guard Self\.matches\(last, retryFrame\) else \{ return \.keepPolling \}//' ;;
         M21) swap Sources/Ciel/Launcher/IconCache.swift 's/guard loads\[path\] === load else/guard loads[path] != nil else/' ;;
         M22)
             swap Sources/Ciel/Launcher/IconCache.swift \

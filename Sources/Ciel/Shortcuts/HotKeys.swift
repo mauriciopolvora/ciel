@@ -75,10 +75,6 @@ enum HotKeyCommand: Hashable, Sendable {
     }
 }
 
-enum HotKeyEvent: Sendable {
-    case pressed, released, cancelled
-}
-
 @MainActor protocol HotKeyRegistrar {
     func register(_ shortcut: Shortcut, handler: @escaping @MainActor (HotKeyEvent) -> Void) throws -> Cleanup
 }

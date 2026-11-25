@@ -1,9 +1,9 @@
-enum ModifierKey: UInt32, CaseIterable, Sendable {
+public enum ModifierKey: UInt32, CaseIterable, Sendable {
     case rightCommand = 54
     case rightOption = 61
     case function = 63
 
-    var display: String {
+    public var display: String {
         switch self {
         case .rightCommand: "Right ⌘"
         case .rightOption: "Right ⌥"
@@ -11,7 +11,7 @@ enum ModifierKey: UInt32, CaseIterable, Sendable {
         }
     }
 
-    var flag: UInt {
+    public var flag: UInt {
         switch self {
         case .rightCommand: 0x10
         case .rightOption: 0x40
@@ -20,15 +20,19 @@ enum ModifierKey: UInt32, CaseIterable, Sendable {
     }
 }
 
-struct ModifierGesture: Sendable {
+public enum HotKeyEvent: Sendable {
+    case pressed, released, cancelled
+}
+
+public struct ModifierGesture: Sendable {
     private enum State { case up, down, interrupted }
 
-    let key: ModifierKey
+    public let key: ModifierKey
     private var state = State.up
 
-    init(key: ModifierKey) { self.key = key }
+    public init(key: ModifierKey) { self.key = key }
 
-    mutating func flagsChanged(_ flags: UInt, othersHeld: Bool = false) -> HotKeyEvent? {
+    public mutating func flagsChanged(_ flags: UInt, othersHeld: Bool = false) -> HotKeyEvent? {
         let held = Self.heldKeys(flags)
         let isDown = held & key.flag != 0
         let isAlone = held == key.flag
@@ -54,13 +58,13 @@ struct ModifierGesture: Sendable {
         return nil
     }
 
-    mutating func interrupt() -> HotKeyEvent? {
+    public mutating func interrupt() -> HotKeyEvent? {
         guard state == .down else { return nil }
         state = .interrupted
         return .cancelled
     }
 
-    mutating func reset() -> HotKeyEvent? {
+    public mutating func reset() -> HotKeyEvent? {
         defer { state = .up }
         return state == .down ? .cancelled : nil
     }
