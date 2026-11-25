@@ -275,4 +275,30 @@ unchanged_baseline "an --update without a merge base"
 base=1111111111111111111111111111111111111111
 lint 1 "git fetch --unshallow"
 
+repo="$scratch/before-lint-folder"
+mkdir -p "$repo/Sources" "$repo/scripts/lint"
+sed -e 's|"$(dirname "$0")/../.."|"$(dirname "$0")/.."|' -e 's|scripts/lint/|scripts/|g' \
+    scripts/lint/lint-comments.sh >"$repo/scripts/lint-comments.sh"
+cp scripts/lint/comment-lines.awk "$repo/scripts"
+printf '// one\nlet a = 1\n' >"$repo/Sources/A.swift"
+printf '1 Sources/A.swift\n' >"$repo/scripts/comment-baseline.txt"
+scratch_git init -q
+scratch_git add -A
+scratch_git commit -q -m "before the lint folder"
+base="$(scratch_git rev-parse HEAD)"
+scratch_git mv scripts/lint-comments.sh scripts/comment-lines.awk scripts/comment-baseline.txt scripts/lint
+cp scripts/lint/lint-comments.sh scripts/lint/comment-lines.awk "$repo/scripts/lint"
+lint 0 ""
+lint 0 "" --commit "$base"
+printf '// two\n' >>"$repo/Sources/A.swift"
+lint 1 "2 comment lines, and scripts/lint/comment-baseline.txt allows 1"
+printf '2 Sources/A.swift\n' >"$repo/scripts/lint/comment-baseline.txt"
+lint 1 "raises Sources/A.swift from 1 to 2"
+scratch_git reset -q --hard "$base"
+printf '// two\n' >>"$repo/Sources/A.swift"
+scratch_git commit -q -am "over the baseline before the lint folder"
+mkdir -p "$repo/scripts/lint"
+cp scripts/lint/lint-comments.sh scripts/lint/comment-lines.awk "$repo/scripts/lint"
+lint 1 "2 comment lines, and scripts/comment-baseline.txt allows 1" --commit HEAD
+
 exit "$failed"

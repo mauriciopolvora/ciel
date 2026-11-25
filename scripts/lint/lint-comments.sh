@@ -3,6 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 baseline=scripts/lint/comment-baseline.txt
+lint=scripts/lint/lint-comments.sh
+before_lint_folder() { printf 'scripts/%s' "${1##*/}"; }
 update=0
 commit=
 usage() {
@@ -51,9 +53,11 @@ if [[ -n "$commit" ]]; then
     export GIT_DIR="$git_dir" GIT_WORK_TREE="$scratch/tree" GIT_INDEX_FILE="$scratch/index"
     mkdir "$GIT_WORK_TREE"
     { git read-tree "$commit" && git checkout-index -a; } || broken "cannot extract $commit."
-    [[ -f "$GIT_WORK_TREE/scripts/lint/lint-comments.sh" ]] ||
-        fail "$commit has no scripts/lint/lint-comments.sh. Rebase it on origin/main, then push again."
-    CIEL_COMMENT_BASE="$base" bash "$GIT_WORK_TREE/scripts/lint/lint-comments.sh"
+    own="$lint"
+    [[ -f "$GIT_WORK_TREE/$own" ]] || own="$(before_lint_folder "$lint")"
+    [[ -f "$GIT_WORK_TREE/$own" ]] ||
+        fail "$commit has no $lint. Rebase it on origin/main, then push again."
+    CIEL_COMMENT_BASE="$base" bash "$GIT_WORK_TREE/$own"
     exit
 fi
 
@@ -91,10 +95,13 @@ if [[ -n "$base" ]]; then
     git cat-file -e "$base^{commit}" 2>/dev/null ||
         fail "cannot read the base commit $base. Fetch it with git fetch --unshallow, or check out with fetch-depth: 0."
 fi
-if [[ -n "$base" ]] && git cat-file -e "$base:$baseline" 2>/dev/null; then
+base_baseline="$baseline"
+[[ -z "$base" ]] || git cat-file -e "$base:$base_baseline" 2>/dev/null ||
+    base_baseline="$(before_lint_folder "$baseline")"
+if [[ -n "$base" ]] && git cat-file -e "$base:$base_baseline" 2>/dev/null; then
     has_previous=1
-    git show "$base:$baseline" >"$scratch/previous"
-    errors="$(validate "$base:$baseline" "$scratch/previous")"
+    git show "$base:$base_baseline" >"$scratch/previous"
+    errors="$(validate "$base:$base_baseline" "$scratch/previous")"
     [[ -z "$errors" ]] || fail "$errors"$'\n'"Fix the baseline at the base commit, or set CIEL_COMMENT_BASE to a commit with a valid one."
     apply_moves_since "$base" "$scratch/previous"
 fi
