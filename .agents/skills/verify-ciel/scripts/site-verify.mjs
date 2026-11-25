@@ -60,9 +60,9 @@ try {
   const results = page.locator("#demo-results .row-title");
   const ready = () =>
     page.waitForFunction(
-      'document.querySelector("[data-launcher]:not(.closed)") !== null && document.querySelector("#demo-input").value === ""',
+      'document.querySelector("[data-launcher]:not(.closed)") !== null && document.querySelector("#demo-input")?.value === ""',
     );
-  const windowStyle = 'document.querySelector("[data-window]").style';
+  const windowStyle = 'document.querySelector("[data-window]")?.style';
   await input.click();
   await input.pressSequentially("left half");
   await expect('typing "left half" in the demo lists Left Half', () =>
