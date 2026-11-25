@@ -4,19 +4,20 @@ import Testing
 @MainActor
 struct WaitUntilTests {
     @Test func timeQueuedBehindOtherMainActorWorkDoesNotCountAgainstTheWait() async throws {
-        let change = Change()
+        let stall = Stall()
         Task { @MainActor in
             let end = ContinuousClock.now.advanced(by: .milliseconds(300))
             while ContinuousClock.now < end {}
+            stall.ended = true
         }
-        Task { @MainActor in
-            await Task.detached {}.value
-            change.arrived = true
+        var pollsAfterStall = 0
+        try await waitUntil(polls: 100) {
+            if stall.ended { pollsAfterStall += 1 }
+            return pollsAfterStall == 2
         }
-        try await waitUntil(polls: 100) { change.arrived }
     }
 }
 
-@MainActor private final class Change {
-    var arrived = false
+@MainActor private final class Stall {
+    var ended = false
 }
