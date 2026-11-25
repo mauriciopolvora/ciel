@@ -33,9 +33,25 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
-jq -r "$expr" "$file"
+exec node "$(dirname "$0")/gh-jq.mjs" "$expr" "$file"
 GH
 chmod +x "$scratch/bin/gh"
+cat >"$scratch/bin/gh-jq.mjs" <<'JS'
+import { readFileSync } from "node:fs";
+const [expr, file] = process.argv.slice(2);
+const filters = {
+    ".url": (repo) => [repo.url],
+    ".defaultBranchRef.name": (repo) => [repo.defaultBranchRef.name],
+    ".[].headRefName": (prs) => prs.map((pr) => pr.headRefName),
+    '.[] | select(.isCrossRepository | not) | "\\(.baseRefName) \\(.headRefName) \\(.headRefOid)"': (prs) =>
+        prs.filter((pr) => !pr.isCrossRepository).map((pr) => `${pr.baseRefName} ${pr.headRefName} ${pr.headRefOid}`),
+};
+if (!(expr in filters)) {
+    console.error(`fake gh: no filter for --jq ${expr}. Add it to scripts/check-cleanup-branches.sh.`);
+    process.exit(1);
+}
+for (const line of filters[expr](JSON.parse(readFileSync(file, "utf8")))) console.log(line);
+JS
 
 git init -q --bare "$scratch/remote.git"
 git init -q -b main "$work"
