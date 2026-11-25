@@ -17,11 +17,12 @@ while IFS= read -r file; do
 done <<<"$listed"
 [[ ${#files[@]} -gt 0 ]] || { echo "lint-paths: found no files to scan" >&2; exit 2; }
 
-found="$(grep -onIE '(^|[^A-Za-z0-9_./$-])(\.agents/skills/[A-Za-z0-9_-]+/)?scripts/[A-Za-z0-9_./*-]*' "${files[@]}" /dev/null |
+found="$(grep -onIE '(^|[^A-Za-z0-9_./$-])(\./)?(\.agents/skills/[A-Za-z0-9_-]+/)?scripts/[A-Za-z0-9_./*-]*' "${files[@]}" /dev/null |
     awk '{
         colon = index($0, ":"); file = substr($0, 1, colon - 1); rest = substr($0, colon + 1)
         colon = index(rest, ":"); line = substr(rest, 1, colon - 1); path = substr(rest, colon + 1)
-        if (path !~ /^(\.agents|scripts)/) path = substr(path, 2)
+        if (path !~ /^(\.agents|scripts|\.\/)/) path = substr(path, 2)
+        sub(/^\.\//, "", path)
         sub(/\.+$/, "", path)
         root = ""
         if (file ~ /^\.agents\/skills\/[^\/]+\//) { root = file; sub(/^\.agents\/skills\//, "", root); sub(/\/.*/, "", root); root = ".agents/skills/" root "/" }
