@@ -113,6 +113,8 @@ Native UI checks open temporary windows. They run only under a separate bundle i
 
 Format Swift files with `swift format format --in-place --recursive Sources Tests scripts/GenerateIcon.swift scripts/release/GenerateDMGBackground.swift scripts/release/VerifyUpdate.swift Package.swift`. The local check script and GitHub CI enforce the shared `.swift-format` settings.
 
+`bash scripts/coverage.sh` runs the unit tests with code coverage. It writes a summary table to `.build/coverage/summary.md` and an HTML report to `.build/coverage/html`. The CI `coverage` job shows the table in its run summary and keeps the report as the `Ciel-coverage` artifact.
+
 Swift 6 checks actor ownership and values that cross worker boundaries. Search and native performance reports are saved under `.build/performance`. Compare search speed with a passing report from the same Mac and toolchain, saved apart from the current output: `bash scripts/benchmark.sh --baseline .build/performance/previous-search-engine.json`. `bash scripts/benchmark.sh --help` lists the other options.
 
 See [contributing](CONTRIBUTING.md) and [design system](docs/design-system.md).
