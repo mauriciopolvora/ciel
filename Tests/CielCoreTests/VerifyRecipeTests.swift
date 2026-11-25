@@ -17,7 +17,7 @@ import Testing
         return windows + utilities
     }
 
-    private static func typedQueries() throws -> Set<String> {
+    private static func runQueries() throws -> Set<String> {
         let features = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent(".agents/skills/verify-ciel/features")
@@ -25,16 +25,22 @@ import Testing
             .contentsOfDirectory(at: features, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "md" && $0.lastPathComponent != "README.md" }
         try #require(!recipes.isEmpty)
-        let typed = try Regex(#"ciel-verify\.sh type (?:"([^"]+)"|([^\s`"]+))"#)
+        let step = try Regex(#"ciel-verify\.sh (?:type (?:"([^"]+)"|([^\s`"]+))|press ([^\s`"]+))"#)
         var queries: Set<String> = []
         for recipe in recipes {
             let text = try String(contentsOf: recipe, encoding: .utf8)
             guard let start = text.range(of: "\n## Driving it with ciel-verify.sh\n") else { continue }
             let driving = text[start.upperBound...]
             let section = driving.range(of: "\n## ").map { driving[..<$0.lowerBound] } ?? driving
-            for match in section.matches(of: typed) {
-                if let query = match.output[1].substring ?? match.output[2].substring {
-                    queries.insert(query.lowercased())
+            var typed: Substring?
+            for match in section.matches(of: step) {
+                if let key = match.output[3].substring {
+                    if key == "return", let query = typed {
+                        queries.insert(query.lowercased())
+                    }
+                    typed = nil
+                } else {
+                    typed = match.output[1].substring ?? match.output[2].substring
                 }
             }
         }
@@ -46,14 +52,14 @@ import Testing
     }
 
     @Test func everyCommandWithoutARecipeIsListed() throws {
-        let covered = try Self.withRecipe(Self.typedQueries())
+        let covered = try Self.withRecipe(Self.runQueries())
         let missing = Set(Self.commands.map { $0.id }).subtracting(covered)
             .subtracting(Self.commandsWithoutARecipe)
-        #expect(missing.isEmpty, "Add a recipe in verify-ciel/features that types each title: \(missing)")
+        #expect(missing.isEmpty, "Add a verify-ciel recipe that types and runs each title: \(missing)")
     }
 
     @Test func aListedCommandThatGainsARecipeLeavesTheList() throws {
-        let covered = try Self.withRecipe(Self.typedQueries())
+        let covered = try Self.withRecipe(Self.runQueries())
             .intersection(Self.commandsWithoutARecipe)
         #expect(covered.isEmpty, "Remove these from commandsWithoutARecipe: \(covered)")
     }
