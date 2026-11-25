@@ -304,7 +304,7 @@ function initTalk(stage) {
 
 
 const fold = (text) =>
-  text.normalize("NFD").replaceAll(/[̀-ͯ]/g, "").toLowerCase().trim();
+  text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 function editDistance(a, b) {
   const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);

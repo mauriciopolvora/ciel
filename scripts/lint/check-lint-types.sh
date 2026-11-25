@@ -32,19 +32,27 @@ expect() {
 }
 
 error='const typed: number = "text"; export { typed };'
+site="$(awk '$2 == "site/public/assets/site.js" { print $1 }' scripts/lint/type-baseline.txt)"
 expect 0 "the current code" "" ":"
 expect 1 "a new type error" "check-docs.mjs has 1 type errors, and scripts/lint/type-baseline.txt allows 0" \
     "printf '%s\n' '$error' >>scripts/lint/check-docs.mjs"
-expect 1 "a type error in the browser project" "site.js has 50 type errors" \
+expect 1 "a type error in the browser project" "site.js has $((${site:-0} + 1)) type errors" \
     "printf '%s\n' 'const late = 1; late.unref();' >>site/public/assets/site.js"
-expect 1 "a type error in the JXA project" "window-frame.js has 1 type errors" \
-    "printf '%s\n' 'Application(\"Finder\");' >>.agents/skills/verify-ciel/scripts/window-frame.js"
-expect 1 "a count above the errors" "Lower its count to 49" \
-    "sed -i.bak 's/^49 /50 /' scripts/lint/type-baseline.txt"
+expect 1 "a type error in the JXA project" "ax-tree.js has 1 type errors" \
+    "printf '%s\n' 'Application(\"Finder\");' >>.agents/skills/verify-ciel/scripts/ax-tree.js"
+expect 1 "an implicit any in TypeScript" "wrangler.config.ts has 1 type errors" \
+    "printf '%s\n' 'export const width = (value) => value;' >>site/wrangler.config.ts"
+expect 1 "a count above the errors" "Lower its count to 0" \
+    "printf '1 scripts/lint/check-docs.mjs\n' >>scripts/lint/type-baseline.txt"
 expect 1 "a count raised over main" "The baseline only shrinks" \
     "printf '%s\n' '$error' >>scripts/lint/check-docs.mjs && printf '1 scripts/lint/check-docs.mjs\n' >>scripts/lint/type-baseline.txt"
 expect 1 "a line at 0" "expected <count> <path>" "printf '0 scripts/lint/check-docs.mjs\n' >>scripts/lint/type-baseline.txt"
 expect 1 "a path listed twice" "is listed again" "tail -1 scripts/lint/type-baseline.txt >>scripts/lint/type-baseline.txt"
+expect 1 "a file in no project" "in no project" "printf 'export {};\n' >scripts/new.mjs && git add scripts/new.mjs"
+expect 1 "a file dropped from its project" "in no project" \
+    "sed -i.bak 's#\\.agents/skills/verify-ciel/scripts/\\*\\.js#.agents/skills/verify-ciel/scripts/window-frame.js#' tsconfig.jxa.json"
+expect 1 "a compiler that writes to stderr" "output on stderr" \
+    "rm node_modules && mkdir -p node_modules/.bin && printf '#!/bin/sh\necho broken >&2\n' >node_modules/.bin/tsrs && chmod +x node_modules/.bin/tsrs"
 expect 1 "CI with no main" "cannot find the merge base" "git update-ref -d refs/remotes/origin/main" CI=1
 
 if [[ "$failures" -gt 0 ]]; then

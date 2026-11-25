@@ -14,7 +14,12 @@ export default defineConfig({
   rules: { curly: "off" },
   overrides: [
     { files: ["scripts/**"], rules: { "no-console": "off" } },
-    { files: ["site/public/**"], env: { browser: true }, globals: { Lenis: "readonly" } },
+    {
+      files: ["site/public/**"],
+      env: { browser: true },
+      globals: { Lenis: "readonly" },
+      rules: { "unicorn/prefer-string-replace-all": "off" },
+    },
     {
       files: [".agents/skills/*/scripts/*.js"],
       globals: { $: "readonly", Application: "readonly", ObjC: "readonly" },

@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
@@ -38,25 +39,51 @@ if (!existsSync(tsrs)) {
 const projects = JSON.parse(readFileSync("tsconfig.json", "utf8")).references.map(
   (reference) => reference.path,
 );
-const errors = new Map();
-for (const project of projects) {
-  const run = spawnSync(tsrs, ["-p", project, "--pretty", "false"], { encoding: "utf8" });
+const compile = (project, ...flags) => {
+  const run = spawnSync(tsrs, ["-p", project, ...flags], { encoding: "utf8" });
   if (run.error) {
     fail(`cannot run ${tsrs}: ${run.error.message}`);
   }
-  const lines = run.stdout.split("\n");
+  if (run.signal || run.stderr !== "") {
+    fail(`${tsrs} -p ${project} ${flags.join(" ")} ended with ${run.signal ?? "output on stderr"}:\n${run.stdout}${run.stderr}`);
+  }
+  return run;
+};
+
+const covered = new Set();
+for (const project of projects) {
+  const run = compile(project, "--listFilesOnly");
+  for (const line of run.stdout.split("\n")) {
+    if (isAbsolute(line)) {
+      covered.add(relative(process.cwd(), line));
+    } else if (line !== "" && !diagnostic.test(line) && !line.startsWith("  ")) {
+      fail(`${tsrs} -p ${project} --listFilesOnly printed a line that is not a file or a type error:\n${run.stdout}`);
+    }
+  }
+}
+const uncovered = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
+  .split("\0")
+  .filter((file) => /\.[cm]?[jt]sx?$/.test(file) && !file.startsWith("site/public/assets/lenis/"))
+  .filter((file) => !covered.has(file));
+if (uncovered.length > 0) {
+  fail(`these files are in no project that tsconfig.json references. Add each one to the include list of a project:\n    ${uncovered.join("\n    ")}`);
+}
+
+const errors = new Map();
+for (const project of projects) {
+  const run = compile(project, "--pretty", "false");
   let found = 0;
-  for (const line of lines) {
+  for (const line of run.stdout.split("\n")) {
     const file = diagnostic.exec(line)?.[1];
     if (file) {
       errors.set(file, [...(errors.get(file) ?? []), line]);
       found++;
-    } else if (line.startsWith("error")) {
-      fail(`${project} has an error outside any file:\n${run.stdout}${run.stderr}`);
+    } else if (line !== "" && !(found > 0 && line.startsWith("  "))) {
+      fail(`${project} printed a line that is not a type error in a file:\n${run.stdout}`);
     }
   }
-  if (run.status !== 0 && found === 0) {
-    fail(`${tsrs} -p ${project} exited ${run.status} with no type errors:\n${run.stdout}${run.stderr}`);
+  if ((run.status === 0) !== (found === 0)) {
+    fail(`${tsrs} -p ${project} exited ${run.status} with ${found} type errors:\n${run.stdout}`);
   }
 }
 
@@ -91,11 +118,12 @@ try {
   }
   console.error("check-types: no origin/main, so this run does not compare the baseline with main.");
 }
-const atBase = base
-  ? spawnSync("git", ["show", `${base}:${baselineFile}`], { encoding: "utf8" })
-  : null;
-if (atBase?.status === 0) {
-  const before = parseBaseline(`${base}:${baselineFile}`, atBase.stdout);
+const atBase =
+  base && spawnSync("git", ["cat-file", "-e", `${base}:${baselineFile}`]).status === 0
+    ? execFileSync("git", ["show", `${base}:${baselineFile}`], { encoding: "utf8" })
+    : null;
+if (atBase !== null) {
+  const before = parseBaseline(`${base}:${baselineFile}`, atBase);
   for (const [file, limit] of allowed) {
     if (limit > (before.get(file) ?? 0)) {
       problems.push(

@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["oxlint.config.ts", "scripts/lint/*.mjs", "site/*.ts"]
+  "include": ["scripts/lint/*.mjs"]
 }

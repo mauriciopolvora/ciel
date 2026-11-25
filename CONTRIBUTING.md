@@ -2,7 +2,7 @@
 
 Ciel is a small native macOS app. Keep search fast and the interface clear.
 
-Use macOS 14 or later and a Swift 6 toolchain. Install Xcode or Apple's Command Line Tools. Run:
+Use macOS 14 or later, a Swift 6 toolchain and [bun](https://bun.sh), which installs the JavaScript lint tools. Install Xcode or Apple's Command Line Tools. Run:
 
 ```sh
 bash scripts/check.sh
