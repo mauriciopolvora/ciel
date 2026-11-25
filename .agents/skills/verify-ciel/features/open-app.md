@@ -6,6 +6,7 @@ Return on an app result opens that app, brings it to the front and closes the la
 
 - `open-app-return` opens the selected app with Return.
 - `open-app-close` closes the launcher after the app opens.
+- `open-app-rescan` reloads the app list with the Rescan Applications command.
 
 ## How to get to it (user POV)
 
@@ -21,6 +22,7 @@ Preconditions:
 
 - **Find.** Close and reopen the launcher, then type `textedit`. Run `ciel-verify.sh press escape`, `ciel-verify.sh press ctrl+opt+space`, `ciel-verify.sh type textedit` and `ciel-verify.sh wait-for 'TextEdit' 10`. A `TextEdit` row is listed.
 - **Open.** Press Return. Run `ciel-verify.sh press return`, then `ciel-verify.sh wait-gone 'Search apps and commands' 5`. A new `TextEdit` process runs and the launcher closes. The journey checks again just before Return that TextEdit is not running, and saves the new pid before it checks the launcher, so cleanup in CI stops it even when a later step fails.
+- **Rescan.** Run `ciel-verify.sh press ctrl+opt+space`, `ciel-verify.sh type "rescan applications"` and `ciel-verify.sh press return`. Within 3 s the tree shows `Refreshing applications`, and the launcher closes.
 - **Proof.** `journey open-app` saves `open-app-results.ax.txt` and `open-app.png`.
 
 ## Gotchas

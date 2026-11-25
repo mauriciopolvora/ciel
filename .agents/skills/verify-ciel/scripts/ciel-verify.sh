@@ -21,6 +21,7 @@ Usage: ciel-verify.sh <command>
   doctor                  check that the instance is ours, alive and driveable.
   press <key>             press a key: ctrl+opt+space, escape, return, tab, down, up, cmd+comma.
   close <title>           click the close button of Ciel's window with that title.
+  click <title> <button>  press the button with that title in Ciel's window with that title.
   type <text>             type text into the focused field.
   snapshot <name>         write the accessibility tree of Ciel's windows to <name>.ax.txt and print it.
   shot <name>             write a screenshot to <name>.png.
@@ -216,6 +217,13 @@ close_window() {
         "$pid" "$1" >/dev/null
 }
 
+click_button() {
+    local pid
+    guard_input click
+    pid="$(ciel_pid)"
+    osa -l JavaScript "$here/press-button.js" "$pid" "$1" "$2" >/dev/null
+}
+
 type_text() {
     guard_input type
     osa -e 'on run argv' -e 'tell application "System Events" to keystroke (item 1 of argv)' -e 'end run' "$1"
@@ -300,6 +308,18 @@ journey_launcher_search() {
     snapshot launcher-search >/dev/null
     shot launcher-search >/dev/null
     step "launcher-search: \"left half\" lists the Left Half window command"
+    press tab
+    wait_for 'description="Search category: Apps"' 5 || fail "launcher-search: Tab did not switch the category to Apps."
+    wait_gone 'AXCell description="Left Half, ' 5 || fail "launcher-search: the Apps category still lists the Left Half window command."
+    step "launcher-search: Tab switches to Apps, which hides the Left Half window command"
+    press tab
+    wait_for 'description="Search category: Windows"' 5 || fail "launcher-search: a second Tab did not switch the category to Windows."
+    wait_for 'AXCell description="Left Half, ' 5 || fail "launcher-search: the Windows category does not list Left Half."
+    snapshot launcher-search-windows >/dev/null
+    step "launcher-search: a second Tab switches to Windows, which lists Left Half again"
+    press tab
+    wait_for 'description="Search category: All"' 5 || fail "launcher-search: a third Tab did not switch the category back to All."
+    step "launcher-search: a third Tab switches back to All"
     type_text "zzqx"
     wait_for 'value="No matches"' 5 || fail "launcher-search: a query with no match does not say No matches."
     snapshot launcher-search-no-match >/dev/null
@@ -333,6 +353,14 @@ journey_open_app() {
     wait_gone 'Search apps and commands' 5 || fail "open-app: Return did not close the launcher."
     shot open-app >/dev/null
     step "open-app: Return opens TextEdit (pid $pid) and closes the launcher"
+    press ctrl+opt+space
+    wait_for 'Search apps and commands' 5 || fail "open-app: Control-Option-Space did not open the launcher over TextEdit."
+    type_text "rescan applications"
+    wait_for 'AXCell description="Rescan Applications, ' 5 || fail "open-app: typing \"rescan applications\" showed no Rescan Applications row."
+    press return
+    wait_for 'value="Refreshing applications"' 3 || fail "open-app: Return on Rescan Applications showed no Refreshing applications message."
+    wait_gone 'Search apps and commands' 5 || fail "open-app: Return on Rescan Applications did not close the launcher."
+    step "open-app: Return on Rescan Applications closes the launcher and shows Refreshing applications"
 }
 
 window_frame() {
@@ -372,6 +400,27 @@ journey_window_commands() {
     shot window-commands >/dev/null
     grep -q '^left-half yes$' <<<"$frame" || fail "window-commands: the Finder window is not on the left half: $frame"
     step "window-commands: Left Half moves the front Finder window from 700 x 500 to the left half of screen $screen, where it started"
+    run_window_command maximize Maximize "$name" "$screen" '^maximized yes$'
+    step "window-commands: Maximize fills the visible area of screen $screen with the Finder window"
+    run_window_command "restore previous size" "Restore Previous Size" "$name" "$screen" '^left-half yes$'
+    step "window-commands: Restore Previous Size puts the Finder window back on the left half"
+}
+
+run_window_command() {
+    local query="$1" title="$2" name="$3" screen="$4" expected="$5" frame=""
+    press ctrl+opt+space
+    wait_for 'Search apps and commands' 5 || fail "window-commands: Control-Option-Space did not open the launcher."
+    type_text "$query"
+    wait_for "AXCell description=\"$title, " 5 || fail "window-commands: typing \"$query\" showed no $title row."
+    press return
+    wait_gone 'Search apps and commands' 5 || fail "window-commands: Return on $title did not close the launcher."
+    for _ in {1..20}; do
+        frame="$(window_frame Finder "$name" "$screen")" || fail "window-commands: cannot read the frame of the Finder window $name."
+        grep -q "$expected" <<<"$frame" && break
+        sleep 0.25
+    done
+    printf 'after %s\n%s\n' "$title" "$frame" >>"$(evidence_dir)/window-commands.frame.txt"
+    grep -q "$expected" <<<"$frame" || fail "window-commands: $title did not give the expected frame: $frame"
 }
 
 journey_settings() {
@@ -387,6 +436,30 @@ journey_settings() {
     close_window 'Ciel Settings'
     wait_gone 'AXWindow title="Ciel Settings"' 5 || fail "settings: the close button did not close Ciel Settings."
     step "settings: the close button closes Ciel Settings"
+    press ctrl+opt+space
+    wait_for 'Search apps and commands' 5 || fail "settings: Control-Option-Space did not open the launcher."
+    type_text "ciel settings"
+    wait_for 'AXCell description="Ciel Settings, ' 5 || fail "settings: typing \"ciel settings\" showed no Ciel Settings row."
+    press return
+    wait_for 'AXWindow title="Ciel Settings"' 5 || fail "settings: Return on Ciel Settings did not open Ciel Settings."
+    wait_gone 'Search apps and commands' 5 || fail "settings: Return on Ciel Settings did not close the launcher."
+    step "settings: Return on the Ciel Settings command opens Ciel Settings"
+    click_button 'Ciel Settings' 'Keyboard Guide…'
+    wait_for 'AXWindow title="Ciel Keyboard Guide"' 5 || fail "settings: Keyboard Guide… did not open Ciel Keyboard Guide."
+    wait_for 'value="Change search category"' 5 || fail "settings: Ciel Keyboard Guide does not list the Tab key."
+    snapshot settings-guide >/dev/null
+    shot settings-guide >/dev/null
+    close_window 'Ciel Keyboard Guide'
+    wait_gone 'AXWindow title="Ciel Keyboard Guide"' 5 || fail "settings: the close button did not close Ciel Keyboard Guide."
+    step "settings: Keyboard Guide… opens Ciel Keyboard Guide with the key list, and its close button closes it"
+    click_button 'Ciel Settings' 'About Ciel…'
+    wait_for 'AXWindow title="About Ciel"' 5 || fail "settings: About Ciel… did not open About Ciel."
+    snapshot settings-about >/dev/null
+    close_window 'About Ciel'
+    wait_gone 'AXWindow title="About Ciel"' 5 || fail "settings: the close button did not close About Ciel."
+    close_window 'Ciel Settings'
+    wait_gone 'AXWindow title="Ciel Settings"' 5 || fail "settings: the close button did not close Ciel Settings."
+    step "settings: About Ciel… opens About Ciel, and the close buttons close it and Ciel Settings"
 }
 
 journey_onboarding() {
@@ -394,6 +467,17 @@ journey_onboarding() {
     snapshot onboarding >/dev/null
     shot onboarding >/dev/null
     step "onboarding: the first launch opens Set Up Ciel at Choose a shortcut"
+    click_button 'Set Up Ciel' 'Continue'
+    wait_for 'Search apps and commands|Allow window control' 5 ||
+        fail "onboarding: Continue did not open the launcher or the Allow window control page."
+    if ! ax_match 'Search apps and commands'; then
+        step "onboarding: Continue opens Allow window control, because the Ciel copy has no Accessibility access"
+        click_button 'Set Up Ciel' 'Not Now'
+        wait_for 'Search apps and commands' 5 || fail "onboarding: Not Now did not open the launcher."
+    fi
+    wait_gone 'AXWindow title="Set Up Ciel"' 5 || fail "onboarding: Set Up Ciel is still open after the launcher opened."
+    snapshot onboarding-done >/dev/null
+    step "onboarding: finishing Set Up Ciel closes it and opens the launcher"
 }
 
 journey() {
