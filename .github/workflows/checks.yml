@@ -164,9 +164,28 @@ jobs:
           path: .build/mutants
           if-no-files-found: warn
           retention-days: 14
+  coverage:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Measure unit test coverage
+        run: bash scripts/coverage.sh
+      - name: Archive the coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Ciel-coverage
+          path: .build/coverage
+          if-no-files-found: warn
+          retention-days: 14
   # WARNING: the GitHub ruleset on main requires only this job, so it must need every job above.
   ci:
-    needs: [check, mutants]
+    needs: [check, mutants, coverage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 1
