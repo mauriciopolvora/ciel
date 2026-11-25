@@ -71,6 +71,10 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: bash scripts/lint/check-commits.sh "$BASE..$HEAD"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: ${{ !cancelled() }}
+        with:
+          bun-version-file: package.json
       - name: Check format, scripts, metadata, unit tests, search budgets, and native app
         if: ${{ !cancelled() }}
         env:

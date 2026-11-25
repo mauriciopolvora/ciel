@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": [] },
+  "include": [".agents/skills/verify-ciel/scripts/*.js", "scripts/lint/types/jxa.d.ts"]
+}

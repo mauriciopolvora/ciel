@@ -1,7 +1,10 @@
 "use strict";
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 
 const lenis = reduceMotion
@@ -142,12 +145,13 @@ const APPS = [
   ["Photo Booth", "camera"],
 ].map(([title, icon]) => ({ kind: "app", title, icon, keywords: "" }));
 
+const shapeRect = (x, y, w, h) =>
+  `<rect x="${3 + x * 22}" y="${3 + y * 14}" width="${w * 22}" height="${h * 14}" rx="1.5"/>`;
+
 function shapeSVG(action) {
-  const inner = (x, y, w, h) =>
-    `<rect x="${3 + x * 22}" y="${3 + y * 14}" width="${w * 22}" height="${h * 14}" rx="1.5"/>`;
   let body;
-  if (Array.isArray(action)) body = inner(...action);
-  else if (action === "center") body = inner(0.25, 0.22, 0.5, 0.56);
+  if (Array.isArray(action)) body = shapeRect(...action);
+  else if (action === "center") body = shapeRect(0.25, 0.22, 0.5, 0.56);
   else if (action === "restore")
     body = `<rect x="7" y="6" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>`;
   else if (action === "minimize") body = `<rect x="9" y="13" width="10" height="2" rx="1"/>`;
@@ -286,7 +290,7 @@ function initTalk(stage) {
   };
   const paste = (text) => append(note, text);
 
-  (async () => {
+  void (async () => {
     for (;;) {
       note.textContent = "";
       for (const words of DICTATED) {
@@ -300,7 +304,7 @@ function initTalk(stage) {
 
 
 const fold = (text) =>
-  text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  text.normalize("NFD").replaceAll(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 function editDistance(a, b) {
   const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
@@ -377,9 +381,11 @@ function initDemo(stage) {
     if (!query) return [];
     const wanted = categories[category];
     return entries
-      .filter((entry) => wanted === "All" || (wanted === "Apps") === (entry.kind === "app"))
-      .map((entry) => ({ entry, score: score(entry, query) }))
-      .filter((match) => match.score > 0)
+      .flatMap((entry) => {
+        if (wanted !== "All" && (wanted === "Apps") !== (entry.kind === "app")) return [];
+        const match = { entry, score: score(entry, query) };
+        return match.score > 0 ? [match] : [];
+      })
       .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title))
       .map((match) => match.entry);
   };
@@ -566,12 +572,14 @@ function initDemo(stage) {
     input.focus({ preventScroll: true });
   });
 
+  const paste = (text) => append(note, text);
+
   render();
   if (reduceMotion) {
     append(note, DICTATED[0].join(" "));
     key.classList.add("down");
     voice.still(DICTATED[1]);
-  } else play();
+  } else void play();
 
   async function play() {
     let visible = false;
@@ -582,7 +590,6 @@ function initDemo(stage) {
       while (autoplay && (!visible || document.hidden)) await sleep(250);
       if (!autoplay) throw stopped;
     };
-    const paste = (text) => append(note, text);
     const say = async (words) => {
       launcher.classList.add("closed");
       await wait(400);

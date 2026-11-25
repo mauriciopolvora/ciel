@@ -1,4 +1,5 @@
 ObjC.import("AppKit");
+const near = (a, b) => Math.abs(a - b) <= 3;
 function run(argv) {
     const [appName, windowName, expected] = argv;
     const windows = Application("System Events").processes.byName(appName).windows.whose({ name: windowName });
@@ -33,7 +34,6 @@ function run(argv) {
     const compare = expected === undefined ? best : Number(expected);
     if (!(compare >= 0 && compare < screens.length)) throw new Error("no screen with index " + expected);
     const visible = screens[compare].visible;
-    const near = (a, b) => Math.abs(a - b) <= 3;
     const leftHalf =
         best === compare &&
         near(x, visible.x) &&
