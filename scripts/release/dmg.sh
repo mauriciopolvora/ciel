@@ -113,7 +113,15 @@ ditto "$app" "$stage/Ciel.app"
 ln -s /Applications "$stage/Applications"
 cp "$work/background.tiff" "$stage/.background.tiff"
 cp "$layout" "$stage/.DS_Store"
-hdiutil create -srcfolder "$stage" -volname Ciel -fs HFS+ -format UDZO -imagekey zlib-level=9 "$work/Ciel.dmg" >/dev/null
+# WARNING: hdiutil create sometimes fails with Resource busy while the system still holds the new image, and leaves that file attached.
+for attempt in 1 2 3 4 5; do
+    hdiutil create -srcfolder "$stage" -volname Ciel -fs HFS+ -format UDZO -imagekey zlib-level=9 \
+        "$work/Ciel-$attempt.dmg" >/dev/null && break
+    [[ "$attempt" -lt 5 ]] || fail 'hdiutil create failed 5 times.'
+    printf 'hdiutil create failed on attempt %s of 5. Trying again in 2 s.\n' "$attempt" >&2
+    sleep 2
+done
+mv "$work/Ciel-$attempt.dmg" "$work/Ciel.dmg"
 
 attach "$work/Ciel.dmg"
 codesign --verify --strict --deep "$mountpoint/Ciel.app" || fail 'Ciel.app in the disk image fails codesign --verify.'
