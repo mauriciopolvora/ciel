@@ -1,0 +1,58 @@
+name: preview-sweep
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: preview-sweep
+  cancel-in-progress: false
+
+jobs:
+  preview-sweep:
+    name: preview-sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - run: gh auth setup-git
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: tear down each PR that closed in the last 8 days or whose branch is still up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PROVIDERS: ""
+          PREVIEW_KEEP_BRANCHES: ""
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ""
+          VERCEL_TEAM_ID: ""
+          CONVEX_TEAM_TOKEN: ${{ secrets.CONVEX_TEAM_TOKEN }}
+          CONVEX_PROJECT_ID: ""
+        run: |
+          since=$(date -u -d '8 days ago' +%Y-%m-%d)
+          status=0
+          prs=$(gh pr list --state closed --limit 1000 --search "closed:>=$since" --json number --jq '.[].number')
+          if [ "$(wc -w <<<"$prs")" -ge 1000 ]; then
+            echo "preview-sweep: 1000 or more PRs closed since $since, so the list can miss some" >&2
+            exit 1
+          fi
+          branches=$(git ls-remote --heads origin | cut -f2 | sed 's#^refs/heads/##')
+          for branch in $branches; do
+            prs+=$'\n'$(gh api --paginate -X GET "repos/$GITHUB_REPOSITORY/pulls" -f state=closed -f head="${GITHUB_REPOSITORY%%/*}:$branch" -f per_page=100 --jq '.[].number')
+          done
+          for pr in $(sort -nu <<<"$prs"); do
+            scripts/preview-teardown.sh "$pr" || status=1
+          done
+          exit $status
