@@ -137,12 +137,10 @@ check_regex() {
 }
 
 wait_for() {
-    local deadline=$((SECONDS + ${2:-10})) status osa_limit remaining
+    local deadline=$((SECONDS + ${2:-10})) status
     check_regex wait-for "$1"
     while :; do
-        remaining=$((deadline - SECONDS))
-        ((remaining > 0)) || return 1
-        osa_limit=$((remaining < 20 ? remaining : 20))
+        ((deadline > SECONDS)) || return 1
         status=0
         ax_match "$1" || status=$?
         [[ $status -eq 0 ]] && return 0
@@ -152,12 +150,10 @@ wait_for() {
 }
 
 wait_gone() {
-    local deadline=$((SECONDS + ${2:-10})) status osa_limit remaining
+    local deadline=$((SECONDS + ${2:-10})) status
     check_regex wait-gone "$1"
     while :; do
-        remaining=$((deadline - SECONDS))
-        ((remaining > 0)) || return 1
-        osa_limit=$((remaining < 20 ? remaining : 20))
+        ((deadline > SECONDS)) || return 1
         status=0
         ax_match "$1" complete || status=$?
         [[ $status -eq 1 ]] && return 0
@@ -269,18 +265,13 @@ stop_started_apps() {
 
 close_finder_window() {
     [[ -f "$finder_file" ]] || return 0
-    local dir open
+    local dir
     dir="$(cat "$finder_file")"
     [[ -n "$dir" ]] || return 0
-    open="$(osa -e 'on run argv' -e 'tell application "System Events" to tell process "Finder"' -e 'repeat 20 times' \
+    osa -e 'on run argv' -e 'tell application "System Events" to tell process "Finder"' -e 'repeat 20 times' \
         -e 'if not (exists window (item 1 of argv)) then exit repeat' \
         -e 'click (first button of window (item 1 of argv) whose subrole is "AXCloseButton")' -e 'delay 0.25' -e 'end repeat' \
-        -e 'return exists window (item 1 of argv)' -e 'end tell' -e 'end run' "$(basename "$dir")")" || open=true
-    if [[ "$open" != false ]]; then
-        printf 'kept %s: its Finder window did not close, and deleting the folder of an open window shows a Finder alert\n' "$dir" >&2
-        return 0
-    fi
-    rm -rf "$dir"
+        -e 'end tell' -e 'end run' "$(basename "$dir")" >/dev/null || true
 }
 
 cleanup() {
@@ -385,6 +376,7 @@ window_frame() {
 journey_window_commands() {
     local name="ciel-verify-$$-$RANDOM" dir frame="" got=0 screen
     dir="$run_dir/$name"
+    rm -rf "$run_dir"/ciel-verify-*
     mkdir -p "$dir"
     press escape
     wait_gone 'Search apps and commands' 5 || fail "window-commands: Escape did not close the launcher."
