@@ -269,11 +269,17 @@ stop_started_apps() {
 
 close_finder_window() {
     [[ -f "$finder_file" ]] || return 0
-    local dir
+    local dir open
     dir="$(cat "$finder_file")"
     [[ -n "$dir" ]] || return 0
-    osa -e 'on run argv' -e 'tell application "Finder" to close (every Finder window whose name is (item 1 of argv))' -e 'end run' \
-        "$(basename "$dir")" >/dev/null || true
+    open="$(osa -e 'on run argv' -e 'tell application "System Events" to tell process "Finder"' -e 'repeat 20 times' \
+        -e 'if not (exists window (item 1 of argv)) then exit repeat' \
+        -e 'click (first button of window (item 1 of argv) whose subrole is "AXCloseButton")' -e 'delay 0.25' -e 'end repeat' \
+        -e 'return exists window (item 1 of argv)' -e 'end tell' -e 'end run' "$(basename "$dir")")" || open=true
+    if [[ "$open" != false ]]; then
+        printf 'kept %s: its Finder window did not close, and deleting the folder of an open window shows a Finder alert\n' "$dir" >&2
+        return 0
+    fi
     rm -rf "$dir"
 }
 
