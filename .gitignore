@@ -8,3 +8,6 @@ dist/
 .env.*
 .cloudflare/
 node_modules/
+playwright-report/
+test-results/
+.wrangler/

@@ -6,13 +6,13 @@ process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
 
 const cap = 4096;
 const docLineCaps = {
-  ".agents/skills/verify-ciel/SKILL.md": 70,
+  ".agents/skills/verify-ciel/SKILL.md": 85,
   ".agents/skills/verify-ciel/features/README.md": 40,
   ".agents/skills/verify-ciel/features/launcher-search.md": 35,
   ".agents/skills/verify-ciel/features/onboarding.md": 30,
   ".agents/skills/verify-ciel/features/open-app.md": 35,
   ".agents/skills/verify-ciel/features/settings.md": 35,
-  ".agents/skills/verify-ciel/features/site.md": 35,
+  ".agents/skills/verify-ciel/features/site.md": 40,
   ".agents/skills/verify-ciel/features/window-commands.md": 35,
   ".github/ISSUE_TEMPLATE.md": 15,
   "AGENTS.md": 45,
@@ -21,7 +21,7 @@ const docLineCaps = {
   "docs/artwork.md": 10,
   "docs/design-system.md": 105,
   "docs/releasing.md": 125,
-  "docs/rules.md": 50,
+  "docs/rules.md": 55,
 };
 
 const problems = [];

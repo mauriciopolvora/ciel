@@ -228,9 +228,45 @@ jobs:
           echo "PERIPHERY=$RUNNER_TEMP/periphery/periphery" >>"$GITHUB_ENV"
       - name: Fail on unused declarations
         run: bash scripts/lint/dead-code.sh
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Install
+        run: bun install --frozen-lockfile && cd site && bun install --frozen-lockfile
+      - name: Install Chromium
+        run: node_modules/.bin/playwright install --with-deps chromium
+      - name: Select the tests of the changed site features
+        id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        # WARNING: an echo of the substitution would hide a failure of select.mjs, so assign it first.
+        run: |
+          grep=$(bun .agents/skills/verify-ciel/scripts/select.mjs "$BASE")
+          echo "grep=$grep" >> "$GITHUB_OUTPUT"
+      - name: Run @smoke and the selected @verify site tests
+        env:
+          GREP: ${{ steps.select.outputs.grep }}
+        run: node_modules/.bin/playwright test --grep "$GREP" --project=desktop
+      - name: Archive the Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Ciel-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
   # WARNING: the GitHub ruleset on main requires only this job, so it must need every job above.
   ci:
-    needs: [check, mutants, coverage, dead-code]
+    needs: [check, mutants, coverage, dead-code, verify]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 1

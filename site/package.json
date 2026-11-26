@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "cf dev",
     "predeploy": "bash check-downloads.sh && bash release-version.sh",
-    "deploy": "cf deploy"
+    "deploy": "cf deploy",
+    "postdeploy": "bash prod-smoke.sh"
   },
   "devDependencies": {
     "cf": "^1.0.0-rc.4",

@@ -42,6 +42,7 @@ step "bun install" bash -c 'bun install --frozen-lockfile --silent && cd site &&
 step oxlint node_modules/.bin/oxlint --deny-warnings
 step check-types node scripts/lint/check-types.mjs
 step check-lint-types bash scripts/lint/check-lint-types.sh
+step check-site-tags bun .agents/skills/verify-ciel/scripts/check-tags.mjs
 
 if [[ ${#failed[@]} -gt 0 ]]; then
     printf 'check-fast: failed: %s\n' "$(IFS=,; echo "${failed[*]}" | sed 's/,/, /g')" >&2
