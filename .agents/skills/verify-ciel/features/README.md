@@ -1,6 +1,6 @@
 # Ciel verification map
 
-This directory is the maintained source for verifying what a Ciel user sees. Read this index, then use the matching feature file as the recipe. Every app command runs from the repo root through `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh`, written `ciel-verify.sh` below. The site has its own driver, in [site.md](./site.md).
+This directory is the maintained source for verifying what a Ciel user sees. Read this index, then use the matching feature file as the recipe. Every app command runs from the repo root through `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh`, written `ciel-verify.sh` below. The site has its own driver, Playwright Test, in [site.md](./site.md).
 
 ## Baseline preconditions for the app
 
@@ -24,7 +24,7 @@ This directory is the maintained source for verifying what a Ciel user sees. Rea
 
 ## Feature entry contract
 
-Each feature file starts with an H1 and one paragraph on what the user sees. Then four H2 sections in this order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <driver>`, `Gotchas`. The driver is `ciel-verify.sh` for the app and `site-verify.mjs` for the site.
+Each feature file starts with an H1 and one paragraph on what the user sees. Then four H2 sections in this order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <driver>`, `Gotchas`. The driver is `ciel-verify.sh` for the app and `Playwright Test` for the site.
 
 ## Features
 
@@ -33,4 +33,4 @@ Each feature file starts with an H1 and one paragraph on what the user sees. The
 - [Window commands](./window-commands.md): Return on a window command moves the window that was in front.
 - [Settings](./settings.md): Command-Comma or the Ciel Settings command opens Ciel Settings, which opens the guide and About.
 - [Onboarding](./onboarding.md): the first launch opens Set Up Ciel, and finishing it opens the launcher.
-- [Site](./site.md): the site's pages, demo and Download links, on Linux.
+- [Site](./site.md): the site's pages, demo and Download links, as tagged Playwright specs on Linux.

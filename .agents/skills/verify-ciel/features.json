@@ -1,0 +1,47 @@
+{
+  "routes": ["site/public/*.html"],
+  "tags": {
+    "@home": [
+      "site/public/index.html",
+      "site/public/_headers",
+      "site/public/assets/site.css",
+      "site/public/assets/*.{jpg,png,svg,webp}",
+      "site/public/assets/fonts/**"
+    ],
+    "@download": ["site/public/index.html", "site/check-downloads.sh", "site/release-version.sh"],
+    "@demo": ["site/public/index.html", "site/public/assets/site.js", "site/public/assets/site.css"],
+    "@pages": [
+      "site/public/index.html",
+      "site/public/privacy.html",
+      "site/public/404.html",
+      "site/public/assets/site.js",
+      "site/public/assets/site.css",
+      "site/public/assets/lenis/**"
+    ]
+  },
+  "baseline": [],
+  "smokeOnly": [
+    "**/*.md",
+    "Sources/**",
+    "Tests/**",
+    "Resources/**",
+    "assets/**",
+    "docs/**",
+    "scripts/**",
+    "Package.swift",
+    "Package.resolved",
+    ".swift-format",
+    ".periphery.yml",
+    ".gitattributes",
+    ".githooks/**",
+    ".github/dependabot.yml",
+    ".github/workflows/preview-sweep.yml",
+    ".github/workflows/preview-teardown.yml",
+    ".github/workflows/release.yml",
+    ".github/workflows/speech.yml",
+    ".agents/skills/verify-ciel/scripts/ciel-verify.sh",
+    ".agents/skills/verify-ciel/scripts/*.js",
+    "site/prod-smoke.sh",
+    "LICENSE"
+  ]
+}

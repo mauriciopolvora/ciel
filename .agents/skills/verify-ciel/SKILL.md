@@ -7,7 +7,7 @@ description: Drives the real Ciel macOS app the way a user does (the launcher sh
 
 Ciel is a menu bar launcher for macOS. A user presses Control-Option-Space, types, and presses Return to open an app or run a window command. This skill drives a disposable copy of the built app through those keys with System Events, reads Ciel's windows through the accessibility tree, and saves the proof.
 
-Every command below runs from the repo root on a Mac. Agent hosts run Linux: there, the app journeys run only in CI, where the `Drive the built app with verify-ciel` step of `.github/workflows/checks.yml` runs `journey all` and uploads the `Ciel-verify-evidence` artifact. The site recipe, [features/site.md](features/site.md), runs on Linux.
+Every command below runs from the repo root on a Mac. Agent hosts run Linux: there, the app journeys run only in CI, where the `Drive the built app with verify-ciel` step of `.github/workflows/checks.yml` runs `journey all` and uploads the `Ciel-verify-evidence` artifact. The site runs on Linux: its journeys are tagged Playwright Test specs in `e2e/`, and [features/site.md](features/site.md) says how the tags pick what runs.
 
 ## Launch
 
@@ -58,6 +58,16 @@ A proof drives the user path: the shortcut, the keys and the visible result. It 
 ## Cleanup
 
 `bash .agents/skills/verify-ciel/scripts/ciel-verify.sh cleanup` stops the Ciel copy by the pid it saved, in CI also stops each app that a journey started by the pid it saved, closes the Finder windows named after the folder that `window-commands` made for this run, keeps that folder (Finder shows "The file can't be found" when the folder of a window it just closed goes away), deletes the copy and its defaults, and keeps `.build/verify/evidence/`. It takes the same lock as `launch`, so it refuses while a journey runs, because that journey cleans up when it ends. Before each stop it checks that the pid still runs the same executable. It never stops an app by name. Outside CI it leaves the apps a journey opened running and prints their pids, because Launch Services can hand Return an instance the operator opened. A journey runs cleanup on exit, also after a failure, but only once its own `launch` has started a copy.
+
+## Agent review of a site PR
+
+The specs prove the flows they know. For a PR that changes something a user sees on the site, the PR reviewer (a different model from the author, the `ui agent reviewer` of `pstack-models.md`) serves `site/` with `cd site && bun run dev` and drives it with the Playwright CLI (`npx @playwright/cli`) for about 10 minutes:
+
+1. It starts at the features of the tags that the PR changes, then tries the flows next to them: a reload, back and forward, empty and long demo input, a phone width.
+2. It reproduces each failure a second time from a fresh page load. A failure that it reproduces twice is a **blocker** when it is a broken flow, a missing control, a failed readback, a console error or a 5xx response. A blocker makes the review request changes, with the steps, the URL and the evidence. A "looks off" note (spacing, copy) does not block.
+3. For each blocker, the author first adds a spec with the feature tag that fails, then fixes the code in the same PR.
+
+The gate is soft until 2026-12-10. A site PR can skip the review with the line `Agent review: skipped, <reason>` in the Verification section of its body. Count the skips with `gh pr list -R mauriciopolvora/ciel --state merged --search '"Agent review: skipped" in:body merged:>=2026-11-26'`.
 
 ## Gotchas
 

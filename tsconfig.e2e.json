@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "lib": ["es2024", "dom", "dom.iterable"], "noImplicitAny": true, "allowImportingTsExtensions": true },
+  "include": ["playwright.config.ts", "e2e/*.ts"]
+}
