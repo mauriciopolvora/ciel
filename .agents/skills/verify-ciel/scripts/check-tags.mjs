@@ -30,8 +30,9 @@ const list = (...flags) => {
 
 const tests = list();
 const used = new Set(tests.flatMap((test) => test.tags));
-for (const name of Object.keys(featureMap.tags).filter((name) => !used.has(name))) {
-  problems.push(`${name} in ${skill}/features.json tags no test that runs. Tag a test in e2e/ with it.`);
+const verified = new Set(tests.filter((test) => test.tags.includes("@verify")).flatMap((test) => test.tags));
+for (const name of Object.keys(featureMap.tags).filter((name) => !verified.has(name))) {
+  problems.push(`${name} in ${skill}/features.json tags no @verify test that runs. Tag a @verify test in e2e/ with it.`);
 }
 for (const name of [...used].filter((name) => !tiers.has(name) && !(name in featureMap.tags))) {
   problems.push(`${name} tags a test in e2e/ but is not in ${skill}/features.json. Add it with the files of its feature.`);
@@ -51,6 +52,11 @@ for (const { files, want } of cases) {
   const selection = select(files);
   const got = selection.all ? "all" : selection.tags.join(" ") || "smoke only";
   if (got !== want) problems.push(`select(${files.join(", ")}) gives ${got}, not ${want}. Fix ${skill}/scripts/select.mjs or features.json.`);
+}
+
+const special = new RegExp(grep({ all: false, tags: ["@demo+extra"] }));
+if (!special.test("a @verify @demo+extra") || special.test("a @verify @demooextra")) {
+  problems.push(`grep() does not escape regex characters in a tag. Fix ${skill}/scripts/select.mjs.`);
 }
 
 const titles = (found) => found.map((test) => test.title).toSorted((a, b) => a.localeCompare(b)).join("\n");

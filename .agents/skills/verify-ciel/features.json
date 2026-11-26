@@ -1,5 +1,5 @@
 {
-  "routes": ["site/public/*.html"],
+  "routes": ["site/public/**/*.html"],
   "tags": {
     "@home": [
       "site/public/index.html",

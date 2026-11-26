@@ -23,12 +23,14 @@ export function select(files, map = featureMap) {
   return { all: false, tags: [...tags].toSorted((a, b) => a.localeCompare(b)) };
 }
 
-const tag = (name) => ` ${name}( |$)`;
+const escape = (name) => name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
+const tag = (name) => ` ${escape(name)}( |$)`;
 
 export function grep(selection) {
   if (selection.all) return `${tag("@smoke")}|${tag("@verify")}`;
   if (selection.tags.length === 0) return tag("@smoke");
-  return `${tag("@smoke")}|(?=.*${tag("@verify")})(?=.* (${selection.tags.join("|")})( |$))`;
+  return `${tag("@smoke")}|(?=.*${tag("@verify")})(?=.* (${selection.tags.map(escape).join("|")})( |$))`;
 }
 
 function changedFiles(base) {

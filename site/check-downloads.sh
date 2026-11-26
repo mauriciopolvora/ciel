@@ -1,9 +1,10 @@
 #!/bin/bash
 set -euo pipefail
+page=$(realpath "${1:-$(dirname "$0")/public/index.html}")
 cd "$(dirname "$0")"
-urls=$(grep -oE 'https://github\.com/mauriciopolvora/ciel/releases/latest/download/[A-Za-z0-9._-]+' public/index.html | sort -u)
+urls=$(grep -oE 'https://github\.com/mauriciopolvora/ciel/releases/latest/download/[A-Za-z0-9._-]+' "$page" | sort -u)
 if [[ -z "$urls" ]]; then
-    printf 'public/index.html has no release download links.\n' >&2; exit 1
+    printf '%s has no release download links.\n' "${2:-$page}" >&2; exit 1
 fi
 dead=0
 while IFS= read -r url; do

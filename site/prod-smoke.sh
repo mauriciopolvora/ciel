@@ -18,5 +18,11 @@ get 200 /
 get 200 /privacy
 get 200 /assets/site.js
 get 404 /no-such-page
-bash check-downloads.sh || failed=1
+page=$(mktemp)
+trap 'rm -f "$page"' EXIT
+if curl -sS --max-time 20 -o "$page" "$site/"; then
+    bash check-downloads.sh "$page" "$site/" || failed=1
+else
+    failed=1
+fi
 exit "$failed"

@@ -1,4 +1,8 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "./fixture.ts";
+
+const featuresTop = async (page: Page) =>
+  Math.abs(await page.locator("#features").evaluate((section) => section.getBoundingClientRect().top));
 
 test("the Features link scrolls to Features, and the Privacy link opens the privacy page", { tag: ["@smoke", "@verify", "@pages"] }, async ({ page, isMobile }) => {
   await page.goto("/");
@@ -6,6 +10,9 @@ test("the Features link scrolls to Features, and the Privacy link opens the priv
     await page.getByRole("button", { name: "Open menu" }).click();
   }
   await page.locator(isMobile ? "#menu" : ".nav-links").getByRole("link", { name: "Features" }).click();
+  await expect.poll(() => featuresTop(page)).toBeLessThan(120);
+  await page.waitForTimeout(1300);
+  expect(await featuresTop(page)).toBeLessThan(120);
   await expect(page.getByRole("heading", { level: 2, name: "Fast at the few things it does" })).toBeInViewport();
   await page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }).click();
   await expect(page).toHaveURL("/privacy");
