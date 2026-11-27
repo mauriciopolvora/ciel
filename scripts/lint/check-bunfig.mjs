@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,20 +7,18 @@ process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
 const week = 7 * 24 * 60 * 60;
 const problems = [];
 
-function gate(text) {
-  let table = "";
-  for (const line of text.split("\n").map((raw) => raw.trim())) {
-    const header = /^\[([^\]]*)\]$/.exec(line);
-    if (header) {
-      table = header[1]?.trim() ?? "";
-      continue;
-    }
-    const age = /^minimumReleaseAge\s*=\s*(\d+)\s*$/.exec(line);
-    if (table === "install" && age) {
-      return Number(age[1]);
-    }
+function gate(config) {
+  const result = spawnSync(
+    "bun",
+    ["-e", "process.stdout.write(JSON.stringify(Bun.TOML.parse(await Bun.file(process.argv.at(-1)).text())))", config],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0) {
+    problems.push(`${config} is not TOML that bun reads: ${(result.stderr || result.error?.message || "").trim()}`);
+    return null;
   }
-  return undefined;
+  const seconds = JSON.parse(result.stdout)?.install?.minimumReleaseAge;
+  return typeof seconds === "number" ? seconds : undefined;
 }
 
 const folders = execFileSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", "package.json", "**/package.json"], {
@@ -38,8 +36,8 @@ for (const folder of new Set(folders)) {
     );
     continue;
   }
-  const seconds = gate(readFileSync(config, "utf8"));
-  if (seconds === undefined || seconds < week) {
+  const seconds = gate(config);
+  if (seconds !== null && (seconds === undefined || seconds < week)) {
     problems.push(
       `${config} must set minimumReleaseAge = ${week} (7 days, the Dependabot cooldown) or more under [install], as a number of seconds.`,
     );

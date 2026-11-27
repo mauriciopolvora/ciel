@@ -40,6 +40,10 @@ expect 1 "a new nested package.json" "e2e/package.json has no e2e/bunfig.toml" '
 expect 1 "a gate shorter than 7 days" "site/bunfig.toml must set minimumReleaseAge = 604800" 'printf "[install]\nminimumReleaseAge = 259200\n" >site/bunfig.toml'
 expect 1 "the gate outside the install table" "bunfig.toml must set minimumReleaseAge" 'printf "[run]\nminimumReleaseAge = 604800\n" >bunfig.toml'
 expect 1 "the gate as a string" "bunfig.toml must set minimumReleaseAge" 'printf "[install]\nminimumReleaseAge = \"7d\"\n" >bunfig.toml'
+expect 1 "a table header with a comment before the gate" "bunfig.toml must set minimumReleaseAge" 'printf "[install]\n[run] # c\nminimumReleaseAge = 604800\n" >bunfig.toml'
+expect 0 "comments on the install header and the gate" "" 'printf "[install] # x\nminimumReleaseAge = 604800 # seconds\n" >bunfig.toml'
+expect 0 "the gate as a dotted key" "" 'printf "install.minimumReleaseAge = 604800\n" >bunfig.toml'
+expect 1 "a file that is not TOML" "bunfig.toml is not TOML that bun reads" 'printf "[install\n" >bunfig.toml'
 expect 0 "an ignored package.json" "" 'mkdir -p node_modules/x && printf "{}\n" >node_modules/x/package.json'
 
 if [[ "$failures" -gt 0 ]]; then
