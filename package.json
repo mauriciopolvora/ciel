@@ -16,6 +16,7 @@
     "workspaces": {
       ".": {
         "entry": [
+          "scripts/lint/check-bunfig.mjs",
           "scripts/lint/check-comments.mjs",
           "scripts/lint/check-docs.mjs",
           "scripts/lint/check-dotfolders.mjs",
