@@ -25,7 +25,11 @@ expect() {
     git -C "$root" config core.excludesFile /dev/null
     (cd "$root" && eval "$4") ||
         { printf 'check-lint-bunfig: %s: the command that breaks the copy failed.\n' "$name" >&2; exit 1; }
-    output="$(node "$root/scripts/lint/check-bunfig.mjs" 2>&1)" || status=$?
+    if [[ -d "$root/nobun" ]]; then
+        output="$(PATH="$root/nobun" node "$root/scripts/lint/check-bunfig.mjs" 2>&1)" || status=$?
+    else
+        output="$(node "$root/scripts/lint/check-bunfig.mjs" 2>&1)" || status=$?
+    fi
     if [[ "$status" -ne "$want" || "$output" != *"$text"* ]]; then
         printf 'FAIL %s: exit %s, expected %s with "%s". Output:\n%s\n' "$name" "$status" "$want" "$text" "$output"
         failures=$((failures + 1))
@@ -44,6 +48,8 @@ expect 1 "a table header with a comment before the gate" "bunfig.toml must set m
 expect 0 "comments on the install header and the gate" "" 'printf "[install] # x\nminimumReleaseAge = 604800 # seconds\n" >bunfig.toml'
 expect 0 "the gate as a dotted key" "" 'printf "install.minimumReleaseAge = 604800\n" >bunfig.toml'
 expect 1 "a file that is not TOML" "bunfig.toml is not TOML that bun reads" 'printf "[install\n" >bunfig.toml'
+expect 0 "a root preload that prints" "" 'printf "console.log(\"preload\")\n" >p.js && printf "preload = [\"./p.js\"]\n[install]\nminimumReleaseAge = 604800\n" >bunfig.toml'
+expect 2 "no bun on the PATH" "bun did not run" 'mkdir nobun && ln -s "$(command -v node)" nobun/node && ln -s "$(command -v git)" nobun/git'
 expect 0 "an ignored package.json" "" 'mkdir -p node_modules/x && printf "{}\n" >node_modules/x/package.json'
 
 if [[ "$failures" -gt 0 ]]; then

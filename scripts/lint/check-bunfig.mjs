@@ -10,11 +10,15 @@ const problems = [];
 function gate(config) {
   const result = spawnSync(
     "bun",
-    ["-e", "process.stdout.write(JSON.stringify(Bun.TOML.parse(await Bun.file(process.argv.at(-1)).text())))", config],
+    ["--config=/dev/null", "-e", "process.stdout.write(JSON.stringify(Bun.TOML.parse(await Bun.file(process.argv.at(-1)).text())))", config],
     { encoding: "utf8" },
   );
+  if (result.error) {
+    console.error(`check-bunfig: bun did not run, so no bunfig.toml was read: ${result.error.message}`);
+    process.exit(2);
+  }
   if (result.status !== 0) {
-    problems.push(`${config} is not TOML that bun reads: ${(result.stderr || result.error?.message || "").trim()}`);
+    problems.push(`${config} is not TOML that bun reads: ${result.stderr.trim()}`);
     return null;
   }
   const seconds = JSON.parse(result.stdout)?.install?.minimumReleaseAge;
