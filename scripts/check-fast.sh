@@ -42,6 +42,8 @@ step check-lint-commits bash scripts/lint/check-lint-commits.sh
 step check-cleanup-branches bash scripts/check-cleanup-branches.sh
 step check-dmg bash scripts/release/check-dmg.sh
 step check-lint-audit bash scripts/lint/check-lint-audit.sh
+step check-bunfig node scripts/lint/check-bunfig.mjs
+step check-lint-bunfig bash scripts/lint/check-lint-bunfig.sh
 step "bun install" bash -c 'bun install --frozen-lockfile --silent && cd site && bun install --frozen-lockfile --silent'
 step knip node_modules/.bin/knip --treat-config-hints-as-errors
 step oxlint node_modules/.bin/oxlint --deny-warnings
