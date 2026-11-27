@@ -34,11 +34,16 @@ step lint-casts bash scripts/lint/lint-casts.sh
 step check-lint-casts bash scripts/lint/check-lint-casts.sh
 step lint-paths bash scripts/lint/lint-paths.sh
 step check-lint-paths bash scripts/lint/check-lint-paths.sh
+step check-root node scripts/lint/check-root.mjs
+step check-lint-root bash scripts/lint/check-lint-root.sh
+step check-dotfolders node scripts/lint/check-dotfolders.mjs
+step check-lint-dotfolders bash scripts/lint/check-lint-dotfolders.sh
 step check-lint-commits bash scripts/lint/check-lint-commits.sh
 step check-cleanup-branches bash scripts/check-cleanup-branches.sh
 step check-dmg bash scripts/release/check-dmg.sh
 step check-lint-audit bash scripts/lint/check-lint-audit.sh
 step "bun install" bash -c 'bun install --frozen-lockfile --silent && cd site && bun install --frozen-lockfile --silent'
+step knip node_modules/.bin/knip --treat-config-hints-as-errors
 step oxlint node_modules/.bin/oxlint --deny-warnings
 step check-types node scripts/lint/check-types.mjs
 step check-lint-types bash scripts/lint/check-lint-types.sh

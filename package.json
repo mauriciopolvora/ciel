@@ -7,8 +7,35 @@
     "@cloudflare/oxlint-config": "^0.2.0",
     "@playwright/test": "1.65.1",
     "@types/node": "^26.6.6",
+    "knip": "^6.48.0",
     "oxlint": "^1.95.0",
     "oxlint-tsgolint": "^7.0.2008",
     "tsrs": "7.1.0-beta.tsrs5"
+  },
+  "knip": {
+    "workspaces": {
+      ".": {
+        "entry": [
+          "scripts/lint/check-comments.mjs",
+          "scripts/lint/check-docs.mjs",
+          "scripts/lint/check-dotfolders.mjs",
+          "scripts/lint/check-root.mjs",
+          "scripts/lint/check-types.mjs",
+          ".agents/skills/verify-ciel/scripts/ax-tree.js",
+          ".agents/skills/verify-ciel/scripts/check-tags.mjs",
+          ".agents/skills/verify-ciel/scripts/window-frame.js"
+        ]
+      },
+      "site": {
+        "entry": [
+          "cloudflare.config.ts",
+          "wrangler.config.ts",
+          "public/assets/site.js"
+        ],
+        "ignore": [
+          "public/assets/lenis/lenis.min.js"
+        ]
+      }
+    }
   }
 }
