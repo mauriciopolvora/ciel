@@ -7,8 +7,28 @@
     "@cloudflare/oxlint-config": "^0.2.0",
     "@playwright/test": "1.65.1",
     "@types/node": "^26.6.6",
+    "knip": "^6.48.0",
     "oxlint": "^1.95.0",
     "oxlint-tsgolint": "^7.0.2008",
     "tsrs": "7.1.0-beta.tsrs5"
+  },
+  "knip": {
+    "workspaces": {
+      ".": {
+        "entry": [
+          "scripts/lint/*.mjs",
+          ".agents/skills/verify-ciel/scripts/*.{js,mjs}"
+        ]
+      },
+      "site": {
+        "entry": [
+          "*.config.ts",
+          "public/assets/site.js"
+        ],
+        "ignore": [
+          "public/assets/lenis/**"
+        ]
+      }
+    }
   }
 }
