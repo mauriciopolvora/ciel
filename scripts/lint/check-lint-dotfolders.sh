@@ -20,6 +20,7 @@ expect() {
     printf '.build/\n' >"$root/.gitignore"
     printf 'x\n' >"$root/.github/dependabot.yml"
     git -C "$root" init -q
+    git -C "$root" config core.excludesFile /dev/null
     (cd "$root" && eval "$4") ||
         { printf 'check-lint-dotfolders: %s: the command that breaks the copy failed.\n' "$name" >&2; exit 1; }
     output="$(node "$root/scripts/lint/check-dotfolders.mjs" 2>&1)" || status=$?

@@ -16,17 +16,24 @@
     "workspaces": {
       ".": {
         "entry": [
-          "scripts/lint/*.mjs",
-          ".agents/skills/verify-ciel/scripts/*.{js,mjs}"
+          "scripts/lint/check-comments.mjs",
+          "scripts/lint/check-docs.mjs",
+          "scripts/lint/check-dotfolders.mjs",
+          "scripts/lint/check-root.mjs",
+          "scripts/lint/check-types.mjs",
+          ".agents/skills/verify-ciel/scripts/ax-tree.js",
+          ".agents/skills/verify-ciel/scripts/check-tags.mjs",
+          ".agents/skills/verify-ciel/scripts/window-frame.js"
         ]
       },
       "site": {
         "entry": [
-          "*.config.ts",
+          "cloudflare.config.ts",
+          "wrangler.config.ts",
           "public/assets/site.js"
         ],
         "ignore": [
-          "public/assets/lenis/**"
+          "public/assets/lenis/lenis.min.js"
         ]
       }
     }

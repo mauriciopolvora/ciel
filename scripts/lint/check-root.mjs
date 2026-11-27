@@ -22,7 +22,7 @@ const owners = [
   },
   { pattern: /^\.?knip(\.config)?\.[a-z]+$/, owner: "the knip key in package.json holds the knip config" },
   {
-    pattern: /^(package-lock\.json|yarn\.lock|\.yarnrc.*|pnpm-lock\.yaml|pnpm-workspace\.yaml|bun\.lockb)$/,
+    pattern: /^(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|\.yarnrc.*|pnpm-lock\.yaml|pnpm-workspace\.yaml|bun\.lockb)$/,
     owner: "bun installs, with its lockfile in bun.lock",
   },
   {

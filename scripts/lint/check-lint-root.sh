@@ -17,11 +17,12 @@ expect() {
     mkdir -p "$root/scripts/lint" "$root/Sources/Ciel" "$root/.github"
     cp scripts/lint/check-root.mjs "$root/scripts/lint/"
     printf '%s\n' .gitignore Package.swift Sources/ scripts/ >"$root/scripts/lint/root.txt"
-    printf '.build/\n' >"$root/.gitignore"
+    printf '.build/\ndist/\n' >"$root/.gitignore"
     printf 'x\n' >"$root/Package.swift"
     printf 'x\n' >"$root/Sources/Ciel/App.swift"
     printf 'x\n' >"$root/.github/dependabot.yml"
     git -C "$root" init -q
+    git -C "$root" config core.excludesFile /dev/null
     (cd "$root" && eval "$4") ||
         { printf 'check-lint-root: %s: the command that breaks the copy failed.\n' "$name" >&2; exit 1; }
     output="$(node "$root/scripts/lint/check-root.mjs" 2>&1)" || status=$?
@@ -43,7 +44,8 @@ expect 1 "a Renovate config in .github" ".github/renovate.json is not allowed" '
 expect 1 "a knip config file" "the knip key in package.json" 'printf x >knip.json'
 expect 1 "a folder named for a kind of file" "Sources/Ciel/utils/ is a folder named for a kind of file" 'mkdir Sources/Ciel/utils && printf x >Sources/Ciel/utils/a.swift'
 expect 1 "a root symlink to a folder" "Linked/ is not on the root list" 'ln -s Sources Linked'
-expect 0 "an ignored root folder" "" 'mkdir .build && printf x >.build/a'
+expect 0 "an ignored root folder" "" 'mkdir dist && printf x >dist/a'
+expect 1 "another lockfile name" "bun installs" 'printf x >npm-shrinkwrap.json'
 expect 0 "a nested file with an owned name" "" 'printf x >Sources/Ciel/yarn.lock'
 
 if [[ "$failures" -gt 0 ]]; then
