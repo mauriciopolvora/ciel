@@ -22,6 +22,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Send the read-only job token on the git calls to github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/git-auth.sh
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -170,6 +174,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Send the read-only job token on the git calls to github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/git-auth.sh
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - name: Check that the tests catch each recorded past mistake
@@ -192,6 +200,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Send the read-only job token on the git calls to github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/git-auth.sh
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - name: Check that the tests catch each recorded past mistake
@@ -214,6 +226,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Send the read-only job token on the git calls to github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/git-auth.sh
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - name: Measure unit test coverage
@@ -236,6 +252,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Send the read-only job token on the git calls to github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/git-auth.sh
       - name: Select Swift 6 toolchain
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
       - name: Install periphery

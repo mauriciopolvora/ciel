@@ -20,6 +20,7 @@
           "scripts/lint/check-comments.mjs",
           "scripts/lint/check-docs.mjs",
           "scripts/lint/check-dotfolders.mjs",
+          "scripts/lint/check-git-auth.mjs",
           "scripts/lint/check-root.mjs",
           "scripts/lint/check-types.mjs",
           ".agents/skills/verify-ciel/scripts/ax-tree.js",
