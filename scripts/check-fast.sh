@@ -34,6 +34,8 @@ step lint-casts bash scripts/lint/lint-casts.sh
 step check-lint-casts bash scripts/lint/check-lint-casts.sh
 step lint-paths bash scripts/lint/lint-paths.sh
 step check-lint-paths bash scripts/lint/check-lint-paths.sh
+step lint-git-auth bash scripts/lint/lint-git-auth.sh
+step check-lint-git-auth bash scripts/lint/check-lint-git-auth.sh
 step check-root node scripts/lint/check-root.mjs
 step check-lint-root bash scripts/lint/check-lint-root.sh
 step check-dotfolders node scripts/lint/check-dotfolders.mjs

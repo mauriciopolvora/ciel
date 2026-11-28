@@ -1,5 +1,4 @@
 #!/bin/bash
-# WARNING: run this only in a job whose token has contents: read and nothing more. Each later step of the job can read the token.
 set -euo pipefail
 if [[ $# -ne 0 || -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_ENV:-}" ]]; then
     printf 'Usage: GITHUB_TOKEN=<job token> bash scripts/git-auth.sh\nIn a GitHub Actions job, makes each later git call to https://github.com/ send the job token.\nSwiftPM clones then count against the token, not against the anonymous limit of the runner.\n' >&2
