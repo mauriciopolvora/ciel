@@ -79,9 +79,24 @@ expect 1 "read-all at the top" 'permissions "read-all"' "" "${read_only/permissi
   contents: read/permissions: read-all}"
 expect 1 "no permissions" 'permissions null' "" "${read_only/permissions:
   contents: read/}"
-expect 1 "the script from its own folder" 'job check runs' "" "${read_only/contents: read/contents: write}
-        working-directory: scripts
-      - run: bash git-auth.sh"
+expect 1 "the script from its own folder" 'job check runs' "" "${read_only/      - run: bash scripts\/git-auth.sh/      - run: bash git-auth.sh
+        working-directory: scripts}
+    permissions: {contents: write}"
+expect 0 "inline read-only permissions at the top" "" "" "${read_only/permissions:
+  contents: read/permissions: {contents: read\}}"
+expect 0 "a YAML comment in the permissions block" "" "" "${read_only/  contents: read/  # contents: write
+  contents: read}"
+expect 1 "the script named in the workflow env" 'job release runs' "" 'on: [push]
+permissions:
+  contents: read
+env:
+  AUTH: scripts/git-auth.sh
+jobs:
+  release:
+    permissions: {contents: write}
+    steps:
+      - run: bash "$AUTH"'
+expect 1 "a workflow_call workflow" 'starts on workflow_call' "" "${read_only/\[pull_request\]/[workflow_call]}"
 expect 1 "a pull_request_target run" 'starts on pull_request_target' "" "${read_only/pull_request/pull_request_target}"
 expect 1 "a pull_request_target string" 'starts on pull_request_target' "" "${read_only/on: \[pull_request\]/on: pull_request_target}"
 quoted_on="'on':
@@ -90,7 +105,15 @@ expect 1 "a quoted on key with workflow_run" 'starts on workflow_run' "" "${read
 expect 1 "a workflow_run map" 'starts on workflow_run' "" "${read_only/\[pull_request\]/
   workflow_run:
     workflows: [x]}"
-expect 1 "a composite action that runs the script" '.github/actions/auth/action.yml runs git-auth.sh' .github/actions/auth/action.yml 'runs:
+composite='runs:
+  using: composite
+  steps:
+    - run: bash scripts/git-auth.sh
+      shell: bash'
+expect 1 "a workflow file outside .github/workflows" 'ci/x.yml names git-auth.sh' ci/x.yml "$read_only"
+expect 1 "a composite action outside .github" 'scripts/auth/action.yml names git-auth.sh' scripts/auth/action.yml "$composite"
+expect 1 "a composite action under workflows" '.github/workflows/auth/action.yml names git-auth.sh' .github/workflows/auth/action.yml "$composite"
+expect 1 "a composite action that runs the script" '.github/actions/auth/action.yml names git-auth.sh' .github/actions/auth/action.yml 'runs:
   using: composite
   steps:
     - run: bash scripts/git-auth.sh

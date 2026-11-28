@@ -3,12 +3,12 @@ import { fileURLToPath } from "node:url";
 
 process.chdir(fileURLToPath(new URL("../..", import.meta.url)));
 const script = "git-auth.sh";
-const banned = ["pull_request_target", "workflow_run"];
+const banned = ["pull_request_target", "workflow_run", "workflow_call"];
 const problems = [];
 
-const files = execFileSync("git", ["ls-files", "-z", "--", ".github"], { encoding: "utf8" })
+const files = execFileSync("git", ["ls-files", "-z", "--", "*.yml", "*.yaml"], { encoding: "utf8" })
   .split("\0")
-  .filter((path) => /\.ya?ml$/.test(path));
+  .filter(Boolean);
 
 const result = spawnSync(
   "bun",
@@ -21,7 +21,7 @@ const result = spawnSync(
   { encoding: "utf8" },
 );
 if (result.error || result.status !== 0) {
-  console.error(`check-git-auth: bun did not parse the .github YAML, so no workflow was read: ${result.error?.message ?? result.stderr.trim()}`);
+  console.error(`check-git-auth: bun did not parse the YAML files, so no workflow was read: ${result.error?.message ?? result.stderr.trim()}`);
   process.exit(2);
 }
 const parsed = JSON.parse(result.stdout);
@@ -40,12 +40,13 @@ function events(on) {
 
 for (const file of files) {
   const document = parsed[file];
-  if (!file.startsWith(".github/workflows/")) {
-    if (runsScript(document)) problems.push(`${file} runs ${script}. Only a step of a workflow job may run it, so this lint can read its token.`);
+  if (!runsScript(document)) continue;
+  if (!file.startsWith(".github/workflows/") || !isObject(document) || !isObject(document.jobs)) {
+    problems.push(`${file} names ${script}. Only a step of a workflow job may run it, so this lint can read its token.`);
     continue;
   }
-  if (!isObject(document) || !isObject(document.jobs)) continue;
-  const jobs = Object.entries(document.jobs).filter(([, job]) => runsScript(job));
+  const everyJob = runsScript({ ...document, jobs: null });
+  const jobs = Object.entries(document.jobs).filter(([, job]) => everyJob || runsScript(job));
   if (!jobs.length) continue;
   const on = events(document.on);
   for (const event of banned.filter((name) => on.includes(name))) {
