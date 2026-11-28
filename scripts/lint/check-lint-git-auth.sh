@@ -82,8 +82,9 @@ expect 1 "no permissions" 'permissions null' "" "${read_only/permissions:
 expect 1 "the script from its own folder" 'job check runs' "" "${read_only/      - run: bash scripts\/git-auth.sh/      - run: bash git-auth.sh
         working-directory: scripts}
     permissions: {contents: write}"
+inline='permissions: {contents: read}'
 expect 0 "inline read-only permissions at the top" "" "" "${read_only/permissions:
-  contents: read/permissions: {contents: read\}}"
+  contents: read/$inline}"
 expect 0 "a YAML comment in the permissions block" "" "" "${read_only/  contents: read/  # contents: write
   contents: read}"
 expect 1 "the script named in the workflow env" 'job release runs' "" 'on: [push]
