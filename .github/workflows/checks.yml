@@ -302,24 +302,10 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
-  # WARNING: the GitHub ruleset on main requires this job until it requires gate.
-  ci:
-    needs: [check, mutants-1, mutants-2, coverage, dead-code, verify]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 1
-    steps:
-      - name: Fail when a needed job did not pass
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          for result in $RESULTS; do
-            [[ $result == success ]] || { echo "A needed job ended with $result." >&2; exit 1; }
-          done
   # WARNING: the GitHub ruleset on main requires only gate, so gate must need every other job of this workflow.
   gate:
     if: always()
-    needs: [check, mutants-1, mutants-2, coverage, dead-code, verify, ci]
+    needs: [check, mutants-1, mutants-2, coverage, dead-code, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
