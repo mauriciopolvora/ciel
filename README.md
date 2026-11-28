@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/app-icon.png" width="112" alt="Ciel cloud painting icon"></p>
+<p align="center"><img src="assets/icon.png" width="112" alt="Ciel cloud painting icon"></p>
 
 # Ciel
 
