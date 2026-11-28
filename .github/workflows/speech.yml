@@ -13,6 +13,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -59,7 +62,6 @@ jobs:
           done
       - name: Time release to paste
         run: |
-          set -o pipefail
           bash scripts/test.sh --filter SpeechBenchTests 2>&1 | tee .build/speech/bench.log
       - name: Summarize
         if: always()
