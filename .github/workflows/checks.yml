@@ -163,13 +163,9 @@ jobs:
           path: dist/Ciel-development.zip
           if-no-files-found: error
           retention-days: 14
-  mutants:
+  mutants-1:
     runs-on: macos-15
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -179,13 +175,35 @@ jobs:
       - name: Check that the tests catch each recorded past mistake
         if: ${{ !cancelled() }}
         env:
-          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          SHARD: 1/2
         run: bash scripts/mutants.sh --shard "$SHARD"
       - name: Archive mutant logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Ciel-mutants-${{ matrix.shard }}
+          name: Ciel-mutants-1
+          path: .build/mutants
+          if-no-files-found: warn
+          retention-days: 14
+  mutants-2:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Swift 6 toolchain
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Check that the tests catch each recorded past mistake
+        if: ${{ !cancelled() }}
+        env:
+          SHARD: 2/2
+        run: bash scripts/mutants.sh --shard "$SHARD"
+      - name: Archive mutant logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Ciel-mutants-2
           path: .build/mutants
           if-no-files-found: warn
           retention-days: 14
@@ -264,9 +282,9 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
-  # WARNING: the GitHub ruleset on main requires only this job, so it must need every job above.
+  # WARNING: the GitHub ruleset on main requires this job until it requires gate.
   ci:
-    needs: [check, mutants, coverage, dead-code, verify]
+    needs: [check, mutants-1, mutants-2, coverage, dead-code, verify]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 1
@@ -277,4 +295,28 @@ jobs:
         run: |
           for result in $RESULTS; do
             [[ $result == success ]] || { echo "A needed job ended with $result." >&2; exit 1; }
+          done
+  # WARNING: the GitHub ruleset on main requires only gate, so gate must need every other job of this workflow.
+  gate:
+    if: always()
+    needs: [check, mutants-1, mutants-2, coverage, dead-code, verify, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: fail unless each job that gate needs passed
+        shell: bash
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -f
+          echo "job results: $RESULTS"
+          if [ -z "${RESULTS//[[:space:]]/}" ]; then
+            echo "gate needs no job, so it judged nothing"
+            exit 1
+          fi
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "a job that gate needs ended with $result, not success"
+              exit 1
+            fi
           done
